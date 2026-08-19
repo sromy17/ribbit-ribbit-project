@@ -1,5 +1,9 @@
 pipeline {
     agent any
+    options {
+        // Prevent overlapping builds from racing on target/ during mvn clean + docker build
+        disableConcurrentBuilds()
+    }
     stages {
         stage('Checkout') {
             steps {

@@ -21,6 +21,7 @@
     </dependencies>
 
     <build>
+        <finalName>team-skeleton</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
