@@ -1,2 +1,4 @@
 Shravan Romy
-Krish Sharma
+Sukie Zhang
+Naga Ritvika Yeyuvuri
+* Krish Sharma
