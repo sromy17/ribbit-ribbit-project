@@ -4,29 +4,19 @@ pipeline {
         maven 'Maven'
     }
     stages {
-        stage('Checkout') {
+        stage('Checkout') { 
+            steps { 
+                checkout scm 
+            } 
+        }
+        stage('Build Image') {
             steps {
-                checkout scm
+                sh 'docker build -t team-skeleton .' 
             }
         }
-        stage('Build') {
-            steps {
-                sh 'mvn -B clean package'
-            }
-        }
-        stage('Test') {
-            steps {
-                sh 'mvn -B test'
-            }
-            post {
-                always {
-                    junit 'target/surefire-reports/*.xml'
-                }
-            }
-        }
-        stage('Archive') {
-            steps {
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+        stage('Smoke Test') {
+            steps { 
+                sh 'docker run --rm team-skeleton' 
             }
         }
     }
