@@ -1,0 +1,28 @@
+%%{init: {'flowchart': {'curve': 'linear', 'nodeSpacing': 100, 'rankSpacing': 60}}}%%
+flowchart LR
+    User["User<br/>-userId<br/>-email<br/>-passwordHash<br/>-firstName<br/>-lastName<br/>+updateProfile()<br/>+changePassword()"]
+    Role["Role<br/>-roleId<br/>-roleName"]
+    Session["Session<br/>-sessionId<br/>-accessToken<br/>-expiresAt<br/>+validate()<br/>+refresh()<br/>+logout()"]
+    TradingAccount["TradingAccount<br/>-accountId<br/>-type<br/>-cashBalance<br/>-status<br/>+depositFunds()<br/>+withdrawFunds()<br/>+submitOrder()<br/>+viewOrders()<br/>+cancelOrder()"]
+    Instrument["Instrument<br/>-symbol<br/>-name<br/>-type<br/>+calculateFee()"]
+    Order["Order<br/>-orderId<br/>-side<br/>-type<br/>-quantity<br/>-price<br/>-status<br/>+submit()<br/>+cancel()"]
+    Trade["Trade<br/>-tradeId<br/>-executedQty<br/>-executionPrice<br/>-executedAt"]
+    Holding["Holding<br/>-holdingId<br/>-quantity<br/>-averageCost<br/>+updatePosition()"]
+    TransactionRecord["TransactionRecord<br/>-transactionId<br/>-type<br/>-amount<br/>-timestamp"]
+    Watchlist["Watchlist<br/>-watchlistId<br/>-name"]
+    Notification["Notification<br/>-notificationId<br/>-message<br/>-isRead<br/>+markRead()"]
+    
+    User -->|owns| TradingAccount
+    User -->|creates| Session
+    User -->|assigned| Role
+    User -->|manages| Watchlist
+    User -->|receives| Notification
+    TradingAccount -->|places| Order
+    TradingAccount -->|executes| Trade
+    TradingAccount -->|contains| Holding
+    TradingAccount -->|records| TransactionRecord
+    Instrument -->|traded in| Order
+    Instrument -->|traded in| Trade
+    Instrument -->|held as| Holding
+    Order -->|produces| Trade
+    Watchlist -->|tracks| Instrument
