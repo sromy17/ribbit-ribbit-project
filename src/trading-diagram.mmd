@@ -1,29 +1,8 @@
 classDiagram
 
 %% =========================
-%% Core Domain Entities
+%% Trading System
 %% =========================
-
-    class User {
-        -UUID userId
-        -String email
-        -String passwordHash
-        -String firstName
-        -String lastName
-        +updateProfile()
-    }
-
-    class Role {
-        -UUID roleId
-        -String roleName
-    }
-
-    class Session {
-        -UUID sessionId
-        -String accessToken
-        -DateTime expiresAt
-        +isValid()
-    }
 
     class TradingAccount {
         -UUID accountId
@@ -32,6 +11,15 @@ classDiagram
         -AccountStatus status
         +depositFunds()
         +withdrawFunds()
+    }
+
+    class User {
+        -UUID userId
+        -String email
+        -String passwordHash
+        -String firstName
+        -String lastName
+        +updateProfile()
     }
 
     class Instrument {
@@ -71,32 +59,6 @@ classDiagram
         -DateTime timestamp
     }
 
-    class Watchlist {
-        -UUID watchlistId
-        -String name
-        +addInstrument()
-        +removeInstrument()
-    }
-
-    class Notification {
-        -UUID notificationId
-        -String message
-        -Boolean isRead
-        +markRead()
-    }
-
-
-%% =========================
-%% Service Interfaces
-%% =========================
-
-    class AuthenticationService {
-        <<interface>>
-        +authenticate(email, password)
-        +logout(sessionId)
-        +refreshSession(sessionId)
-    }
-
     class OrderService {
         <<interface>>
         +submitOrder(accountId, order)
@@ -115,10 +77,18 @@ classDiagram
         +calculate(order, instrument)
     }
 
+    class ValidationResult {
+        -isValid: boolean
+        -reason: String
+        +isValid() boolean
+        +getReason() String
+        +valid()$ ValidationResult
+        +invalid(reason)$ ValidationResult
+    }
 
-%% =========================
-%% Repository Interfaces
-%% =========================
+    class OrderValidator {
+        +validate(order, quantity, price, cashBalance) ValidationResult
+    }
 
     class OrderRepository {
         <<interface>>
@@ -133,18 +103,6 @@ classDiagram
         +save(account)
         +findById(accountId)
     }
-
-    class UserRepository {
-        <<interface>>
-        +save(user)
-        +findById(userId)
-        +findByEmail(email)
-    }
-
-
-%% =========================
-%% Service Implementations
-%% =========================
 
     class TradingOrderService {
         -OrderRepository orderRepository
@@ -161,21 +119,9 @@ classDiagram
         +withdraw(accountId, amount)
     }
 
-    class PasswordAuthenticationService {
-        -UserRepository userRepository
-        +authenticate(email, password)
-        +logout(sessionId)
-        +refreshSession(sessionId)
-    }
-
     class InstrumentFeeCalculator {
         +calculate(order, instrument)
     }
-
-
-%% =========================
-%% Repository Implementations
-%% =========================
 
     class DatabaseOrderRepository {
         +save(order)
@@ -189,22 +135,40 @@ classDiagram
         +findById(accountId)
     }
 
-    class DatabaseUserRepository {
-        +save(user)
-        +findById(userId)
-        +findByEmail(email)
+    class InstrumentFactory {
+        +create(symbol, type) Instrument
     }
 
+    class OrderBatchReader {
+        -instrumentFactory: InstrumentFactory
+        +readAll(List~String~) List~Order~
+    }
+
+    class HoldingUpdater {
+        +applyOrder(holding, isBuy, quantity) void
+    }
+
+    class SettlementReport {
+        -report: List~String~
+        -totalFees: double
+        +recordAccepted(clientId, symbol, price) void
+        +recordRejected(clientId, reason) void
+        +render() String
+    }
+
+    class OrderProcessingEngine {
+        -clients: Map~String,User~
+        -validator: OrderValidator
+        -updater: HoldingUpdater
+        -batchReader: OrderBatchReader
+        +process(List~Order~) SettlementReport
+    }
 
 %% =========================
 %% Domain Relationships
 %% =========================
 
     User "1" --> "0..*" TradingAccount : owns
-    User "1" --> "0..*" Session : creates
-    User "0..*" --> "0..*" Role : assigned
-    User "1" --> "0..*" Watchlist : manages
-    User "1" --> "0..*" Notification : receives
 
     TradingAccount "1" --> "0..*" Order : places
     TradingAccount "1" --> "0..*" Trade : executes
@@ -217,26 +181,26 @@ classDiagram
 
     Order "1" --> "0..*" Trade : produces
 
-    Watchlist "0..*" --> "0..*" Instrument : tracks
+%% =========================
+%% Validation & Factory
+%% =========================
 
+    OrderValidator --> ValidationResult : returns
+    InstrumentFactory --> Instrument : creates
+    OrderBatchReader --> InstrumentFactory : uses
+    OrderBatchReader --> Order : parses
+    HoldingUpdater --> Holding : updates
 
 %% =========================
-%% Interface Implementations
+%% Interface Implementations & Dependencies
 %% =========================
 
     TradingOrderService ..|> OrderService
     TradingAccountService ..|> AccountService
-    PasswordAuthenticationService ..|> AuthenticationService
     InstrumentFeeCalculator ..|> FeeCalculator
 
     DatabaseOrderRepository ..|> OrderRepository
     DatabaseAccountRepository ..|> AccountRepository
-    DatabaseUserRepository ..|> UserRepository
-
-
-%% =========================
-%% Dependency Inversion
-%% =========================
 
     TradingOrderService --> OrderRepository
     TradingOrderService --> AccountRepository
@@ -244,4 +208,8 @@ classDiagram
 
     TradingAccountService --> AccountRepository
 
-    PasswordAuthenticationService --> UserRepository
+    OrderProcessingEngine --> OrderValidator
+    OrderProcessingEngine --> HoldingUpdater
+    OrderProcessingEngine --> OrderBatchReader
+    OrderProcessingEngine --> SettlementReport : returns
+    OrderProcessingEngine --> User : manages
