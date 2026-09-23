@@ -1,0 +1,10 @@
+.git
+.gitignore
+Jenkinsfile
+README.md
+target/*-tests.jar
+target/classes
+target/test-classes
+target/maven-archiver
+target/maven-status
+target/surefire-reports

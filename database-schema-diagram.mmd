@@ -1,0 +1,63 @@
+erDiagram
+    USERS ||--o{ ACCOUNTS : has
+    USERS ||--o{ EMPLOYEES : manages
+    ACCOUNTS ||--o{ TRADE_REQUEST : makes
+    INSTRUMENTS ||--o{ TRADE_REQUEST : involves
+    TRADE_REQUEST ||--o{ TRADES_EXECUTED : executes
+    TRADE_REQUEST ||--o{ DISPUTE_TICKETS : raises
+    EMPLOYEES ||--o{ DISPUTE_TICKETS : reviews
+
+    USERS {
+        int userid PK
+        string username UK
+        string salt
+        string userHashedSaltedPassword
+    }
+
+    ACCOUNTS {
+        int accountid PK
+        int userid FK
+        numeric availablefunds
+        date creationdate
+        string account_type
+    }
+
+    INSTRUMENTS {
+        int instrumentid PK
+        string ticker UK
+        string instrumentname
+    }
+
+    TRADE_REQUEST {
+        int requestid PK
+        int accountid FK
+        int instrumentid FK
+        string intent
+        int quantity
+        numeric bidprice
+        date date_request
+        string status
+    }
+
+    TRADES_EXECUTED {
+        int executeid PK
+        int requestid FK
+        numeric askprice
+        date date_execution
+        int quantity_executed
+    }
+
+    EMPLOYEES {
+        int employeeid PK
+        string employeeusername UK
+        string employeesalt
+        string employeeHashedSaltedPassword
+        string employeeRoles
+    }
+
+    DISPUTE_TICKETS {
+        int disputeid PK
+        int requestid FK
+        string status
+        int employeeid FK
+    }
