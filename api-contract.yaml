@@ -70,14 +70,6 @@ paths:
           required: true
           schema:
             type: string
-    put:
-      summary: Update account holdings
-      parameters:
-        - name: accountId
-          in: path
-          required: true
-          schema:
-            type: string
   /accounts/{accountId}/orders:
     get:
       summary: View order history
@@ -87,6 +79,8 @@ paths:
           required: true
           schema:
             type: string
+    post:
+      summary: Create an order
   /accounts/{accountId}/trades:
     get:
       summary: View trade history
@@ -96,18 +90,7 @@ paths:
           required: true
           schema:
             type: string
-  /orders:
-    post:
-      summary: Create an order
-  /orders/{orderId}/status:
-    put:
-      summary: Update order status
-      parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema:
-            type: string
+  /accounts/{accountId}/orders/{orderId}/status:
     delete:
       summary: Cancel pending order
       parameters:
@@ -116,18 +99,12 @@ paths:
           required: true
           schema:
             type: string
-  /transactions:
-    post:
-      summary: Create a transaction record
   /login:
     post:
       summary: Login
   /logout:
     post:
       summary: Logout
-  /refresh-token:
-    post:
-      summary: Refresh session token
 components:
   schemas:
     User:
