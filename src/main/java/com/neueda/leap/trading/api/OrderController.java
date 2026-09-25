@@ -25,10 +25,22 @@ public class OrderController {
         this.orderService = orderService;
     }
 
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public CreateOrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request) {
+        return orderService.createOrder(request);
+    }
+
     @PostMapping("/process")
     @ResponseStatus(HttpStatus.CREATED)
     public ProcessOrderResponse processOrder(@Valid @RequestBody ProcessOrderRequest request) {
         return orderProcessingEngine.processSingleOrder(request);
+    }
+
+    @PostMapping("/{orderId}/execute")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ProcessOrderResponse executeOrder(@PathVariable Integer orderId) {
+        return orderService.executeOrder(orderId);
     }
 
     @PostMapping("/{orderId}/cancel")
