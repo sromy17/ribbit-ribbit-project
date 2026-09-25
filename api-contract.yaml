@@ -1,0 +1,213 @@
+openapi: 3.0.3
+info:
+  title: Trading Platform API
+  version: 1.0.0
+  description: Simple API contract for a trading platform.
+paths:
+  /users:
+    post:
+      summary: Create a user profile
+  /users/{userId}:
+    put:
+      summary: Update user profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+  /accounts:
+    post:
+      summary: Create a trading account
+  /accounts/{accountId}:
+    get:
+      summary: Fetch account details
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+    put:
+      summary: Update account information
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+    delete:
+      summary: Delete or deactivate account
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+  /accounts/{accountId}/balance:
+    get:
+      summary: Check account cash balance
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+    put:
+      summary: Update account cash balance
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+  /accounts/{accountId}/holdings:
+    get:
+      summary: Check account holdings
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+    put:
+      summary: Update account holdings
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+  /accounts/{accountId}/orders:
+    get:
+      summary: View order history
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+  /accounts/{accountId}/trades:
+    get:
+      summary: View trade history
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+  /orders:
+    post:
+      summary: Create an order
+  /orders/{orderId}/status:
+    put:
+      summary: Update order status
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+    delete:
+      summary: Cancel pending order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+  /transactions:
+    post:
+      summary: Create a transaction record
+  /login:
+    post:
+      summary: Login
+  /logout:
+    post:
+      summary: Logout
+  /refresh-token:
+    post:
+      summary: Refresh session token
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        userId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+    TradingAccount:
+      type: object
+      properties:
+        accountId:
+          type: string
+        accountType:
+          type: string
+        cashBalance:
+          type: number
+    Order:
+      type: object
+      properties:
+        orderId:
+          type: string
+        accountId:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+          enum:
+            - BUY
+            - SELL
+        quantity:
+          type: integer
+        price:
+          type: number
+        status:
+          type: string
+    Trade:
+      type: object
+      properties:
+        tradeId:
+          type: string
+        orderId:
+          type: string
+        executionPrice:
+          type: number
+        executedQuantity:
+          type: integer
+    Holding:
+      type: object
+      properties:
+        symbol:
+          type: string
+        quantity:
+          type: integer
+        averageCost:
+          type: number
+    Transaction:
+      type: object
+      properties:
+        transactionId:
+          type: string
+        accountId:
+          type: string
+        transactionType:
+          type: string
+        amount:
+          type: number
+    Session:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        accessToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
