@@ -16,7 +16,6 @@ com\neueda\leap\trading\service\OrderService.class
 com\neueda\leap\trading\repository\jpa\TradeRepository.class
 com\neueda\leap\trading\api\ApiExceptionHandler.class
 com\neueda\leap\trading\domain\OrderSide.class
-com\neueda\leap\Greeter.class
 com\neueda\leap\trading\domain\Role.class
 com\neueda\leap\trading\domain\Trade.class
 com\neueda\leap\trading\domain\TradingAccount.class

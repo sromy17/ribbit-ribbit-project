@@ -14,6 +14,6 @@ public class OrderProcessingEngine {
     }
 
     public ProcessOrderResponse processSingleOrder(ProcessOrderRequest request) {
-        return orderService.submitOrder(request);
+        return orderService.submitOrder(request); // Spring injects an implementation of submitOrder at runtime
     }
 }

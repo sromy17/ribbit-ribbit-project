@@ -1,6 +1,7 @@
-C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\Greeter.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\Main.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\api\ApiExceptionHandler.java
+C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\api\CreateOrderRequest.java
+C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\api\CreateOrderResponse.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\api\OrderController.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\api\ProcessOrderRequest.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\api\ProcessOrderResponse.java
@@ -19,6 +20,7 @@ C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\tradi
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\domain\TransactionType.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\domain\User.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\domain\Watchlist.java
+C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\repository\jpa\HoldingRepository.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\repository\jpa\InstrumentRepository.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\repository\jpa\OrderRepository.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\repository\jpa\TradeRepository.java
@@ -29,9 +31,11 @@ C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\tradi
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\AccountService.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\FeeCalculator.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\InstrumentFeeCalculator.java
+C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\MarketDataVerificationService.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\OrderProcessingEngine.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\OrderService.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\OrderValidator.java
+C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\StaticMarketDataVerificationService.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\TradingAccountService.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\TradingOrderService.java
 C:\Users\Administrator\ribbit-ribbit-project\src\main\java\com\neueda\leap\trading\service\ValidationResult.java
