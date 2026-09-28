@@ -92,6 +92,7 @@ public class TradingOrderService implements OrderService {
         updateHolding(account, instrument, order.getSide(), order.getQuantity(), executionPrice);
 
         Trade trade = new Trade();
+        trade.setTradeId(nextTradeId());
         trade.setOrder(order);
         trade.setExecutionPrice(executionPrice);
         trade.setExecutedQuantity(order.getQuantity());
@@ -124,6 +125,7 @@ public class TradingOrderService implements OrderService {
             .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.instrumentId()));
 
         Order order = new Order();
+        order.setOrderId(nextOrderId());
         order.setAccount(account);
         order.setInstrument(instrument);
         order.setSide(request.side());
@@ -199,5 +201,13 @@ public class TradingOrderService implements OrderService {
         boolean isBuy = side == OrderSide.BUY;
         holding.updatePosition(isBuy, quantity, executionPrice);
         holdingRepository.save(holding);
+    }
+
+    private Integer nextOrderId() {
+        return orderRepository.findMaxOrderId() + 1;
+    }
+
+    private Integer nextTradeId() {
+        return tradeRepository.findMaxTradeId() + 1;
     }
 }
