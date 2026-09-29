@@ -32,7 +32,7 @@ INSERT INTO instruments (instrumentid, ticker, instrumentname) VALUES
 (1007, 'NVDA', 'NVIDIA Corporation');
 
 -- Insert data into TRADE_REQUEST table
-INSERT INTO trade_request (requestid, accountid, instrumentid, intent, quantity, bidprice, date_request, status) VALUES
+INSERT INTO trade_request (requestid, accountid, instrumentid, side, quantity, bidprice, date_request, status) VALUES
 (2001, 101, 1001, 'BUY', 10, 150.50, '2024-09-20', 'EXECUTED'),
 (2002, 102, 1002, 'BUY', 25, 380.00, '2024-09-21', 'EXECUTED'),
 (2003, 103, 1003, 'SELL', 5, 140.75, '2024-09-21', 'EXECUTED'),
@@ -48,8 +48,18 @@ INSERT INTO trades_executed (executeid, requestid, askprice, date_execution, qua
 (3003, 2003, 140.50, '2024-09-21', 5),
 (3004, 2006, 481.00, '2024-09-23', 8);
 
--- Insert data into DISPUTE_TICKETS table
-INSERT INTO dispute_tickets (disputeid, requestid, status, employeeid) VALUES
-(4001, 2001, 'COMPLETED', 3),
-(4002, 2002, 'UNDER-REVIEW', 2),
-(4003, 2003, 'DISPUTED', NULL);
+-- Insert data into DISPUTED_ORDERS table
+INSERT INTO disputed_orders (disputeid, requestid, status, employeeid, category, reason) VALUES
+(4001, 2001, 'COMPLETED', 3, 'Accident', 'Price discrepancy resolved'),
+(4002, 2002, 'UNDER-REVIEW', 2, 'Fraud', 'Suspicious activity detected'),
+(4003, 2003, 'DISPUTED', NULL, 'Incorrect transfer', 'User reported wrong quantity');
+
+-- Insert data into CANCELED_ORDER table
+INSERT INTO canceled_order (cancel_id, request_id, reason, cancel_date) VALUES
+(5001, 2007, 'insufficent_funds', '2024-09-23');
+
+-- Insert data into SUPPORT_TICKET table
+INSERT INTO support_ticket (ticket_id, accountid, reason, status, assigned_to) VALUES
+(6001, 101, 'Account verification issue', 'OPEN', NULL),
+(6002, 102, 'Withdrawal delayed', 'IN_PROGRESS', 2),
+(6003, 103, 'Trade settlement discrepancy', 'RESOLVED', 3);
