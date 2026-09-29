@@ -1,7 +1,8 @@
-package com.neueda.leap.trading.service;
+package com.neueda.leap.trading.service.impl;
 
 import java.math.BigDecimal;
 
+import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
 import org.springframework.stereotype.Component;
 
 import com.neueda.leap.trading.domain.Order;

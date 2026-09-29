@@ -32,28 +32,33 @@ This repository now includes a Spring Boot backend skeleton for one-order proces
 	- OrderValidator + ValidationResult
 	- OrderProcessingEngine
 
-### End-to-end order flow (current sprint)
-`POST /api/orders/process` performs:
-1. Input validation
-2. Account + instrument load
-3. Fee calculation
-4. Order creation (PENDING)
-5. Fund debit/credit
-6. Trade execution record creation
-7. Order status update (EXECUTED)
-8. MyBatis account summary fetch
+### Contract-aligned endpoint surface
+- `POST /users`
+- `PUT /users/{userId}`
+- `POST /accounts`
+- `GET /accounts/{accountId}`
+- `PUT /accounts/{accountId}`
+- `DELETE /accounts/{accountId}`
+- `GET /accounts/{accountId}/balance`
+- `PUT /accounts/{accountId}/balance`
+- `GET /accounts/{accountId}/holdings`
+- `GET /accounts/{accountId}/orders`
+- `POST /accounts/{accountId}/orders`
+- `GET /accounts/{accountId}/trades`
+- `DELETE /accounts/{accountId}/orders/{orderId}/status`
+- `POST /login`
+- `POST /logout`
 
 ### Run locally
 ```bash
 mvn spring-boot:run
 ```
 
-### Test the order API
+### Test account order creation
 ```bash
-curl -X POST http://localhost:8080/api/orders/process \
+curl -X POST http://localhost:8081/accounts/1/orders \
 	-H "Content-Type: application/json" \
 	-d '{
-		"accountId": 1,
 		"instrumentId": 1,
 		"side": "BUY",
 		"quantity": 10,

@@ -1,4 +1,4 @@
-package com.neueda.leap.trading.service;
+package com.neueda.leap.trading.service.impl;
 
 public final class ValidationResult {
     private final boolean valid;

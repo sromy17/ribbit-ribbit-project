@@ -1,4 +1,4 @@
-package com.neueda.leap.trading.service;
+package com.neueda.leap.trading.service.contract;
 
 import java.util.List;
 

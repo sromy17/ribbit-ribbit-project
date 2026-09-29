@@ -1,9 +1,12 @@
-package com.neueda.leap.trading.service;
+package com.neueda.leap.trading.service.impl;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.neueda.leap.trading.service.contract.FeeCalculator;
+import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
+import com.neueda.leap.trading.service.contract.OrderService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
