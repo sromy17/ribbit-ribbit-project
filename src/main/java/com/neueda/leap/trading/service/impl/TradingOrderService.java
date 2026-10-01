@@ -124,8 +124,8 @@ public class TradingOrderService implements OrderService {
         TradingAccount account = accountRepository.findById(request.accountId())
             .orElseThrow(() -> new IllegalArgumentException("Account not found: " + request.accountId()));
 
-        Instrument instrument = instrumentRepository.findById(request.instrumentId())
-            .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.instrumentId()));
+        Instrument instrument = instrumentRepository.findByTickerIgnoreCase(request.ticker())
+            .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.ticker()));
 
         Order order = new Order();
         order.setOrderId(nextOrderId());
@@ -151,7 +151,7 @@ public class TradingOrderService implements OrderService {
     public ProcessOrderResponse submitOrder(ProcessOrderRequest request) {
         CreateOrderResponse created = createOrder(new CreateOrderRequest(
             request.accountId(),
-            request.instrumentId(),
+            request.ticker(),
             request.side(),
             request.quantity(),
             request.price()

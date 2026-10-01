@@ -27,13 +27,13 @@ public class OrderController {
 
     @PostMapping("/accounts/{accountId}/orders")
     @ResponseStatus(HttpStatus.CREATED)
-    public CreateOrderResponse createOrder(
+    public ProcessOrderResponse createOrder(
         @PathVariable("accountId") Integer accountId,
         @Valid @RequestBody CreateAccountOrderRequest request
     ) {
-        return orderService.createOrder(new CreateOrderRequest(
+        return orderService.submitOrder(new ProcessOrderRequest(
             accountId,
-            request.instrumentId(),
+            request.ticker(),
             request.side(),
             request.quantity(),
             request.price()
