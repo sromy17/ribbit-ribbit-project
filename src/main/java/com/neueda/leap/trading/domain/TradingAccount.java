@@ -26,115 +26,115 @@ import jakarta.persistence.Transient;
 @Entity
 @Table(name = "accounts")
 public class TradingAccount {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "accountid")
-    private Integer accountId;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "accountid")
+	private Integer accountId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "userid", nullable = false)
-    @JsonIgnore
-    private User user;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "userid", nullable = false)
+	@JsonIgnore
+	private User user;
 
-    @Column(name = "availablefunds", nullable = false)
-    private BigDecimal availableFunds;
+	@Column(name = "availablefunds", nullable = false)
+	private BigDecimal availableFunds;
 
-    @Column(name = "creationdate", nullable = false)
-    private LocalDate creationDate;
+	@Column(name = "creationdate", nullable = false)
+	private LocalDate creationDate;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "account_type", nullable = false, length = 20)
-    private AccountType type;
+	@Enumerated(EnumType.STRING)
+	@Column(name = "account_type", nullable = false, length = 20)
+	private AccountType type;
 
-    @JsonIgnore
-    @OneToMany(mappedBy = "account")
-    private List<Order> orders = new ArrayList<>();
+	@JsonIgnore
+	@OneToMany(mappedBy = "account")
+	private List<Order> orders = new ArrayList<>();
 
-    @JsonIgnore
-    @OneToMany(mappedBy = "account")
-    private List<Holding> holdings = new ArrayList<>();
+	@JsonIgnore
+	@OneToMany(mappedBy = "account")
+	private List<Holding> holdings = new ArrayList<>();
 
-    @JsonIgnore
-    @OneToMany(mappedBy = "account")
-    private List<TransactionRecord> transactionRecords = new ArrayList<>();
+	@JsonIgnore
+	@OneToMany(mappedBy = "account")
+	private List<TransactionRecord> transactionRecords = new ArrayList<>();
 
-    public void depositFunds(BigDecimal amount) {
-        this.availableFunds = this.availableFunds.add(amount);
-    }
+	public void depositFunds(BigDecimal amount) {
+		this.availableFunds = this.availableFunds.add(amount);
+	}
 
-    public void withdrawFunds(BigDecimal amount) {
-        this.availableFunds = this.availableFunds.subtract(amount);
-    }
+	public void withdrawFunds(BigDecimal amount) {
+		this.availableFunds = this.availableFunds.subtract(amount);
+	}
 
-    public Integer getAccountId() {
-        return accountId;
-    }
+	public Integer getAccountId() {
+		return accountId;
+	}
 
-    public void setAccountId(Integer accountId) {
-        this.accountId = accountId;
-    }
+	public void setAccountId(Integer accountId) {
+		this.accountId = accountId;
+	}
 
-    public User getUser() {
-        return user;
-    }
+	public User getUser() {
+		return user;
+	}
 
-    public void setUser(User user) {
-        this.user = user;
-    }
+	public void setUser(User user) {
+		this.user = user;
+	}
 
-    public BigDecimal getAvailableFunds() {
-        return availableFunds;
-    }
+	public BigDecimal getAvailableFunds() {
+		return availableFunds;
+	}
 
-    public void setAvailableFunds(BigDecimal availableFunds) {
-        this.availableFunds = availableFunds;
-    }
+	public void setAvailableFunds(BigDecimal availableFunds) {
+		this.availableFunds = availableFunds;
+	}
 
-    public LocalDate getCreationDate() {
-        return creationDate;
-    }
+	public LocalDate getCreationDate() {
+		return creationDate;
+	}
 
-    public void setCreationDate(LocalDate creationDate) {
-        this.creationDate = creationDate;
-    }
+	public void setCreationDate(LocalDate creationDate) {
+		this.creationDate = creationDate;
+	}
 
-    public AccountType getType() {
-        return type;
-    }
+	public AccountType getType() {
+		return type;
+	}
 
-    public void setType(AccountType type) {
-        this.type = type;
-    }
+	public void setType(AccountType type) {
+		this.type = type;
+	}
 
-    public List<Order> getOrders() {
-        return orders;
-    }
+	public List<Order> getOrders() {
+		return orders;
+	}
 
-    public void setOrders(List<Order> orders) {
-        this.orders = orders;
-    }
+	public void setOrders(List<Order> orders) {
+		this.orders = orders;
+	}
 
-    @Transient
-    @JsonProperty("trades")
-    public List<Trade> getTrades() {
-        return orders.stream()
-            .flatMap(order -> order.getTrades().stream())
-            .collect(Collectors.toList());
-    }
+	@Transient
+	@JsonProperty("trades")
+	public List<Trade> getTrades() {
+		return orders.stream()
+			.flatMap(order -> order.getTrades().stream())
+			.collect(Collectors.toList());
+	}
 
-    public List<Holding> getHoldings() {
-        return holdings;
-    }
+	public List<Holding> getHoldings() {
+		return holdings;
+	}
 
-    public void setHoldings(List<Holding> holdings) {
-        this.holdings = holdings;
-    }
+	public void setHoldings(List<Holding> holdings) {
+		this.holdings = holdings;
+	}
 
-    public List<TransactionRecord> getTransactionRecords() {
-        return transactionRecords;
-    }
+	public List<TransactionRecord> getTransactionRecords() {
+		return transactionRecords;
+	}
 
-    public void setTransactionRecords(List<TransactionRecord> transactionRecords) {
-        this.transactionRecords = transactionRecords;
-    }
+	public void setTransactionRecords(List<TransactionRecord> transactionRecords) {
+		this.transactionRecords = transactionRecords;
+	}
 }

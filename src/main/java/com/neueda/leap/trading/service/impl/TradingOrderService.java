@@ -1,9 +1,12 @@
-package com.neueda.leap.trading.service;
+package com.neueda.leap.trading.service.impl;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.neueda.leap.trading.service.contract.FeeCalculator;
+import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
+import com.neueda.leap.trading.service.contract.OrderService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -92,6 +95,7 @@ public class TradingOrderService implements OrderService {
         updateHolding(account, instrument, order.getSide(), order.getQuantity(), executionPrice);
 
         Trade trade = new Trade();
+        trade.setTradeId(nextTradeId());
         trade.setOrder(order);
         trade.setExecutionPrice(executionPrice);
         trade.setExecutedQuantity(order.getQuantity());
@@ -120,10 +124,11 @@ public class TradingOrderService implements OrderService {
         TradingAccount account = accountRepository.findById(request.accountId())
             .orElseThrow(() -> new IllegalArgumentException("Account not found: " + request.accountId()));
 
-        Instrument instrument = instrumentRepository.findById(request.instrumentId())
-            .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.instrumentId()));
+        Instrument instrument = instrumentRepository.findByTickerIgnoreCase(request.ticker())
+            .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.ticker()));
 
         Order order = new Order();
+        order.setOrderId(nextOrderId());
         order.setAccount(account);
         order.setInstrument(instrument);
         order.setSide(request.side());
@@ -146,7 +151,7 @@ public class TradingOrderService implements OrderService {
     public ProcessOrderResponse submitOrder(ProcessOrderRequest request) {
         CreateOrderResponse created = createOrder(new CreateOrderRequest(
             request.accountId(),
-            request.instrumentId(),
+            request.ticker(),
             request.side(),
             request.quantity(),
             request.price()
@@ -199,5 +204,13 @@ public class TradingOrderService implements OrderService {
         boolean isBuy = side == OrderSide.BUY;
         holding.updatePosition(isBuy, quantity, executionPrice);
         holdingRepository.save(holding);
+    }
+
+    private Integer nextOrderId() {
+        return orderRepository.findMaxOrderId() + 1;
+    }
+
+    private Integer nextTradeId() {
+        return tradeRepository.findMaxTradeId() + 1;
     }
 }

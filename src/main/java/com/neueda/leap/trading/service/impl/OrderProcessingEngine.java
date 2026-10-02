@@ -1,5 +1,6 @@
-package com.neueda.leap.trading.service;
+package com.neueda.leap.trading.service.impl;
 
+import com.neueda.leap.trading.service.contract.OrderService;
 import org.springframework.stereotype.Component;
 
 import com.neueda.leap.trading.api.ProcessOrderRequest;
