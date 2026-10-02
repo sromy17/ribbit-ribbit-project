@@ -30,7 +30,7 @@ public class User {
     @Column(name = "salt", nullable = false, length = 25)
     private String salt;
 
-    @Column(name = "userhashedsaltedpassword", nullable = false, length = 64)
+    @Column(name = "userHashedSaltedPassword", nullable = false, length = 64)
     private String userHashedSaltedPassword;
 
     @JsonIgnore
