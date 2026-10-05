@@ -36,7 +36,7 @@ public class Order {
     private Instrument instrument;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "intent", nullable = false, length = 5)
+    @Column(name = "side", nullable = false, length = 5)
     private OrderSide side;
 
     @Column(name = "quantity", nullable = false)
