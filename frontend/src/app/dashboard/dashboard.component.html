@@ -1,0 +1,165 @@
+<header class="header">
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">RibbitRibbit</div>
+      <div class="header-actions">
+        <span class="user-info">{{ currentUser?.username }}</span>
+        <button class="btn-secondary" (click)="logout()">Logout</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div *ngIf="loading" class="loading">Loading dashboard...</div>
+
+  <div *ngIf="!loading" class="dashboard">
+    <div class="card">
+      <h3>Total Portfolio Value</h3>
+      <div class="metric">${{ getPortfolioValue() | number: '1.2-2' }}</div>
+      <div class="metric-change up">+2.41% TODAY</div>
+    </div>
+
+    <div class="card">
+      <h3>Available Balance</h3>
+      <div class="metric">${{ balance?.cash | number: '1.2-2' }}</div>
+      <div style="font-size: 12px; color: #999; margin-top: 8px;">
+        Reserved: ${{ balance?.reserved | number: '1.2-2' }}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Portfolio Allocation</h3>
+      <div style="text-align: center; padding: 20px 0;">
+        <div style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">100%</div>
+        <div style="font-size: 12px; color: #999;">Equities</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Instrument Watchlist</h3>
+      <div *ngFor="let holding of holdings" class="watchlist-item">
+        <span class="watchlist-symbol">{{ holding.symbol }}</span>
+        <span class="watchlist-price" [ngClass]="{ positive: holding.gainPercent >= 0, negative: holding.gainPercent < 0 }">
+          ${{ holding.price | number: '1.2-2' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="card full-width">
+      <h3>Current Positions</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Last Price</th>
+            <th>Holdings</th>
+            <th>Total Return</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let holding of holdings">
+            <td class="asset">{{ holding.symbol }}</td>
+            <td>${{ holding.price | number: '1.2-2' }}</td>
+            <td>{{ holding.shares }} Shares</td>
+            <td [ngClass]="{ positive: holding.gain >= 0, negative: holding.gain < 0 }">
+              ${{ holding.gain | number: '1.2-2' }} ({{ holding.gainPercent | number: '1.1-1' }}%)
+            </td>
+            <td>
+              <button class="btn-secondary">Trade</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card full-width">
+      <h3>Place Order</h3>
+      <form (ngSubmit)="placeOrder()">
+        <div class="form-row">
+          <div class="form-group-inline">
+            <label>Symbol</label>
+            <input type="text" [(ngModel)]="orderSymbol" name="symbol" placeholder="AAPL" required />
+          </div>
+          <div class="form-group-inline">
+            <label>Type</label>
+            <select [(ngModel)]="orderSide" name="side" required>
+              <option value="BUY">Buy</option>
+              <option value="SELL">Sell</option>
+            </select>
+          </div>
+          <div class="form-group-inline">
+            <label>Quantity</label>
+            <input type="number" [(ngModel)]="orderQuantity" name="quantity" placeholder="100" required />
+          </div>
+          <div class="form-group-inline">
+            <label>Price</label>
+            <input type="number" [(ngModel)]="orderPrice" name="price" placeholder="150.00" step="0.01" required />
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="width: 100%;">Place Order</button>
+      </form>
+    </div>
+
+    <div class="card full-width">
+      <h3>Recent Orders</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Symbol</th>
+            <th>Type</th>
+            <th>Quantity</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of orders">
+            <td>{{ order.orderId }}</td>
+            <td>{{ order.symbol }}</td>
+            <td>{{ order.intent }}</td>
+            <td>{{ order.quantity }}</td>
+            <td>${{ order.bidPrice | number: '1.2-2' }}</td>
+            <td>
+              <span class="badge" [ngClass]="order.status === 'FILLED' ? 'badge-filled' : 'badge-pending'">
+                {{ order.status }}
+              </span>
+            </td>
+            <td>{{ order.dateRequested }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card full-width">
+      <h3>Trade History</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Trade ID</th>
+            <th>Symbol</th>
+            <th>Type</th>
+            <th>Quantity</th>
+            <th>Price</th>
+            <th>Amount</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let trade of trades">
+            <td>{{ trade.tradeId }}</td>
+            <td>{{ trade.symbol }}</td>
+            <td>{{ trade.side }}</td>
+            <td>{{ trade.quantity }}</td>
+            <td>${{ trade.askPrice | number: '1.2-2' }}</td>
+            <td>${{ trade.amount | number: '1.2-2' }}</td>
+            <td>{{ trade.dateExecution | date: 'short' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
