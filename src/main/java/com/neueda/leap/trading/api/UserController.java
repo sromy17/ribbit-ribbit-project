@@ -26,6 +26,7 @@ public class UserController {
     @ResponseStatus(HttpStatus.CREATED)
     public User createUser(@Valid @RequestBody CreateUserRequest request) {
         User user = new User();
+        user.setUserId((int) System.currentTimeMillis() % 1000000); // Simple ID generation
         user.setUsername(request.username());
         user.setSalt("contract-salt");
         user.setUserHashedSaltedPassword(request.password());

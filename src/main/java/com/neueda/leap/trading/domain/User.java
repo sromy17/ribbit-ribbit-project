@@ -20,7 +20,6 @@ import jakarta.persistence.Table;
 @Table(name = "users")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "userid")
     private Integer userId;
 
@@ -30,7 +29,7 @@ public class User {
     @Column(name = "salt", nullable = false, length = 25)
     private String salt;
 
-    @Column(name = "userhashedsaltedpassword", nullable = false, length = 64)
+    @Column(name = "userHashedSaltedPassword", nullable = false, length = 64)
     private String userHashedSaltedPassword;
 
     @JsonIgnore
