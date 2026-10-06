@@ -1,0 +1,103 @@
+<header class="header">
+  <div class="header-content">
+    <h1>RibbitRibbit</h1>
+    <div class="header-actions">
+      <span class="user-badge">{{ currentUser?.role | uppercase }} • {{ currentUser?.username }}</span>
+      <button (click)="logout()" class="btn-logout">Logout</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- INVESTOR DASHBOARD -->
+  <div *ngIf="currentRole === 'investor'">
+    <div class="cards">
+      <div class="card">
+        <h3>Cash</h3>
+        <p class="value">${{ portfolio.cash | number: '1.0-0' }}</p>
+      </div>
+      <div class="card">
+        <h3>Portfolio Value</h3>
+        <p class="value">${{ getTotalValue() | number: '1.0-0' }}</p>
+      </div>
+      <div class="card">
+        <h3>Holdings</h3>
+        <p class="value">{{ portfolio.holdings.length }}</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Holdings</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Shares</th>
+            <th>Price</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let h of portfolio.holdings">
+            <td><strong>{{ h.symbol }}</strong></td>
+            <td>{{ h.shares }}</td>
+            <td>${{ h.price | number: '1.2-2' }}</td>
+            <td>${{ h.value | number: '1.0-0' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>Place Order</h2>
+      <div class="form-group">
+        <input type="text" [(ngModel)]="orderForm.symbol" placeholder="Symbol (AAPL)" />
+        <select [(ngModel)]="orderForm.side">
+          <option>BUY</option>
+          <option>SELL</option>
+        </select>
+        <input type="number" [(ngModel)]="orderForm.quantity" placeholder="Quantity" />
+        <input type="number" [(ngModel)]="orderForm.price" placeholder="Price" step="0.01" />
+        <button (click)="placeOrder()">Place Order</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Recent Orders</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Symbol</th>
+            <th>Side</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let o of orders">
+            <td>{{ o.id }}</td>
+            <td><strong>{{ o.symbol }}</strong></td>
+            <td>{{ o.side }}</td>
+            <td>{{ o.qty }}</td>
+            <td>${{ o.price | number: '1.0-0' }}</td>
+            <td><span [class.filled]="o.status === 'FILLED'" [class.pending]="o.status === 'PENDING'">{{ o.status }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ADMIN DASHBOARD (PLACEHOLDER) -->
+  <div *ngIf="currentRole === 'admin'" class="placeholder">
+    <h2>Admin Dashboard</h2>
+    <p>Coming soon: User management, system settings, audit logs</p>
+  </div>
+
+  <!-- ANALYST DASHBOARD (PLACEHOLDER) -->
+  <div *ngIf="currentRole === 'analyst'" class="placeholder">
+    <h2>Analyst Dashboard</h2>
+    <p>Coming soon: Data analytics, reports, market insights</p>
+  </div>
+</div>
