@@ -1,1 +1,3 @@
-com\neueda\leap\GreeterTest.class
+com/neueda/leap/trading/service/impl/TradingOrderServiceTest.class
+com/neueda/leap/trading/api/UserControllerTest.class
+com/neueda/leap/trading/api/OrderControllerTest.class

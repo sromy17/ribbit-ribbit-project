@@ -84,8 +84,8 @@ export interface LoginResponse {
   providedIn: 'root'
 })
 export class ApiService {
-  private apiUrl = 'http://localhost:8080/api'; // TODO: Update with actual backend URL when ready
-  private useMockData = true; // Toggle this to switch between mock and real API
+  private apiUrl = 'https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1'; // updated with actual API base URL
+  private useMockData = true; // Toggle this to switch between mock and real API // flipping this back to True because no login endpoint yet
 
   constructor(private http: HttpClient) {}
 

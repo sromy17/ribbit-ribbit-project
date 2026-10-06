@@ -9,8 +9,13 @@
 </header>
 
 <div class="container">
+  <!-- Loading & Error States -->
+  <div *ngIf="error" class="error-banner">
+    {{ error }}
+  </div>
+
   <!-- INVESTOR DASHBOARD -->
-  <div *ngIf="currentRole === 'investor'">
+  <div *ngIf="currentRole === 'investor'" [class.loading]="loading">
     <div class="cards">
       <div class="card">
         <h3>Cash</h3>
@@ -28,21 +33,26 @@
 
     <div class="section">
       <h2>Holdings</h2>
-      <table class="table">
+      <div *ngIf="portfolio.holdings.length === 0" class="empty-state">
+        No holdings yet
+      </div>
+      <table class="table" *ngIf="portfolio.holdings.length > 0">
         <thead>
           <tr>
             <th>Symbol</th>
-            <th>Shares</th>
-            <th>Price</th>
+            <th>Quantity</th>
+            <th>Avg Cost</th>
+            <th>Current Price</th>
             <th>Value</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let h of portfolio.holdings">
             <td><strong>{{ h.symbol }}</strong></td>
-            <td>{{ h.shares }}</td>
-            <td>${{ h.price | number: '1.2-2' }}</td>
-            <td>${{ h.value | number: '1.0-0' }}</td>
+            <td>{{ h.quantity }}</td>
+            <td>${{ h.averageCost | number: '1.2-2' }}</td>
+            <td>${{ (h.currentPrice || h.averageCost) | number: '1.2-2' }}</td>
+            <td>${{ (h.quantity * (h.currentPrice || h.averageCost)) | number: '1.0-0' }}</td>
           </tr>
         </tbody>
       </table>
@@ -51,36 +61,39 @@
     <div class="section">
       <h2>Place Order</h2>
       <div class="form-group">
-        <input type="text" [(ngModel)]="orderForm.symbol" placeholder="Symbol (AAPL)" />
-        <select [(ngModel)]="orderForm.side">
+        <input type="text" [(ngModel)]="orderForm.symbol" placeholder="Symbol (AAPL)" [disabled]="loading" />
+        <select [(ngModel)]="orderForm.side" [disabled]="loading">
           <option>BUY</option>
           <option>SELL</option>
         </select>
-        <input type="number" [(ngModel)]="orderForm.quantity" placeholder="Quantity" />
-        <input type="number" [(ngModel)]="orderForm.price" placeholder="Price" step="0.01" />
-        <button (click)="placeOrder()">Place Order</button>
+        <input type="number" [(ngModel)]="orderForm.quantity" placeholder="Quantity" [disabled]="loading" />
+        <input type="number" [(ngModel)]="orderForm.price" placeholder="Price" step="0.01" [disabled]="loading" />
+        <button (click)="placeOrder()" [disabled]="loading">{{ loading ? 'Placing...' : 'Place Order' }}</button>
       </div>
     </div>
 
     <div class="section">
       <h2>Recent Orders</h2>
-      <table class="table">
+      <div *ngIf="orders.length === 0" class="empty-state">
+        No orders yet
+      </div>
+      <table class="table" *ngIf="orders.length > 0">
         <thead>
           <tr>
             <th>Order ID</th>
             <th>Symbol</th>
             <th>Side</th>
-            <th>Qty</th>
+            <th>Quantity</th>
             <th>Price</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let o of orders">
-            <td>{{ o.id }}</td>
+            <td>{{ o.orderId }}</td>
             <td><strong>{{ o.symbol }}</strong></td>
             <td>{{ o.side }}</td>
-            <td>{{ o.qty }}</td>
+            <td>{{ o.quantity }}</td>
             <td>${{ o.price | number: '1.0-0' }}</td>
             <td><span [class.filled]="o.status === 'FILLED'" [class.pending]="o.status === 'PENDING'">{{ o.status }}</span></td>
           </tr>
