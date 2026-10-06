@@ -1,11 +1,13 @@
 erDiagram
     USERS ||--o{ ACCOUNTS : has
-    USERS ||--o{ EMPLOYEES : manages
     ACCOUNTS ||--o{ TRADE_REQUEST : makes
+    ACCOUNTS ||--o{ SUPPORT_TICKET : submits
     INSTRUMENTS ||--o{ TRADE_REQUEST : involves
     TRADE_REQUEST ||--o{ TRADES_EXECUTED : executes
-    TRADE_REQUEST ||--o{ DISPUTE_TICKETS : raises
-    EMPLOYEES ||--o{ DISPUTE_TICKETS : reviews
+    TRADE_REQUEST ||--o{ DISPUTED_ORDERS : raises
+    TRADE_REQUEST ||--o{ CANCELED_ORDER : cancels
+    EMPLOYEES ||--o{ DISPUTED_ORDERS : reviews
+    EMPLOYEES ||--o{ SUPPORT_TICKET : handles
 
     USERS {
         int userid PK
@@ -32,7 +34,7 @@ erDiagram
         int requestid PK
         int accountid FK
         int instrumentid FK
-        string intent
+        string side
         int quantity
         numeric bidprice
         date date_request
@@ -55,9 +57,27 @@ erDiagram
         string employeeRoles
     }
 
-    DISPUTE_TICKETS {
+    DISPUTED_ORDERS {
         int disputeid PK
         int requestid FK
         string status
         int employeeid FK
+        string category
+        string reason
+    }
+
+    CANCELED_ORDER {
+        int cancel_id PK
+        int request_id FK
+        string reason
+        date cancel_date
+    }
+
+    SUPPORT_TICKET {
+        int ticket_id PK
+        int accountid FK
+        string reason
+        timestamp created_at
+        string status
+        int assigned_to FK
     }

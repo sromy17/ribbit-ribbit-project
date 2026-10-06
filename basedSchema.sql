@@ -4,7 +4,10 @@ DROP TABLE IF EXISTS instruments cascade;
 DROP TABLE IF EXISTS employees cascade;
 DROP TABLE IF EXISTS trade_request cascade;
 DROP TABLE IF EXISTS trades_executed cascade;
-DROP TABLE IF EXISTS disputes cascade;
+DROP TABLE IF EXISTS disputed_orders cascade;
+DROP TABLE IF EXISTS canceled_order cascade;
+DROP TABLE IF EXISTS support_ticket cascade;
+
 
 CREATE TABLE users
 (
@@ -37,7 +40,7 @@ CREATE TABLE trade_request
 requestid INT PRIMARY KEY,
 accountid INT NOT NULL REFERENCES accounts(accountid),
 instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
-intent CHAR(5) NOT NULL CHECK (intent IN ('BUY', 'SELL')),
+side CHAR(5) NOT NULL CHECK (side IN ('BUY', 'SELL')),
 quantity INT NOT NULL CHECK (quantity > 0),
 bidprice NUMERIC NOT NULL CHECK (bidprice >= 0),
 date_request DATE NOT NULL,
@@ -62,10 +65,32 @@ employeeHashedSaltedPassword VARCHAR(64) NOT NULL,
 employeeRoles VARCHAR(20)
 );
 
-CREATE TABLE dispute_tickets
+CREATE TABLE disputed_orders
 (
-disputeid INT PRIMARY KEY UNIQUE NOT NULL,
+disputeid INT PRIMARY KEY NOT NULL,
 requestid INT REFERENCES trade_request(requestid) NOT NULL,
 status VARCHAR(20) DEFAULT 'DISPUTED' CHECK (status IN ('DISPUTED', 'UNDER-REVIEW', 'COMPLETED')),
-employeeid int DEFAULT NULL REFERENCES employees(employeeid)
+employeeid int DEFAULT NULL REFERENCES employees(employeeid),
+category VARCHAR(20) CHECK (category IN ('Fraud', 'Accident', 'Incorrect transfer')),
+reason VARCHAR(75)
 );
+CREATE TABLE canceled_order
+(
+cancel_id INT PRIMARY KEY NOT NULL,
+request_id INT REFERENCES trade_request(requestid) NOT NULL,
+reason VARCHAR(20) CHECK (reason IN ('user_cancel', 'insufficent_funds')),
+cancel_date DATE NOT NULL
+);
+
+CREATE TABLE support_ticket
+(
+ticket_id INT PRIMARY KEY NOT NULL,
+accountid INT NOT NULL REFERENCES accounts(accountid),
+reason VARCHAR(75) NOT NULL,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+status VARCHAR(20) DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED')),
+assigned_to INT REFERENCES employees(employeeid),
+closed_at TIMESTAMP DEFAULT NULL
+);
+
+
