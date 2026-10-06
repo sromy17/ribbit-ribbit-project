@@ -7,6 +7,7 @@ import java.util.List;
 import com.neueda.leap.trading.service.contract.FeeCalculator;
 import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
 import com.neueda.leap.trading.service.contract.OrderService;
+import com.neueda.leap.trading.service.contract.TradingRulesService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,7 @@ public class TradingOrderService implements OrderService {
     private final FeeCalculator feeCalculator;
     private final MarketDataVerificationService marketDataVerificationService;
     private final OrderValidator orderValidator;
+    private final TradingRulesService tradingRulesService;
     private final AccountOrderReadMapper readMapper;
 
     public TradingOrderService(
@@ -50,6 +52,7 @@ public class TradingOrderService implements OrderService {
         FeeCalculator feeCalculator,
         MarketDataVerificationService marketDataVerificationService,
         OrderValidator orderValidator,
+        TradingRulesService tradingRulesService,
         AccountOrderReadMapper readMapper
     ) {
         this.orderRepository = orderRepository;
@@ -60,6 +63,7 @@ public class TradingOrderService implements OrderService {
         this.feeCalculator = feeCalculator;
         this.marketDataVerificationService = marketDataVerificationService;
         this.orderValidator = orderValidator;
+        this.tradingRulesService = tradingRulesService;
         this.readMapper = readMapper;
     }
 
@@ -127,6 +131,15 @@ public class TradingOrderService implements OrderService {
         Instrument instrument = instrumentRepository.findByTickerIgnoreCase(request.ticker())
             .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.ticker()));
 
+        // BR-05: Validate trading rules BEFORE accepting the order
+        ValidationResult validation = tradingRulesService.validateOrderSubmission(
+            account,
+            instrument,
+            request.side(),
+            request.quantity(),
+            request.price()
+        );
+
         Order order = new Order();
         order.setOrderId(nextOrderId());
         order.setAccount(account);
@@ -135,6 +148,14 @@ public class TradingOrderService implements OrderService {
         order.setQuantity(request.quantity());
         order.setPrice(request.price());
         order.setDateRequested(LocalDate.now());
+
+        // Set order status based on validation result
+        if (!validation.isValid()) {
+            order.setStatus(OrderStatus.REJECTED);
+            order = orderRepository.save(order);
+            throw new IllegalArgumentException("Order rejected: " + validation.getReason());
+        }
+
         order.setStatus(OrderStatus.PENDING);
         order = orderRepository.save(order);
 

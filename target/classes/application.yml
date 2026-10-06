@@ -18,3 +18,9 @@ mybatis:
 logging:
   level:
     com.neueda.leap: INFO
+
+market-data:
+  fauxnance:
+    base-url: ${FAUXNANCE_BASE_URL:https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
+    api-key: ${FAUXNANCE_API_KEY:}
+    use-order-price-fallback: ${FAUXNANCE_USE_ORDER_PRICE_FALLBACK:true}

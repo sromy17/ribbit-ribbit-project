@@ -1,0 +1,4 @@
+com/neueda/leap/trading/service/impl/TradingOrderServiceTest.class
+com/neueda/leap/trading/api/UserControllerTest.class
+com/neueda/leap/trading/api/OrderControllerTest.class
+com/neueda/leap/trading/service/impl/DefaultTradingRulesServiceTest.class
