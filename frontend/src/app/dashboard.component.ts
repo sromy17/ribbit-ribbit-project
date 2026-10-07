@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -17,6 +17,10 @@ export class DashboardComponent implements OnInit {
   currentRole: string = '';
   accountId: string = ''; // Store account ID for API calls
   loading = false;
+  loadingBalance = false;
+  loadingHoldings = false;
+  loadingOrders = false;
+  loadingTrades = false;
   error = '';
 
   // Investor Dashboard Data
@@ -37,7 +41,8 @@ export class DashboardComponent implements OnInit {
     private auth: AuthService,
     private router: Router,
     private route: ActivatedRoute,
-    private api: ApiService
+    private api: ApiService,
+    private cdr: ChangeDetectorRef
   ) {
     this.currentUser = this.auth.getUser();
     if (!this.currentUser) {
@@ -56,7 +61,10 @@ export class DashboardComponent implements OnInit {
   }
 
   loadDashboardData() {
-    this.loading = true;
+    this.loadingBalance = true;
+    this.loadingHoldings = true;
+    this.loadingOrders = true;
+    this.loadingTrades = true;
     this.error = '';
 
     // Load balance
@@ -64,11 +72,14 @@ export class DashboardComponent implements OnInit {
       next: (balance) => {
         this.portfolio.cash = balance.cashBalance;
         this.updateTotalValue();
+        this.loadingBalance = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error loading balance:', err);
         this.error = 'Failed to load account balance';
-        this.loading = false;
+        this.loadingBalance = false;
+        this.cdr.detectChanges();
       }
     });
 
@@ -77,11 +88,14 @@ export class DashboardComponent implements OnInit {
       next: (holdings) => {
         this.portfolio.holdings = holdings;
         this.updateTotalValue();
+        this.loadingHoldings = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error loading holdings:', err);
         this.error = 'Failed to load holdings';
-        this.loading = false;
+        this.loadingHoldings = false;
+        this.cdr.detectChanges();
       }
     });
 
@@ -89,12 +103,14 @@ export class DashboardComponent implements OnInit {
     this.api.getOrders(this.accountId).subscribe({
       next: (orders) => {
         this.orders = orders;
-        this.loading = false;
+        this.loadingOrders = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error loading orders:', err);
         this.error = 'Failed to load orders';
-        this.loading = false;
+        this.loadingOrders = false;
+        this.cdr.detectChanges();
       }
     });
 
@@ -102,9 +118,13 @@ export class DashboardComponent implements OnInit {
     this.api.getTrades(this.accountId).subscribe({
       next: (trades) => {
         this.trades = trades;
+        this.loadingTrades = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error loading trades:', err);
+        this.loadingTrades = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -150,10 +170,10 @@ export class DashboardComponent implements OnInit {
       status: 'PENDING'
     }).subscribe({
       next: (order) => {
+        this.loading = false;
         this.orderFormErrors = {};
         this.orderForm = { symbol: '', side: 'BUY', quantity: 0, price: 0 };
         this.loadDashboardData(); // Refresh orders list
-        this.loading = false;
       },
       error: (err) => {
         console.error('Error placing order:', err);

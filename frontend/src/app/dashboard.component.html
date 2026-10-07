@@ -3,7 +3,7 @@
     <h1>RibbitRibbit</h1>
     <div class="header-actions">
       <span class="user-badge">{{ currentUser?.role | uppercase }} • {{ currentUser?.username }}</span>
-      <button (click)="refreshData()" class="btn-refresh" title="Refresh data" [disabled]="loading">↻</button>
+      <button (click)="refreshData()" class="btn-refresh" title="Refresh data" [disabled]="loadingBalance || loadingHoldings || loadingOrders || loadingTrades">↻</button>
       <button (click)="logout()" class="btn-logout">Logout</button>
     </div>
   </div>
@@ -16,105 +16,152 @@
   </div>
 
   <!-- INVESTOR DASHBOARD -->
-  <div *ngIf="currentRole === 'investor'" [class.loading]="loading">
-    <div class="cards">
-      <div class="card">
-        <h3>Cash</h3>
-        <p class="value">${{ portfolio.cash | number: '1.0-0' }}</p>
+  <div *ngIf="currentRole === 'investor'" class="investor-dashboard">
+    <!-- LEFT COLUMN: Portfolio Overview -->
+    <div class="dashboard-column left-column">
+      <div class="cards">
+        <div class="card">
+          <h3>Cash</h3>
+          <p class="value" *ngIf="!loadingBalance">${{ portfolio.cash | number: '1.0-0' }}</p>
+          <p class="value loading" *ngIf="loadingBalance">Loading...</p>
+        </div>
+        <div class="card">
+          <h3>Portfolio Value</h3>
+          <p class="value" *ngIf="!loadingBalance">${{ getTotalValue() | number: '1.0-0' }}</p>
+          <p class="value loading" *ngIf="loadingBalance">Loading...</p>
+        </div>
+        <div class="card">
+          <h3>Holdings</h3>
+          <p class="value" *ngIf="!loadingHoldings">{{ portfolio.holdings.length }}</p>
+          <p class="value loading" *ngIf="loadingHoldings">Loading...</p>
+        </div>
       </div>
-      <div class="card">
-        <h3>Portfolio Value</h3>
-        <p class="value">${{ getTotalValue() | number: '1.0-0' }}</p>
+
+      <div class="section">
+        <h2>Holdings</h2>
+        <div *ngIf="loadingHoldings" class="loading-indicator">Loading holdings...</div>
+        <div *ngIf="!loadingHoldings && portfolio.holdings.length === 0" class="empty-state">
+          No holdings yet
+        </div>
+        <table class="table" *ngIf="!loadingHoldings && portfolio.holdings.length > 0">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Quantity</th>
+              <th>Avg Cost</th>
+              <th>Current Price</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let h of portfolio.holdings">
+              <td><strong>{{ h.symbol }}</strong></td>
+              <td>{{ h.quantity }}</td>
+              <td>${{ h.averageCost | number: '1.2-2' }}</td>
+              <td>${{ (h.currentPrice || h.averageCost) | number: '1.2-2' }}</td>
+              <td>${{ (h.quantity * (h.currentPrice || h.averageCost)) | number: '1.0-0' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <div class="card">
-        <h3>Holdings</h3>
-        <p class="value">{{ portfolio.holdings.length }}</p>
+
+      <div class="section">
+        <h2>Trade History</h2>
+        <div *ngIf="loadingTrades" class="loading-indicator">Loading trades...</div>
+        <div *ngIf="!loadingTrades && trades.length === 0" class="empty-state">
+          No trades yet
+        </div>
+        <table class="table" *ngIf="!loadingTrades && trades.length > 0">
+          <thead>
+            <tr>
+              <th>Trade ID</th>
+              <th>Symbol</th>
+              <th>Execution Price</th>
+              <th>Qty</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of trades">
+              <td>{{ t.tradeId }}</td>
+              <td><strong>{{ t.symbol }}</strong></td>
+              <td>${{ t.executionPrice | number: '1.2-2' }}</td>
+              <td>{{ t.executedQuantity }}</td>
+              <td>{{ t.executedAt | date: 'short' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <div class="section">
-      <h2>Holdings</h2>
-      <div *ngIf="portfolio.holdings.length === 0" class="empty-state">
-        No holdings yet
+    <!-- RIGHT COLUMN: Orders -->
+    <div class="dashboard-column right-column">
+      <div class="section">
+        <h2>Place Order</h2>
+        <div class="form-group">
+          <div class="form-field">
+            <label>Symbol</label>
+            <input type="text" [(ngModel)]="orderForm.symbol" placeholder="AAPL" [disabled]="loading" (blur)="validateOrderForm()" />
+            <span class="error-text" *ngIf="orderFormErrors['symbol']">{{ orderFormErrors['symbol'] }}</span>
+          </div>
+          <div class="form-field">
+            <label>Side</label>
+            <select [(ngModel)]="orderForm.side" [disabled]="loading">
+              <option>BUY</option>
+              <option>SELL</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Quantity</label>
+            <input type="number" [(ngModel)]="orderForm.quantity" placeholder="10" [disabled]="loading" (blur)="validateOrderForm()" />
+            <span class="error-text" *ngIf="orderFormErrors['quantity']">{{ orderFormErrors['quantity'] }}</span>
+          </div>
+          <div class="form-field">
+            <label>Price</label>
+            <input type="number" [(ngModel)]="orderForm.price" placeholder="100.00" step="0.01" [disabled]="loading" (blur)="validateOrderForm()" />
+            <span class="error-text" *ngIf="orderFormErrors['price']">{{ orderFormErrors['price'] }}</span>
+          </div>
+          <button (click)="placeOrder()" [disabled]="loading || !isFormValid()" class="btn-primary btn-full-width">
+            {{ loading ? 'Placing...' : 'Place Order' }}
+          </button>
+        </div>
+        <div class="error-text" *ngIf="orderFormErrors['submit']">{{ orderFormErrors['submit'] }}</div>
       </div>
-      <table class="table" *ngIf="portfolio.holdings.length > 0">
-        <thead>
-          <tr>
-            <th>Symbol</th>
-            <th>Quantity</th>
-            <th>Avg Cost</th>
-            <th>Current Price</th>
-            <th>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let h of portfolio.holdings">
-            <td><strong>{{ h.symbol }}</strong></td>
-            <td>{{ h.quantity }}</td>
-            <td>${{ h.averageCost | number: '1.2-2' }}</td>
-            <td>${{ (h.currentPrice || h.averageCost) | number: '1.2-2' }}</td>
-            <td>${{ (h.quantity * (h.currentPrice || h.averageCost)) | number: '1.0-0' }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
 
-    <div class="section">
-      <h2>Place Order</h2>
-      <div class="form-group">
-        <div class="form-field">
-          <input type="text" [(ngModel)]="orderForm.symbol" placeholder="Symbol (AAPL)" [disabled]="loading" (blur)="validateOrderForm()" />
-          <span class="error-text" *ngIf="orderFormErrors['symbol']">{{ orderFormErrors['symbol'] }}</span>
+      <div class="section">
+        <h2>Recent Orders</h2>
+        <div *ngIf="loadingOrders" class="loading-indicator">Loading orders...</div>
+        <div *ngIf="!loadingOrders && orders.length === 0" class="empty-state">
+          No orders yet
         </div>
-        <div class="form-field">
-          <select [(ngModel)]="orderForm.side" [disabled]="loading">
-            <option>BUY</option>
-            <option>SELL</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <input type="number" [(ngModel)]="orderForm.quantity" placeholder="Quantity" [disabled]="loading" (blur)="validateOrderForm()" />
-          <span class="error-text" *ngIf="orderFormErrors['quantity']">{{ orderFormErrors['quantity'] }}</span>
-        </div>
-        <div class="form-field">
-          <input type="number" [(ngModel)]="orderForm.price" placeholder="Price" step="0.01" [disabled]="loading" (blur)="validateOrderForm()" />
-          <span class="error-text" *ngIf="orderFormErrors['price']">{{ orderFormErrors['price'] }}</span>
-        </div>
-        <button (click)="placeOrder()" [disabled]="loading || !isFormValid()" class="btn-primary">{{ loading ? 'Placing...' : 'Place Order' }}</button>
-      </div>
-      <div class="error-text" *ngIf="orderFormErrors['submit']">{{ orderFormErrors['submit'] }}</div>
-    </div>
-
-    <div class="section">
-      <h2>Recent Orders</h2>
-      <div *ngIf="orders.length === 0" class="empty-state">
-        No orders yet
-      </div>
-      <table class="table" *ngIf="orders.length > 0">
-        <thead>
-          <tr>
-            <th>Order ID</th>
-            <th>Symbol</th>
-            <th>Side</th>
-            <th>Quantity</th>
-            <th>Price</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let o of orders">
-            <td>{{ o.orderId }}</td>
-            <td><strong>{{ o.symbol }}</strong></td>
-            <td>{{ o.side }}</td>
-            <td>{{ o.quantity }}</td>
-            <td>${{ o.price | number: '1.0-0' }}</td>
-            <td>
+        <div *ngIf="!loadingOrders && orders.length > 0" class="orders-list">
+          <div class="order-card" *ngFor="let o of orders">
+            <div class="order-header">
+              <div class="order-symbol">
+                <strong>{{ o.symbol }}</strong>
+                <span class="order-side" [class.buy]="o.side === 'BUY'" [class.sell]="o.side === 'SELL'">
+                  {{ o.side }}
+                </span>
+              </div>
               <span [ngClass]="['status-badge', getOrderStatusClass(o.status)]">
                 {{ o.status }}
               </span>
-            </td>
-            <td>
+            </div>
+            <div class="order-details">
+              <div class="detail-row">
+                <span class="label">Order ID:</span>
+                <span class="value">{{ o.orderId }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Quantity:</span>
+                <span class="value">{{ o.quantity }} @ ${{ o.price | number: '1.2-2' }}</span>
+              </div>
+              <div class="detail-row" *ngIf="o.createdAt">
+                <span class="label">Date:</span>
+                <span class="value">{{ o.createdAt | date: 'short' }}</span>
+              </div>
+            </div>
+            <div class="order-actions">
               <button 
                 *ngIf="canCancelOrder(o)" 
                 (click)="cancelOrder(o.orderId)" 
@@ -122,39 +169,10 @@
                 class="btn-small btn-danger">
                 {{ cancelingOrderId === o.orderId ? 'Canceling...' : 'Cancel' }}
               </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section">
-      <h2>Trade History</h2>
-      <div *ngIf="trades.length === 0" class="empty-state">
-        No trades yet
+            </div>
+          </div>
+        </div>
       </div>
-      <table class="table" *ngIf="trades.length > 0">
-        <thead>
-          <tr>
-            <th>Trade ID</th>
-            <th>Order ID</th>
-            <th>Symbol</th>
-            <th>Execution Price</th>
-            <th>Quantity Executed</th>
-            <th>Execution Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let t of trades">
-            <td>{{ t.tradeId }}</td>
-            <td>{{ t.orderId }}</td>
-            <td><strong>{{ t.symbol }}</strong></td>
-            <td>${{ t.executionPrice | number: '1.2-2' }}</td>
-            <td>{{ t.executedQuantity }}</td>
-            <td>{{ t.executedAt | date: 'short' }}</td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   </div>
 

@@ -78,9 +78,36 @@ body {
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
+}
+
+/* Two-Column Layout */
+.investor-dashboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .investor-dashboard {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.left-column {
+  /* Portfolio, Holdings, Trade History */
+}
+
+.right-column {
+  /* Order Form and Recent Orders */
 }
 
 .cards {
@@ -108,6 +135,12 @@ body {
   font-size: 28px;
   font-weight: 700;
   color: #667eea;
+}
+
+.card .value.loading {
+  font-size: 14px;
+  color: #999;
+  font-weight: normal;
 }
 
 .section {
@@ -149,42 +182,10 @@ body {
 }
 
 .form-group {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin-bottom: 16px;
-}
-
-.form-group input,
-.form-group select {
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-group button {
-  padding: 10px 20px;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-weight: 600;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-
-.form-group button:hover {
-  background: #5568d3;
 }
 
 .filled {
@@ -201,6 +202,15 @@ body {
 .form-field {
   display: flex;
   flex-direction: column;
+}
+
+.form-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .form-field input,
@@ -236,6 +246,13 @@ body {
   font-size: 14px;
 }
 
+.loading-indicator {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 14px;
+}
+
 /* Button Styles */
 .btn-primary {
   padding: 10px 20px;
@@ -257,6 +274,10 @@ body {
   background: #cbd5e1;
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.btn-full-width {
+  width: 100%;
 }
 
 .btn-small {
@@ -302,6 +323,89 @@ body {
 .btn-refresh:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Order Cards */
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 16px;
+  background: #fafafa;
+  transition: all 0.2s;
+}
+
+.order-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.order-symbol {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-symbol strong {
+  font-size: 16px;
+  color: #333;
+}
+
+.order-side {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.order-side.buy {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.order-side.sell {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.order-details {
+  margin-bottom: 12px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.detail-row .label {
+  color: #999;
+  font-weight: 500;
+}
+
+.detail-row .value {
+  color: #333;
+  font-weight: 600;
+}
+
+.order-actions {
+  text-align: right;
 }
 
 /* Status Badge */
