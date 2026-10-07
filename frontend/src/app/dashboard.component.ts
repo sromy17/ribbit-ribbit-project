@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService, User } from './auth.service';
-import { ApiService, Holding, Order } from './api.service';
+import { ApiService, Holding, Order, Trade } from './api.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -27,8 +27,11 @@ export class DashboardComponent implements OnInit {
   };
 
   orders: Order[] = [];
+  trades: Trade[] = [];
 
   orderForm = { symbol: '', side: 'BUY', quantity: 0, price: 0 };
+  orderFormErrors: { [key: string]: string } = {};
+  cancelingOrderId: string | null = null;
 
   constructor(
     private auth: AuthService,
@@ -94,34 +97,113 @@ export class DashboardComponent implements OnInit {
         this.loading = false;
       }
     });
+
+    // Load trades
+    this.api.getTrades(this.accountId).subscribe({
+      next: (trades) => {
+        this.trades = trades;
+      },
+      error: (err) => {
+        console.error('Error loading trades:', err);
+      }
+    });
+  }
+
+  // Form Validation Methods
+  validateOrderForm(): boolean {
+    this.orderFormErrors = {};
+
+    if (!this.orderForm.symbol || this.orderForm.symbol.trim() === '') {
+      this.orderFormErrors['symbol'] = 'Symbol is required';
+    } else if (!/^[A-Z]{1,5}$/.test(this.orderForm.symbol.toUpperCase())) {
+      this.orderFormErrors['symbol'] = 'Invalid symbol format (e.g., AAPL, MSFT)';
+    }
+
+    if (!this.orderForm.quantity || this.orderForm.quantity <= 0) {
+      this.orderFormErrors['quantity'] = 'Quantity must be greater than 0';
+    } else if (!Number.isInteger(this.orderForm.quantity)) {
+      this.orderFormErrors['quantity'] = 'Quantity must be a whole number';
+    }
+
+    if (!this.orderForm.price || this.orderForm.price <= 0) {
+      this.orderFormErrors['price'] = 'Price must be greater than 0';
+    }
+
+    return Object.keys(this.orderFormErrors).length === 0;
+  }
+
+  isFormValid(): boolean {
+    return this.validateOrderForm();
   }
 
   placeOrder() {
-    if (!this.orderForm.symbol || !this.orderForm.quantity || !this.orderForm.price) {
-      alert('Please fill all fields');
+    if (!this.validateOrderForm()) {
       return;
     }
 
     this.loading = true;
     this.api.createOrder(this.accountId, {
-      symbol: this.orderForm.symbol,
+      symbol: this.orderForm.symbol.toUpperCase(),
       side: this.orderForm.side as 'BUY' | 'SELL',
       quantity: this.orderForm.quantity,
       price: this.orderForm.price,
       status: 'PENDING'
     }).subscribe({
       next: (order) => {
-        alert(`Order placed: ${order.side} ${order.quantity} ${order.symbol} @ $${order.price}`);
+        this.orderFormErrors = {};
         this.orderForm = { symbol: '', side: 'BUY', quantity: 0, price: 0 };
         this.loadDashboardData(); // Refresh orders list
         this.loading = false;
       },
       error: (err) => {
         console.error('Error placing order:', err);
-        alert('Failed to place order');
+        this.orderFormErrors['submit'] = 'Failed to place order. Please try again.';
         this.loading = false;
       }
     });
+  }
+
+  // Cancel Order
+  cancelOrder(orderId: string) {
+    if (!confirm('Are you sure you want to cancel this order?')) {
+      return;
+    }
+
+    this.cancelingOrderId = orderId;
+    this.api.cancelOrder(this.accountId, orderId).subscribe({
+      next: () => {
+        this.cancelingOrderId = null;
+        this.loadDashboardData(); // Refresh orders list
+      },
+      error: (err) => {
+        console.error('Error canceling order:', err);
+        alert('Failed to cancel order');
+        this.cancelingOrderId = null;
+      }
+    });
+  }
+
+  // Refresh Data
+  refreshData() {
+    this.loadDashboardData();
+  }
+
+  // Helper Methods
+  getOrderStatusClass(status: string): string {
+    switch (status) {
+      case 'FILLED':
+        return 'status-filled';
+      case 'PENDING':
+        return 'status-pending';
+      case 'CANCELLED':
+        return 'status-cancelled';
+      default:
+        return '';
+    }
+  }
+
+  canCancelOrder(order: Order): boolean {
+    return order.status === 'PENDING';
   }
 
   logout() {
