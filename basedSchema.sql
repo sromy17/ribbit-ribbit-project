@@ -7,6 +7,8 @@ DROP TABLE IF EXISTS trades_executed cascade;
 DROP TABLE IF EXISTS disputed_orders cascade;
 DROP TABLE IF EXISTS canceled_order cascade;
 DROP TABLE IF EXISTS support_ticket cascade;
+DROP TABLE IF EXISTS rejected_orders cascade;
+DROP TABLE IF EXISTS holdings cascade;
 
 
 CREATE TABLE users
@@ -74,11 +76,12 @@ employeeid int DEFAULT NULL REFERENCES employees(employeeid),
 category VARCHAR(20) CHECK (category IN ('Fraud', 'Accident', 'Incorrect transfer')),
 reason VARCHAR(75)
 );
+// table for orders canceled by the user itself
 CREATE TABLE canceled_order
 (
 cancel_id INT PRIMARY KEY NOT NULL,
 request_id INT REFERENCES trade_request(requestid) NOT NULL,
-reason VARCHAR(20) CHECK (reason IN ('user_cancel', 'insufficent_funds')),
+reason VARCHAR(50),
 cancel_date DATE NOT NULL
 );
 
@@ -93,4 +96,21 @@ assigned_to INT REFERENCES employees(employeeid),
 closed_at TIMESTAMP DEFAULT NULL
 );
 
+// table for orders rejected by the system
+CREATE TABLE rejected_orders
+(
+reject_id INT PRIMARY KEY NOT NULL,
+request_id INT REFERENCES trade_request(requestid) NOT NULL,
+reason VARCHAR(20) CHECK (reason IN ('insufficient_funds', 'unavailable_ticker', )),
+reject_date DATE NOT NULL
+);
 
+// table for current holdings of each account - reflects the quantity of each instrument held by the account as of a specific date
+CREATE TABLE holdings
+(
+accountid INT NOT NULL REFERENCES accounts(accountid),
+instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
+quantity INT NOT NULL CHECK (quantity >= 0),
+as_of_date DATE NOT NULL,
+PRIMARY KEY (accountid, instrumentid)
+);
