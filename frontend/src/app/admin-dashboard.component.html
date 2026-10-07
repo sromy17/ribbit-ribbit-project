@@ -1,0 +1,217 @@
+<header class="header">
+  <div class="header-content">
+    <h1>RibbitRibbit</h1>
+    <div class="header-actions">
+      <span class="user-badge">ADMIN • {{ currentUser?.username }}</span>
+      <button (click)="logout()" class="btn-logout">Logout</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Loading & Error States -->
+  <div *ngIf="error" class="error-banner">
+    {{ error }}
+  </div>
+
+  <div *ngIf="loading" class="loading-full-screen">
+    <p>Loading platform data...</p>
+  </div>
+
+  <div *ngIf="!loading" class="admin-dashboard">
+    <!-- Navigation Tabs -->
+    <div class="tabs">
+      <button (click)="activeTab = 'overview'" [class.active]="activeTab === 'overview'" class="tab-button">
+        Overview
+      </button>
+      <button (click)="activeTab = 'investors'" [class.active]="activeTab === 'investors'" class="tab-button">
+        Investors
+      </button>
+      <button (click)="activeTab = 'trades'" [class.active]="activeTab === 'trades'" class="tab-button">
+        All Trades
+      </button>
+      <button (click)="activeTab = 'orders'" [class.active]="activeTab === 'orders'" class="tab-button">
+        All Orders
+      </button>
+    </div>
+
+    <!-- OVERVIEW TAB -->
+    <div *ngIf="activeTab === 'overview'" class="tab-content">
+      <h2>Platform Overview</h2>
+      <div class="stats-grid" *ngIf="stats">
+        <div class="stat-card">
+          <h3>Total Investors</h3>
+          <p class="stat-value">{{ stats.totalInvestors }}</p>
+        </div>
+        <div class="stat-card">
+          <h3>Total Trades</h3>
+          <p class="stat-value">{{ stats.totalTrades }}</p>
+        </div>
+        <div class="stat-card">
+          <h3>Total Orders</h3>
+          <p class="stat-value">{{ stats.totalOrders }}</p>
+        </div>
+        <div class="stat-card">
+          <h3>Avg Portfolio Value</h3>
+          <p class="stat-value">${{ stats.avgPortfolioValue | number: '1.0-0' }}</p>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Top Trader</h3>
+        <div *ngIf="stats?.topTrader" class="top-trader-card">
+          <div class="trader-info">
+            <p><strong>{{ stats.topTrader.firstName }} {{ stats.topTrader.lastName }}</strong></p>
+            <p>{{ stats.topTrader.email }}</p>
+          </div>
+          <div class="trader-stats">
+            <div>
+              <span>Portfolio Value:</span>
+              <strong>${{ stats.topTrader.portfolioValue | number: '1.0-0' }}</strong>
+            </div>
+            <div>
+              <span>Orders:</span>
+              <strong>{{ stats.topTrader.ordersCount }}</strong>
+            </div>
+            <div>
+              <span>Holdings:</span>
+              <strong>{{ stats.topTrader.holdingsCount }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVESTORS TAB -->
+    <div *ngIf="activeTab === 'investors'" class="tab-content">
+      <div class="tab-header">
+        <h2>All Investors</h2>
+        <input
+          type="text"
+          placeholder="Search by name or email..."
+          [(ngModel)]="searchText"
+          class="search-input"
+        />
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Name</th>
+            <th>Account Balance</th>
+            <th>Portfolio Value</th>
+            <th>Holdings</th>
+            <th>Orders</th>
+            <th>Join Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let investor of getFilteredInvestors()">
+            <td>{{ investor.email }}</td>
+            <td>{{ investor.firstName }} {{ investor.lastName }}</td>
+            <td>${{ investor.accountBalance | number: '1.0-0' }}</td>
+            <td>${{ investor.portfolioValue | number: '1.0-0' }}</td>
+            <td>{{ investor.holdingsCount }}</td>
+            <td>{{ investor.ordersCount }}</td>
+            <td>{{ investor.joinDate }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="getFilteredInvestors().length === 0" class="empty-state">
+        No investors found
+      </div>
+    </div>
+
+    <!-- TRADES TAB -->
+    <div *ngIf="activeTab === 'trades'" class="tab-content">
+      <div class="tab-header">
+        <h2>All Trades</h2>
+        <input
+          type="text"
+          placeholder="Search by symbol..."
+          [(ngModel)]="searchText"
+          class="search-input"
+        />
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Trade ID</th>
+            <th>Symbol</th>
+            <th>Execution Price</th>
+            <th>Quantity</th>
+            <th>Total Value</th>
+            <th>Executed At</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let trade of getFilteredTrades()">
+            <td>{{ trade.tradeId }}</td>
+            <td>{{ trade.symbol }}</td>
+            <td>${{ trade.executionPrice | number: '1.0-2' }}</td>
+            <td>{{ trade.executedQuantity }}</td>
+            <td>${{ (trade.executionPrice * trade.executedQuantity) | number: '1.0-0' }}</td>
+            <td>{{ trade.executedAt | date: 'short' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="getFilteredTrades().length === 0" class="empty-state">
+        No trades found
+      </div>
+    </div>
+
+    <!-- ORDERS TAB -->
+    <div *ngIf="activeTab === 'orders'" class="tab-content">
+      <div class="tab-header">
+        <h2>All Orders</h2>
+        <input
+          type="text"
+          placeholder="Search by symbol..."
+          [(ngModel)]="searchText"
+          class="search-input"
+        />
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Symbol</th>
+            <th>Side</th>
+            <th>Quantity</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Created At</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of getFilteredOrders()">
+            <td>{{ order.orderId }}</td>
+            <td>{{ order.symbol }}</td>
+            <td>
+              <span class="badge" [ngClass]="order.side === 'BUY' ? 'buy' : 'sell'">
+                {{ order.side }}
+              </span>
+            </td>
+            <td>{{ order.quantity }}</td>
+            <td>${{ order.price | number: '1.0-2' }}</td>
+            <td>
+              <span class="status-badge" [ngClass]="'status-' + order.status.toLowerCase()">
+                {{ order.status }}
+              </span>
+            </td>
+            <td>{{ order.createdAt | date: 'short' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="getFilteredOrders().length === 0" class="empty-state">
+        No orders found
+      </div>
+    </div>
+  </div>
+</div>

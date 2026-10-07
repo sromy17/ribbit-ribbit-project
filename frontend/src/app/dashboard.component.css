@@ -102,14 +102,6 @@ body {
   gap: 20px;
 }
 
-.left-column {
-  /* Portfolio, Holdings, Trade History */
-}
-
-.right-column {
-  /* Order Form and Recent Orders */
-}
-
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));

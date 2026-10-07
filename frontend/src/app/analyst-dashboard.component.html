@@ -1,0 +1,159 @@
+<header class="header">
+  <div class="header-content">
+    <h1>RibbitRibbit</h1>
+    <div class="header-actions">
+      <span class="user-badge">ANALYST • {{ currentUser?.username }}</span>
+      <button (click)="logout()" class="btn-logout">Logout</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Loading & Error States -->
+  <div *ngIf="error" class="error-banner">
+    {{ error }}
+  </div>
+
+  <div *ngIf="loading" class="loading-full-screen">
+    <p>Loading market analysis...</p>
+  </div>
+
+  <div *ngIf="!loading" class="analyst-dashboard">
+    <!-- Navigation Tabs -->
+    <div class="tabs">
+      <button (click)="activeTab = 'heatmap'" [class.active]="activeTab === 'heatmap'" class="tab-button">
+        Symbol Heatmap
+      </button>
+      <button (click)="activeTab = 'trends'" [class.active]="activeTab === 'trends'" class="tab-button">
+        Market Trends
+      </button>
+    </div>
+
+    <!-- HEATMAP TAB -->
+    <div *ngIf="activeTab === 'heatmap'" class="tab-content">
+      <h2>Trading Popularity Heatmap</h2>
+      <p class="description">Visual representation of the most actively traded symbols based on trade volume and frequency</p>
+
+      <div class="heatmap-container">
+        <div
+          *ngFor="let trend of symbolTrends"
+          class="heatmap-cell"
+          [style.background-color]="getPopularityColor(trend.popularityScore)"
+          [style.opacity]="getPopularityIntensity(trend.popularityScore)"
+          [title]="trend.symbol + ' - Popularity: ' + trend.popularityScore"
+        >
+          <div class="cell-symbol">{{ trend.symbol }}</div>
+          <div class="cell-score">{{ trend.popularityScore }}%</div>
+          <div class="cell-volume">{{ trend.totalVolume }} trades</div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="heatmap-legend">
+        <p class="legend-title">Popularity Scale</p>
+        <div class="legend-items">
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #2e7d32"></div>
+            <span>Very High (80-100)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #66bb6a"></div>
+            <span>High (60-79)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #fff176"></div>
+            <span>Medium (40-59)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #ffb74d"></div>
+            <span>Low (20-39)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #ef5350"></div>
+            <span>Very Low (0-19)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Symbol Details Table -->
+      <div class="section">
+        <h3>Symbol Trading Statistics</h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Trade Count</th>
+              <th>Total Volume</th>
+              <th>Avg Price</th>
+              <th>Buy / Sell Ratio</th>
+              <th>Popularity</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let trend of symbolTrends">
+              <td><strong>{{ trend.symbol }}</strong></td>
+              <td>{{ trend.tradeCount }}</td>
+              <td>{{ trend.totalVolume }}</td>
+              <td>${{ trend.avgPrice | number: '1.0-2' }}</td>
+              <td>{{ trend.buyCount }} / {{ trend.sellCount }}</td>
+              <td>
+                <div class="popularity-bar">
+                  <div class="popularity-fill" [style.width.%]="trend.popularityScore"></div>
+                  <span class="popularity-text">{{ trend.popularityScore }}%</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TRENDS TAB -->
+    <div *ngIf="activeTab === 'trends'" class="tab-content">
+      <h2>Market Trends Over Time</h2>
+      <p class="description">Daily market activity showing the most popular symbol and total trading volume</p>
+
+      <div class="trends-grid">
+        <div *ngFor="let trend of marketTrends" class="trend-card">
+          <div class="trend-date">{{ trend.date }}</div>
+          <div class="trend-symbol">
+            <span class="symbol-badge">{{ trend.topSymbol }}</span>
+          </div>
+          <div class="trend-stats">
+            <div class="stat">
+              <span class="stat-label">Trades</span>
+              <span class="stat-value">{{ trend.tradeCount }}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Volume</span>
+              <span class="stat-value">${{ trend.totalVolume | number: '1.0-0' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trends Table -->
+      <div class="section">
+        <h3>Detailed Trend Analysis</h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Top Symbol</th>
+              <th>Trade Count</th>
+              <th>Total Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let trend of marketTrends">
+              <td>{{ trend.date }}</td>
+              <td><strong>{{ trend.topSymbol }}</strong></td>
+              <td>{{ trend.tradeCount }}</td>
+              <td>${{ trend.totalVolume | number: '1.0-0' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
