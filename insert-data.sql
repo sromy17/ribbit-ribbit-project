@@ -56,10 +56,15 @@ INSERT INTO disputed_orders (disputeid, requestid, status, employeeid, category,
 
 -- Insert data into CANCELED_ORDER table
 INSERT INTO canceled_order (cancel_id, request_id, reason, cancel_date) VALUES
-(5001, 2007, 'insufficent_funds', '2024-09-23');
+(5001, 2007, 'ooops! Misclick!', '2024-09-23');
+
+-- Insert data into REJECTED_ORDERS table (if exists)
+INSERT INTO rejected_orders (reject_id, request_id, reason, reject_date) VALUES
+(7001, 2004, 'Insufficient funds', '2024-09-22'),
+(7002, 2005, 'Market closed', '2024-09-22');
 
 -- Insert data into SUPPORT_TICKET table
-INSERT INTO support_ticket (ticket_id, accountid, reason, status, assigned_to) VALUES
-(6001, 101, 'Account verification issue', 'OPEN', NULL),
-(6002, 102, 'Withdrawal delayed', 'IN_PROGRESS', 2),
-(6003, 103, 'Trade settlement discrepancy', 'RESOLVED', 3);
+INSERT INTO support_ticket (ticket_id, accountid, reason, status, assigned_to, created_at, closed_at) VALUES
+(6001, 101, 'Account verification issue', 'OPEN', NULL, '2024-09-20 10:30:00', NULL),
+(6002, 102, 'Withdrawal delayed', 'IN_PROGRESS', 2, '2024-09-21 14:15:00', NULL),
+(6003, 103, 'Trade settlement discrepancy', 'RESOLVED', 3, '2024-09-21 09:45:00', '2024-09-22 16:20:00');
