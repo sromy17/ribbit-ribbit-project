@@ -26,19 +26,9 @@ public class OrderValidator {
     public ValidationResult validate(OrderSide side, Integer quantity, BigDecimal price, BigDecimal cashBalance, BigDecimal fees) {
         // throw error instead?
         // more beneficial to do like this if we want to store the result
-        if (side == null) {
-            return ValidationResult.invalid("Order side is required");
-        }
-        if (quantity == null || quantity <= 0) {
-            return ValidationResult.invalid("Quantity must be greater than zero");
-        }
-        if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
-            return ValidationResult.invalid("Price must be greater than zero");
-        }
         if (cashBalance == null || cashBalance.compareTo(BigDecimal.ZERO) < 0) {
             return ValidationResult.invalid("Account cash balance is invalid");
         }
-
         if (side == OrderSide.BUY) {
             BigDecimal totalCost = price.multiply(BigDecimal.valueOf(quantity)).add(fees);
             if (cashBalance.compareTo(totalCost) < 0) {
@@ -59,14 +49,6 @@ public class OrderValidator {
      * @return ValidationResult indicating success or failure with reason
      */
     public ValidationResult validateSellOrder(OrderSide side, Integer quantity, Holding holding) {
-        if (side != OrderSide.SELL) {
-            return ValidationResult.valid(); // Only validate SELL orders
-        }
-
-        if (quantity == null || quantity <= 0) {
-            return ValidationResult.invalid("Quantity must be greater than zero");
-        }
-
         if (holding == null || holding.getQuantity() == null || holding.getQuantity() <= 0) {
             return ValidationResult.invalid("Insufficient holdings. No position exists for this instrument");
         }

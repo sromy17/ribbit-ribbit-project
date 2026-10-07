@@ -53,7 +53,6 @@ public class DefaultTradingRulesServiceTest {
     @Test
     @DisplayName("Should reject order for null account")
     void testValidateOrderSubmission_NullAccount() {
-        Instrument instrument = createTestInstrument("AAPL", InstrumentStatus.ACTIVE);
 
         ValidationResult result = tradingRulesService.validateAccountStatus(null);
 
