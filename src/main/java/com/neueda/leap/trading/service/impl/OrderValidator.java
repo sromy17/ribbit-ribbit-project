@@ -24,6 +24,8 @@ public class OrderValidator {
      * BR-05: Every order must be checked against trading rules before acceptance.
      */
     public ValidationResult validate(OrderSide side, Integer quantity, BigDecimal price, BigDecimal cashBalance, BigDecimal fees) {
+        // throw error instead?
+        // more beneficial to do like this if we want to store the result
         if (side == null) {
             return ValidationResult.invalid("Order side is required");
         }
