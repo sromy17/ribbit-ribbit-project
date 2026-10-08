@@ -197,12 +197,13 @@ public class TradingOrderService implements OrderService {
                 newHolding.setAccount(account);
                 newHolding.setInstrument(instrument);
                 newHolding.setQuantity(0);
-                newHolding.setAverageCost(BigDecimal.ZERO);
                 return newHolding;
             });
 
         boolean isBuy = side == OrderSide.BUY;
-        holding.updatePosition(isBuy, quantity, executionPrice);
+        int deltaQty = isBuy ? quantity : -quantity;
+        holding.setQuantity(holding.getQuantity() + deltaQty);
+        holding.setAsOfDate(LocalDate.now());
         holdingRepository.save(holding);
     }
 
@@ -212,5 +213,80 @@ public class TradingOrderService implements OrderService {
 
     private Integer nextTradeId() {
         return tradeRepository.findMaxTradeId() + 1;
+    }
+
+    /**
+     * Recalculates all holdings for a given account by scanning all executed trades.
+     * This method:
+     * - Queries all executed trades for the account
+     * - Groups trades by instrument
+     * - Calculates net quantity (BUY quantities positive, SELL quantities negative)
+     * - Creates or updates holdings records
+     * 
+     * Useful for initial data load, rebuilding out-of-sync holdings, or ETL.
+     */
+    @Transactional
+    public void recalculateHoldingsForAccount(Integer accountId) {
+        TradingAccount account = accountRepository.findById(accountId)
+            .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+
+        // Get all executed trades for this account
+        List<Trade> trades = tradeRepository.findByOrderAccountAccountId(accountId);
+
+        // Group trades by instrument and calculate net quantity
+        java.util.Map<Instrument, Integer> instrumentQuantities = new java.util.HashMap<>();
+
+        for (Trade trade : trades) {
+            Instrument instrument = trade.getInstrument();
+            int quantity = trade.getExecutedQuantity();
+            
+            // Get the side from the order to determine if it's a BUY or SELL
+            OrderSide side = trade.getOrder().getSide();
+            
+            // Add or subtract quantity based on order side
+            if (side == OrderSide.BUY) {
+                instrumentQuantities.put(instrument, instrumentQuantities.getOrDefault(instrument, 0) + quantity);
+            } else {
+                instrumentQuantities.put(instrument, instrumentQuantities.getOrDefault(instrument, 0) - quantity);
+            }
+        }
+
+        // Create or update holdings for each instrument
+        LocalDate today = LocalDate.now();
+        for (java.util.Map.Entry<Instrument, Integer> entry : instrumentQuantities.entrySet()) {
+            Instrument instrument = entry.getKey();
+            Integer netQuantity = entry.getValue();
+
+            // Only create holding if quantity is positive
+            if (netQuantity > 0) {
+                Holding holding = holdingRepository
+                    .findByAccountAccountIdAndInstrumentInstrumentId(accountId, instrument.getInstrumentId())
+                    .orElseGet(() -> {
+                        Holding newHolding = new Holding();
+                        newHolding.setAccount(account);
+                        newHolding.setInstrument(instrument);
+                        return newHolding;
+                    });
+
+                holding.setQuantity(netQuantity);
+                holding.setAsOfDate(today);
+                holdingRepository.save(holding);
+            } else if (netQuantity <= 0) {
+                // Delete holding if quantity drops to zero or goes negative (shouldn't happen)
+                holdingRepository.deleteByAccountAccountIdAndInstrumentInstrumentId(accountId, instrument.getInstrumentId());
+            }
+        }
+    }
+
+    /**
+     * Recalculates holdings for ALL accounts by scanning all executed trades.
+     * This is the batch operation used by ETL to keep OLTP holdings in sync.
+     */
+    @Transactional
+    public void recalculateHoldingsForAllAccounts() {
+        List<TradingAccount> allAccounts = accountRepository.findAll();
+        for (TradingAccount account : allAccounts) {
+            recalculateHoldingsForAccount(account.getAccountId());
+        }
     }
 }

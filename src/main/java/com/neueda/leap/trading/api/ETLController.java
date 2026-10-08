@@ -30,6 +30,12 @@ public class ETLController {
         olapETLService.executeAccountsInfo();
         return ResponseEntity.ok("Accounts info loading initiated");
     }
+
+    @PostMapping("/trigger-holdings-from-trades")
+    public ResponseEntity<String> triggerRecalculateHoldingsFromTrades() {
+        olapETLService.recalculateHoldingsFromTrades();
+        return ResponseEntity.ok("Holdings recalculated from trades and loaded to OLAP");
+    }
     
     @PostMapping("/trigger-holdings")
     public ResponseEntity<String> triggerHoldingsCalculation() {

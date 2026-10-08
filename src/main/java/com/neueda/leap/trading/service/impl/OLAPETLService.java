@@ -7,7 +7,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 @Service
 public class OLAPETLService {
@@ -16,6 +15,9 @@ public class OLAPETLService {
     
     @Autowired
     private OLAPMapper olapMapper;
+
+    @Autowired
+    private TradingOrderService tradingOrderService;
     
     @Transactional
     public void executeTradeFacts() {
@@ -56,13 +58,52 @@ public class OLAPETLService {
         }
     }
     
+    /**
+     * Recalculates holdings in OLTP by scanning all executed trades.
+     * This ensures holdings reflect accurate position data by grouping trades by instrument.
+     * Complements the incremental update that happens at trade execution time.
+     */
+    @Transactional
+    public void recalculateHoldingsFromTrades() {
+        try {
+            logger.info("Recalculating OLTP holdings from executed trades...");
+            tradingOrderService.recalculateHoldingsForAllAccounts();
+            logger.info("✓ Holdings recalculated from executed trades");
+        } catch (Exception e) {
+            logger.error("Error recalculating holdings from trades", e);
+            throw new OLAPETLException("Failed to recalculate holdings", e);
+        }
+    }
+
+    /**
+     * Loads holdings from OLTP to OLAP data warehouse.
+     * This creates the denormalized holdings_info table in the OLAP database.
+     */
+    @Transactional
+    public void loadHoldingsToOLAP() {
+        try {
+            logger.info("Loading holdings_info to OLAP...");
+            olapMapper.truncateHoldingsInfo();
+            int rowsInserted = olapMapper.loadHoldingsInfo();
+            logger.info("✓ Loaded {} holdings to OLAP", rowsInserted);
+        } catch (Exception e) {
+            logger.error("Error loading holdings to OLAP", e);
+            throw new OLAPETLException("Failed to load holdings to OLAP", e);
+        }
+    }
+
+    /**
+     * Calculates holdings (combines OLTP recalculation + OLAP sync).
+     * This is the main holdings calculation entry point.
+     */
     @Transactional
     public void calculateHoldings() {
         try {
-            logger.info("Calculating holdings from executed trades...");
-            olapMapper.truncateHoldingsInfo();
-            int rowsInserted = olapMapper.loadHoldingsInfo();
-            logger.info("✓ Calculated {} holdings", rowsInserted);
+            // First, recalculate holdings in OLTP by scanning all trades
+            recalculateHoldingsFromTrades();
+            
+            // Then, sync those holdings to OLAP
+            loadHoldingsToOLAP();
         } catch (Exception e) {
             logger.error("Error calculating holdings", e);
             throw new OLAPETLException("Failed to calculate holdings", e);
