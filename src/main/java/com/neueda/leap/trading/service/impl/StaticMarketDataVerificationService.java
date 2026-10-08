@@ -32,7 +32,7 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
         @Value("${market-data.fauxnance.api-key:}") String apiKey,
         @Value("${market-data.fauxnance.use-order-price-fallback:true}") boolean useOrderPriceFallback
     ) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this.restClient = restClientBuilder.baseUrl(baseUrl != null ? baseUrl : "").build();
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;
         this.useOrderPriceFallback = useOrderPriceFallback;

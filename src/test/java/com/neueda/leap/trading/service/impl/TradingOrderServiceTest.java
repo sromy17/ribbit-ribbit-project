@@ -32,6 +32,7 @@ import com.neueda.leap.trading.repository.jpa.TradingAccountRepository;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderReadMapper;
 import com.neueda.leap.trading.service.contract.FeeCalculator;
 import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
+import com.neueda.leap.trading.service.contract.TradingRulesService;
 
 @ExtendWith(MockitoExtension.class)
 class TradingOrderServiceTest {
@@ -58,6 +59,9 @@ class TradingOrderServiceTest {
     private MarketDataVerificationService marketDataVerificationService;
 
     @Mock
+    private TradingRulesService tradingRulesService;
+
+    @Mock
     private AccountOrderReadMapper readMapper;
 
     private TradingOrderService tradingOrderService;
@@ -73,6 +77,7 @@ class TradingOrderServiceTest {
             feeCalculator,
             marketDataVerificationService,
             new OrderValidator(),
+            tradingRulesService,
             readMapper
         );
     }
@@ -90,6 +95,9 @@ class TradingOrderServiceTest {
         when(instrumentRepository.findByTickerIgnoreCase("AAPL")).thenReturn(Optional.of(instrument));
         when(orderRepository.findMaxOrderId()).thenReturn(99);
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        // BR-05: Mock trading rules validation to pass
+        when(tradingRulesService.validateOrderSubmission(any(), any(), any(), any(), any()))
+            .thenReturn(ValidationResult.valid());
 
         CreateOrderRequest request = new CreateOrderRequest(
             10,
