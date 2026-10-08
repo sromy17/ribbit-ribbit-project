@@ -60,8 +60,8 @@ INSERT INTO canceled_order (cancel_id, request_id, reason, cancel_date) VALUES
 
 -- Insert data into REJECTED_ORDERS table (if exists)
 INSERT INTO rejected_orders (reject_id, request_id, reason, reject_date) VALUES
-(7001, 2004, 'Insufficient funds', '2024-09-22'),
-(7002, 2005, 'Market closed', '2024-09-22');
+(7001, 2004, 'insufficient_funds', '2024-09-22'),
+(7002, 2005, 'unavailable_ticker', '2024-09-22');
 
 -- Insert data into SUPPORT_TICKET table
 INSERT INTO support_ticket (ticket_id, accountid, reason, status, assigned_to, created_at, closed_at) VALUES
