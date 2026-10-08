@@ -76,7 +76,7 @@ employeeid int DEFAULT NULL REFERENCES employees(employeeid),
 category VARCHAR(20) CHECK (category IN ('Fraud', 'Accident', 'Incorrect transfer')),
 reason VARCHAR(75)
 );
-// table for orders canceled by the user itself
+-- table for orders canceled by the user itself
 CREATE TABLE canceled_order
 (
 cancel_id INT PRIMARY KEY NOT NULL,
@@ -96,16 +96,16 @@ assigned_to INT REFERENCES employees(employeeid),
 closed_at TIMESTAMP DEFAULT NULL
 );
 
-// table for orders rejected by the system
+-- table for orders rejected by the system
 CREATE TABLE rejected_orders
 (
 reject_id INT PRIMARY KEY NOT NULL,
 request_id INT REFERENCES trade_request(requestid) NOT NULL,
-reason VARCHAR(20) CHECK (reason IN ('insufficient_funds', 'unavailable_ticker', )),
+reason VARCHAR(20) CHECK (reason IN ('insufficient_funds', 'unavailable_ticker')),
 reject_date DATE NOT NULL
 );
 
-// table for current holdings of each account - reflects the quantity of each instrument held by the account as of a specific date
+-- table for current holdings of each account - reflects the quantity of each instrument held by the account as of a specific date
 CREATE TABLE holdings
 (
 accountid INT NOT NULL REFERENCES accounts(accountid),
