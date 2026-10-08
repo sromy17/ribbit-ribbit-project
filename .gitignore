@@ -6,4 +6,6 @@
 **/.project
 **/.settings/
 **/src/main/resources/application-local.yml
+**/PHASE_2_QUICK_REFERENCE.md
+**/PHASE_2_IMPLEMENTATION.md
 .env
