@@ -3,6 +3,7 @@ package com.neueda.leap.trading.service.impl;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 
 import com.neueda.leap.trading.service.contract.FeeCalculator;
 import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
@@ -66,7 +67,8 @@ public class TradingOrderService implements OrderService {
     @Override
     @Transactional
     public ProcessOrderResponse executeOrder(Integer orderId) {
-        Order order = orderRepository.findById(orderId)
+        Integer requiredOrderId = Objects.requireNonNull(orderId, "orderId must not be null");
+        Order order = orderRepository.findById(requiredOrderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
 
         if (order.getStatus() != OrderStatus.PENDING) {
@@ -121,7 +123,8 @@ public class TradingOrderService implements OrderService {
     @Override
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
-        TradingAccount account = accountRepository.findById(request.accountId())
+        Integer accountId = Objects.requireNonNull(request.accountId(), "accountId must not be null");
+        TradingAccount account = accountRepository.findById(accountId)
             .orElseThrow(() -> new IllegalArgumentException("Account not found: " + request.accountId()));
 
         Instrument instrument = instrumentRepository.findByTickerIgnoreCase(request.ticker())
@@ -162,7 +165,8 @@ public class TradingOrderService implements OrderService {
     @Override
     @Transactional
     public void cancelOrder(Integer orderId) {
-        Order order = orderRepository.findById(orderId)
+        Integer requiredOrderId = Objects.requireNonNull(orderId, "orderId must not be null");
+        Order order = orderRepository.findById(requiredOrderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
         order.cancel();
         orderRepository.save(order);

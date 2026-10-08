@@ -34,6 +34,7 @@ import com.neueda.leap.trading.service.contract.FeeCalculator;
 import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings({"null"})
 class TradingOrderServiceTest {
 
     @Mock
@@ -89,7 +90,7 @@ class TradingOrderServiceTest {
         when(accountRepository.findById(10)).thenReturn(Optional.of(account));
         when(instrumentRepository.findByTickerIgnoreCase("AAPL")).thenReturn(Optional.of(instrument));
         when(orderRepository.findMaxOrderId()).thenReturn(99);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0, Order.class));
 
         CreateOrderRequest request = new CreateOrderRequest(
             10,

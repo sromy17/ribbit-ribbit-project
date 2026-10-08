@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,6 +28,7 @@ import com.neueda.leap.trading.repository.mybatis.AccountOrderSummary;
 import com.neueda.leap.trading.service.contract.OrderService;
 
 @WebMvcTest(OrderController.class)
+@SuppressWarnings("null")
 class OrderControllerTest {
 
     @Autowired
@@ -59,6 +61,11 @@ class OrderControllerTest {
         );
 
         mockMvc.perform(post("/accounts/1/orders")
+                .with(jwt().jwt(jwt -> jwt
+                    .claim("sub", "user-123")
+                    .claim("aud", java.util.List.of("authenticated"))
+                    .issuer("https://YOUR-PROJECT-REF.supabase.co/auth/v1")
+                ))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isCreated())
@@ -77,7 +84,12 @@ class OrderControllerTest {
 
         when(orderService.getOrders(1)).thenReturn(List.of(order));
 
-        mockMvc.perform(delete("/accounts/1/orders/101/status"))
+        mockMvc.perform(delete("/accounts/1/orders/101/status")
+                .with(jwt().jwt(jwt -> jwt
+                    .claim("sub", "user-123")
+                    .claim("aud", java.util.List.of("authenticated"))
+                    .issuer("https://YOUR-PROJECT-REF.supabase.co/auth/v1")
+                )))
             .andExpect(status().isNoContent());
 
         verify(orderService).cancelOrder(101);
@@ -87,7 +99,12 @@ class OrderControllerTest {
     void cancelOrder_returnsNotFoundWhenOrderDoesNotBelongToAccount() throws Exception {
         when(orderService.getOrders(1)).thenReturn(List.of());
 
-        mockMvc.perform(delete("/accounts/1/orders/999/status"))
+        mockMvc.perform(delete("/accounts/1/orders/999/status")
+                .with(jwt().jwt(jwt -> jwt
+                    .claim("sub", "user-123")
+                    .claim("aud", java.util.List.of("authenticated"))
+                    .issuer("https://YOUR-PROJECT-REF.supabase.co/auth/v1")
+                )))
             .andExpect(status().isNotFound());
 
         verify(orderService, never()).cancelOrder(999);

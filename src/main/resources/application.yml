@@ -8,8 +8,14 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        format_sql: true
+        "[format_sql]": true
     open-in-view: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${app.security.supabase.issuer-uri}
+          jwk-set-uri: ${app.security.supabase.jwk-set-uri}
 
 mybatis:
   configuration:
@@ -17,7 +23,14 @@ mybatis:
 
 logging:
   level:
-    com.neueda.leap: INFO
+    "[com.neueda.leap]": INFO
+
+app:
+  security:
+    supabase:
+      issuer-uri: ${SUPABASE_ISSUER_URI:https://YOUR-PROJECT-REF.supabase.co/auth/v1}
+      jwk-set-uri: ${SUPABASE_JWK_SET_URI:https://YOUR-PROJECT-REF.supabase.co/auth/v1/.well-known/jwks.json}
+      audience: ${SUPABASE_AUDIENCE:authenticated}
 
 market-data:
   fauxnance:

@@ -2,6 +2,7 @@ package com.neueda.leap.trading.api;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -18,6 +19,7 @@ import com.neueda.leap.trading.domain.User;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
 
 @WebMvcTest(UserController.class)
+@SuppressWarnings("null")
 class UserControllerTest {
 
     @Autowired
@@ -42,6 +44,11 @@ class UserControllerTest {
         CreateUserRequest request = new CreateUserRequest("alice", "secret");
 
         mockMvc.perform(post("/users")
+                .with(jwt().jwt(jwt -> jwt
+                    .claim("sub", "user-123")
+                    .claim("aud", java.util.List.of("authenticated"))
+                    .issuer("https://YOUR-PROJECT-REF.supabase.co/auth/v1")
+                ))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isCreated())

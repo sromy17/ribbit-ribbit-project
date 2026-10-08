@@ -1,5 +1,7 @@
 package com.neueda.leap.trading.api;
 
+import java.util.Objects;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,7 +37,8 @@ public class UserController {
 
     @PutMapping("/users/{userId}")
     public User updateUser(@PathVariable("userId") Integer userId, @Valid @RequestBody UpdateUserRequest request) {
-        User user = userRepository.findById(userId)
+        Integer requiredUserId = Objects.requireNonNull(userId, "userId must not be null");
+        User user = userRepository.findById(requiredUserId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
 
         user.updateProfile(request.username());

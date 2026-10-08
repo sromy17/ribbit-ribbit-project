@@ -3,6 +3,7 @@ package com.neueda.leap.trading.api;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -48,7 +49,8 @@ public class AccountController {
     @PostMapping("/accounts")
     @ResponseStatus(HttpStatus.CREATED)
     public TradingAccount createAccount(@Valid @RequestBody CreateAccountRequest request) {
-        User user = userRepository.findById(request.userId())
+        Integer userId = Objects.requireNonNull(request.userId(), "userId must not be null");
+        User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + request.userId()));
 
         TradingAccount account = new TradingAccount();
@@ -61,7 +63,8 @@ public class AccountController {
 
     @GetMapping("/accounts/{accountId}")
     public TradingAccount getAccount(@PathVariable("accountId") Integer accountId) {
-        return accountRepository.findById(accountId)
+        Integer requiredAccountId = Objects.requireNonNull(accountId, "accountId must not be null");
+        return accountRepository.findById(requiredAccountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId));
     }
 
@@ -70,7 +73,8 @@ public class AccountController {
         @PathVariable("accountId") Integer accountId,
         @Valid @RequestBody UpdateAccountRequest request
     ) {
-        TradingAccount account = accountRepository.findById(accountId)
+        Integer requiredAccountId = Objects.requireNonNull(accountId, "accountId must not be null");
+        TradingAccount account = accountRepository.findById(requiredAccountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId));
 
         account.setType(request.accountType());
@@ -80,15 +84,17 @@ public class AccountController {
     @DeleteMapping("/accounts/{accountId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAccount(@PathVariable("accountId") Integer accountId) {
-        TradingAccount account = accountRepository.findById(accountId)
+        Integer requiredAccountId = Objects.requireNonNull(accountId, "accountId must not be null");
+        TradingAccount account = accountRepository.findById(requiredAccountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId));
 
-        accountRepository.delete(account);
+        accountRepository.delete(Objects.requireNonNull(account, "account must not be null"));
     }
 
     @GetMapping("/accounts/{accountId}/balance")
     public Map<String, Object> getBalance(@PathVariable("accountId") Integer accountId) {
-        TradingAccount account = accountRepository.findById(accountId)
+        Integer requiredAccountId = Objects.requireNonNull(accountId, "accountId must not be null");
+        TradingAccount account = accountRepository.findById(requiredAccountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId));
 
         return Map.of(
@@ -102,7 +108,8 @@ public class AccountController {
         @PathVariable("accountId") Integer accountId,
         @Valid @RequestBody UpdateBalanceRequest request
     ) {
-        TradingAccount account = accountRepository.findById(accountId)
+        Integer requiredAccountId = Objects.requireNonNull(accountId, "accountId must not be null");
+        TradingAccount account = accountRepository.findById(requiredAccountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId));
 
         account.setAvailableFunds(request.cashBalance());
@@ -116,19 +123,21 @@ public class AccountController {
 
     @GetMapping("/accounts/{accountId}/holdings")
     public List<Holding> getHoldings(@PathVariable("accountId") Integer accountId) {
-        if (!accountRepository.existsById(accountId)) {
+        Integer requiredAccountId = Objects.requireNonNull(accountId, "accountId must not be null");
+        if (!accountRepository.existsById(requiredAccountId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
         }
 
-        return holdingRepository.findByAccountAccountId(accountId);
+        return holdingRepository.findByAccountAccountId(requiredAccountId);
     }
 
     @GetMapping("/accounts/{accountId}/trades")
     public List<Trade> getTrades(@PathVariable("accountId") Integer accountId) {
-        if (!accountRepository.existsById(accountId)) {
+        Integer requiredAccountId = Objects.requireNonNull(accountId, "accountId must not be null");
+        if (!accountRepository.existsById(requiredAccountId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
         }
 
-        return tradeRepository.findByOrderAccountAccountId(accountId);
+        return tradeRepository.findByOrderAccountAccountId(requiredAccountId);
     }
 }

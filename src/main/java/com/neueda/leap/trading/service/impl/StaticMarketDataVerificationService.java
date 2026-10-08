@@ -3,6 +3,7 @@ package com.neueda.leap.trading.service.impl;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Locale;
+import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,7 +33,7 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
         @Value("${market-data.fauxnance.api-key:}") String apiKey,
         @Value("${market-data.fauxnance.use-order-price-fallback:true}") boolean useOrderPriceFallback
     ) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this.restClient = restClientBuilder.baseUrl(Objects.requireNonNull(baseUrl, "baseUrl must not be null")).build();
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;
         this.useOrderPriceFallback = useOrderPriceFallback;
