@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  postgres:
+  postgres-oltp:
     image: postgres:16-alpine
-    container_name: ribbit-postgres
+    container_name: ribbit-postgres-oltp
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -13,7 +13,27 @@ services:
     volumes:
       - ./basedSchema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./insert-data.sql:/docker-entrypoint-initdb.d/02-data.sql
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_oltp_data:/var/lib/postgresql/data
+    networks:
+      - ribbit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-olap:
+    image: postgres:16-alpine
+    container_name: ribbit-postgres-olap
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_OLAP:-trading_olap}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./olap-schema.sql:/docker-entrypoint-initdb.d/01-olap-schema.sql
+      - postgres_olap_data:/var/lib/postgresql/data
     networks:
       - ribbit-network
     healthcheck:
@@ -28,19 +48,25 @@ services:
       dockerfile: Dockerfile
     container_name: ribbit-springboot
     depends_on:
-      postgres:
+      postgres-oltp:
+        condition: service_healthy
+      postgres-olap:
         condition: service_healthy
     environment:
       DB_URL: ${DB_URL}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
+      OLAP_DB_URL: ${OLAP_DB_URL}
+      OLAP_DB_USER: ${POSTGRES_USER}
+      OLAP_DB_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "8082:8080"
     networks:
       - ribbit-network
 
 volumes:
-  postgres_data:
+  postgres_oltp_data:
+  postgres_olap_data:
 
 networks:
   ribbit-network:

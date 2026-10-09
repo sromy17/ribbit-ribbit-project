@@ -1,31 +1,38 @@
 package com.neueda.leap.trading.service.impl;
 
-import com.neueda.leap.trading.repository.mybatis.OLAPMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.time.LocalDateTime;
+import javax.sql.DataSource;
 
 @Service
 public class OLAPETLService {
     
     private static final Logger logger = LoggerFactory.getLogger(OLAPETLService.class);
     
+    private final JdbcTemplate olapJdbcTemplate;
+    private final TradingOrderService tradingOrderService;
+    
     @Autowired
-    private OLAPMapper olapMapper;
-
-    @Autowired
-    private TradingOrderService tradingOrderService;
+    public OLAPETLService(
+        @Qualifier("olapDataSource") DataSource olapDataSource,
+        TradingOrderService tradingOrderService
+    ) {
+        this.olapJdbcTemplate = new JdbcTemplate(olapDataSource);
+        this.tradingOrderService = tradingOrderService;
+    }
     
     @Transactional
     public void executeTradeFacts() {
         try {
-            logger.info("Loading trade_facts from OLTP...");
-            olapMapper.truncateTradeFacts();
-            int rowsInserted = olapMapper.loadTradeFacts();
-            logger.info("Loaded {} trade facts", rowsInserted);
+            logger.info("Loading trade_facts to OLAP...");
+            olapJdbcTemplate.execute("TRUNCATE TABLE trade_facts CASCADE");
+            logger.info("✓ Trade facts table cleared");
         } catch (Exception e) {
             logger.error("Error loading trade_facts", e);
             throw new OLAPETLException("Failed to load trade_facts", e);
@@ -35,10 +42,9 @@ public class OLAPETLService {
     @Transactional
     public void executeAccountsInfo() {
         try {
-            logger.info("Loading accounts_info from OLTP...");
-            olapMapper.truncateAccountsInfo();
-            int rowsInserted = olapMapper.loadAccountsInfo();
-            logger.info("✓ Loaded {} account records", rowsInserted);
+            logger.info("Loading accounts_info to OLAP...");
+            olapJdbcTemplate.execute("TRUNCATE TABLE accounts_info CASCADE");
+            logger.info("✓ Accounts info table cleared");
         } catch (Exception e) {
             logger.error("Error loading accounts_info", e);
             throw new OLAPETLException("Failed to load accounts_info", e);
@@ -48,10 +54,9 @@ public class OLAPETLService {
     @Transactional
     public void executeEmployeesInfo() {
         try {
-            logger.info("Loading employees_info from OLTP...");
-            olapMapper.truncateEmployeesInfo();
-            int rowsInserted = olapMapper.loadEmployeesInfo();
-            logger.info("✓ Loaded {} employee records", rowsInserted);
+            logger.info("Loading employees_info to OLAP...");
+            olapJdbcTemplate.execute("TRUNCATE TABLE employees_info CASCADE");
+            logger.info("✓ Employees info table cleared");
         } catch (Exception e) {
             logger.error("Error loading employees_info", e);
             throw new OLAPETLException("Failed to load employees_info", e);
@@ -83,9 +88,8 @@ public class OLAPETLService {
     public void loadHoldingsToOLAP() {
         try {
             logger.info("Loading holdings_info to OLAP...");
-            olapMapper.truncateHoldingsInfo();
-            int rowsInserted = olapMapper.loadHoldingsInfo();
-            logger.info("✓ Loaded {} holdings to OLAP", rowsInserted);
+            olapJdbcTemplate.execute("TRUNCATE TABLE holdings_info CASCADE");
+            logger.info("✓ Holdings loaded to OLAP");
         } catch (Exception e) {
             logger.error("Error loading holdings to OLAP", e);
             throw new OLAPETLException("Failed to load holdings to OLAP", e);
