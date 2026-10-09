@@ -174,6 +174,65 @@
         </div>
       </div>
     </div>
+
+    <!-- Market Heatmap Section -->
+    <div class="section full-width">
+      <h2>Market Trading Heatmap</h2>
+      <p class="description">Explore trading activity across different sectors and symbols</p>
+      
+      <!-- Heatmap by Sector -->
+      <div class="sectors-container">
+        <div class="sector" *ngFor="let sector of ['Technology', 'Finance', 'Healthcare', 'Energy', 'Other']">
+          <div class="sector-header">{{ sector }}</div>
+          <div class="sector-heatmap">
+            <div
+              *ngFor="let trend of (symbolTrends | slice:0:20)"
+              [hidden]="getSymbolSector(trend.symbol) !== sector"
+              class="heatmap-cell-treemap"
+              [style.background-color]="getPopularityColor(trend.popularityScore)"
+              [style.opacity]="getPopularityIntensity(trend.popularityScore)"
+              [style.flex-grow]="getSizeMultiplier(trend.popularityScore)"
+              [title]="trend.symbol + ' - Popularity: ' + trend.popularityScore + '% - Volume: ' + trend.totalVolume"
+            >
+              <div class="cell-symbol">{{ trend.symbol }}</div>
+              <div class="cell-score">{{ trend.popularityScore }}%</div>
+              <div class="cell-volume">{{ trend.totalVolume }} trades</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="heatmap-legend">
+        <p class="legend-title">Popularity & Activity Scale</p>
+        <div class="legend-items">
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #1e40af"></div>
+            <span>Very High (85-100%) - Maximum Activity</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #3b82f6"></div>
+            <span>High (70-84%) - Strong Activity</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #06b6d4"></div>
+            <span>Medium-High (55-69%) - Good Activity</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #10b981"></div>
+            <span>Medium (40-54%) - Moderate Activity</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #8b5cf6"></div>
+            <span>Low (25-39%) - Light Activity</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #ec4899"></div>
+            <span>Very Low (&lt;25%) - Minimal Activity</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ADMIN DASHBOARD (PLACEHOLDER) -->

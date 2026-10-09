@@ -32,45 +32,57 @@
     <!-- HEATMAP TAB -->
     <div *ngIf="activeTab === 'heatmap'" class="tab-content">
       <h2>Trading Popularity Heatmap</h2>
-      <p class="description">Visual representation of the most actively traded symbols based on trade volume and frequency</p>
+      <p class="description">Treemap visualization showing trading activity by sector and symbol. Larger blocks indicate higher trading volume.</p>
 
-      <div class="heatmap-container">
-        <div
-          *ngFor="let trend of symbolTrends"
-          class="heatmap-cell"
-          [style.background-color]="getPopularityColor(trend.popularityScore)"
-          [style.opacity]="getPopularityIntensity(trend.popularityScore)"
-          [title]="trend.symbol + ' - Popularity: ' + trend.popularityScore"
-        >
-          <div class="cell-symbol">{{ trend.symbol }}</div>
-          <div class="cell-score">{{ trend.popularityScore }}%</div>
-          <div class="cell-volume">{{ trend.totalVolume }} trades</div>
+      <!-- Heatmap by Sector -->
+      <div class="sectors-container">
+        <div class="sector" *ngFor="let sector of ['Technology', 'Finance', 'Healthcare', 'Energy', 'Other']">
+          <div class="sector-header">{{ sector }}</div>
+          <div class="sector-heatmap">
+            <div
+              *ngFor="let trend of (symbolTrends | slice:0:20)"
+              [hidden]="getSymbolSector(trend.symbol) !== sector"
+              class="heatmap-cell-treemap"
+              [style.background-color]="getPopularityColor(trend.popularityScore)"
+              [style.opacity]="getPopularityIntensity(trend.popularityScore)"
+              [style.flex-grow]="getSizeMultiplier(trend.popularityScore)"
+              [title]="trend.symbol + ' - Popularity: ' + trend.popularityScore + '% - Volume: ' + trend.totalVolume"
+            >
+              <div class="cell-symbol">{{ trend.symbol }}</div>
+              <div class="cell-score">{{ trend.popularityScore }}%</div>
+              <div class="cell-volume">{{ trend.totalVolume }} trades</div>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Legend -->
       <div class="heatmap-legend">
-        <p class="legend-title">Popularity Scale</p>
+        <p class="legend-title">Popularity & Activity Scale</p>
         <div class="legend-items">
           <div class="legend-item">
-            <div class="legend-color" style="background-color: #2e7d32"></div>
-            <span>Very High (80-100)</span>
+            <div class="legend-color" style="background-color: #1e40af"></div>
+            <span>Very High (85-100%) - Maximum Activity</span>
           </div>
           <div class="legend-item">
-            <div class="legend-color" style="background-color: #66bb6a"></div>
-            <span>High (60-79)</span>
+            <div class="legend-color" style="background-color: #3b82f6"></div>
+            <span>High (70-84%) - Strong Activity</span>
           </div>
           <div class="legend-item">
-            <div class="legend-color" style="background-color: #fff176"></div>
-            <span>Medium (40-59)</span>
+            <div class="legend-color" style="background-color: #06b6d4"></div>
+            <span>Medium-High (55-69%) - Good Activity</span>
           </div>
           <div class="legend-item">
-            <div class="legend-color" style="background-color: #ffb74d"></div>
-            <span>Low (20-39)</span>
+            <div class="legend-color" style="background-color: #10b981"></div>
+            <span>Medium (40-54%) - Moderate Activity</span>
           </div>
           <div class="legend-item">
-            <div class="legend-color" style="background-color: #ef5350"></div>
-            <span>Very Low (0-19)</span>
+            <div class="legend-color" style="background-color: #8b5cf6"></div>
+            <span>Low (25-39%) - Light Activity</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #ec4899"></div>
+            <span>Very Low (&lt;25%) - Minimal Activity</span>
           </div>
         </div>
       </div>

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService, User } from './auth.service';
-import { ApiService, InvestorInfo, Trade, Order, PlatformStats } from './api.service';
+import { ApiService, InvestorInfo, Trade, Order, PlatformStats, SymbolTrend } from './api.service';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -22,9 +22,10 @@ export class AdminDashboardComponent implements OnInit {
   trades: Trade[] = [];
   orders: Order[] = [];
   stats: PlatformStats | null = null;
+  symbolTrends: SymbolTrend[] = [];
 
   // UI State
-  activeTab: 'overview' | 'investors' | 'trades' | 'orders' = 'overview';
+  activeTab: 'overview' | 'heatmap' | 'investors' | 'trades' | 'orders' = 'overview';
   searchText = '';
 
   constructor(
@@ -56,6 +57,18 @@ export class AdminDashboardComponent implements OnInit {
       error: (err) => {
         console.error('Error loading stats:', err);
         this.error = 'Failed to load platform stats';
+        this.cdr.detectChanges();
+      }
+    });
+
+    // Load symbol trends (for heatmap)
+    this.api.getSymbolTrends().subscribe({
+      next: (trends) => {
+        this.symbolTrends = trends.sort((a, b) => b.popularityScore - a.popularityScore);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading symbol trends:', err);
         this.cdr.detectChanges();
       }
     });
@@ -120,6 +133,39 @@ export class AdminDashboardComponent implements OnInit {
   getFilteredOrders(): Order[] {
     if (!this.searchText) return this.orders;
     return this.orders.filter((order) => order.symbol.toLowerCase().includes(this.searchText.toLowerCase()));
+  }
+
+  // Get sector for symbol
+  getSymbolSector(symbol: string): string {
+    const techSymbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'TSLA', 'NVIDIA', 'AMD', 'INTEL'];
+    const financeSymbols = ['JPM', 'BAC', 'GS', 'MS', 'AXP', 'PYPL', 'SQ', 'CIB', 'USB', 'WFC'];
+    const healthSymbols = ['JNJ', 'PFE', 'MRK', 'ABBV', 'LLY', 'AbbVie', 'UNH', 'CVS', 'MCK', 'TMDX'];
+    const energySymbols = ['XOM', 'CVX', 'MPC', 'PSX', 'COP', 'SLB', 'EOG', 'MUR', 'FANG', 'DVN'];
+    
+    if (techSymbols.includes(symbol)) return 'Technology';
+    if (financeSymbols.includes(symbol)) return 'Finance';
+    if (healthSymbols.includes(symbol)) return 'Healthcare';
+    if (energySymbols.includes(symbol)) return 'Energy';
+    return 'Other';
+  }
+
+  // Fire gradient heatmap color scheme (hot activity indicator)
+  getPopularityColor(score: number): string {
+    if (score >= 85) return '#dc2626'; // Bright red
+    if (score >= 70) return '#ea580c'; // Red-orange
+    if (score >= 55) return '#f59e0b'; // Orange
+    if (score >= 40) return '#fbbf24'; // Amber
+    if (score >= 25) return '#fce7b8'; // Light amber
+    return '#fffbeb'; // Very light cream
+  }
+
+  // Calculate size multiplier for treemap effect (1x to 3x)
+  getSizeMultiplier(score: number): number {
+    return 1 + (score / 100) * 2;
+  }
+
+  getPopularityIntensity(score: number): number {
+    return 0.8 + (score / 100) * 0.2;
   }
 
   logout() {

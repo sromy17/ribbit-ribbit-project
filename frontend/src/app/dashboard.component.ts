@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService, User } from './auth.service';
-import { ApiService, Holding, Order, Trade } from './api.service';
+import { ApiService, Holding, Order, Trade, SymbolTrend } from './api.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -32,6 +32,7 @@ export class DashboardComponent implements OnInit {
 
   orders: Order[] = [];
   trades: Trade[] = [];
+  symbolTrends: SymbolTrend[] = [];
 
   orderForm = { symbol: '', side: 'BUY', quantity: 0, price: 0 };
   orderFormErrors: { [key: string]: string } = {};
@@ -125,6 +126,18 @@ export class DashboardComponent implements OnInit {
         console.error('Error loading trades:', err);
         this.loadingTrades = false;
         this.cdr.detectChanges();
+      }
+    });
+
+    // Load symbol trends (for heatmap)
+    this.api.getSymbolTrends().subscribe({
+      next: (trends) => {
+        this.symbolTrends = trends.sort((a, b) => b.popularityScore - a.popularityScore);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading symbol trends:', err);
+        // Non-critical error, continue without heatmap data
       }
     });
   }
@@ -241,6 +254,39 @@ export class DashboardComponent implements OnInit {
 
   getTotalValue(): number {
     return this.portfolio.totalValue;
+  }
+
+  // Get sector for symbol
+  getSymbolSector(symbol: string): string {
+    const techSymbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'TSLA', 'NVIDIA', 'AMD', 'INTEL'];
+    const financeSymbols = ['JPM', 'BAC', 'GS', 'MS', 'AXP', 'PYPL', 'SQ', 'CIB', 'USB', 'WFC'];
+    const healthSymbols = ['JNJ', 'PFE', 'MRK', 'ABBV', 'LLY', 'AbbVie', 'UNH', 'CVS', 'MCK', 'TMDX'];
+    const energySymbols = ['XOM', 'CVX', 'MPC', 'PSX', 'COP', 'SLB', 'EOG', 'MUR', 'FANG', 'DVN'];
+    
+    if (techSymbols.includes(symbol)) return 'Technology';
+    if (financeSymbols.includes(symbol)) return 'Finance';
+    if (healthSymbols.includes(symbol)) return 'Healthcare';
+    if (energySymbols.includes(symbol)) return 'Energy';
+    return 'Other';
+  }
+
+  // Fire gradient heatmap color scheme (hot activity indicator)
+  getPopularityColor(score: number): string {
+    if (score >= 85) return '#dc2626'; // Bright red
+    if (score >= 70) return '#ea580c'; // Red-orange
+    if (score >= 55) return '#f59e0b'; // Orange
+    if (score >= 40) return '#fbbf24'; // Amber
+    if (score >= 25) return '#fce7b8'; // Light amber
+    return '#fffbeb'; // Very light cream
+  }
+
+  // Calculate size multiplier for treemap effect (1x to 3x)
+  getSizeMultiplier(score: number): number {
+    return 1 + (score / 100) * 2;
+  }
+
+  getPopularityIntensity(score: number): number {
+    return 0.8 + (score / 100) * 0.2;
   }
 }
 
