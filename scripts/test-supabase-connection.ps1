@@ -171,6 +171,7 @@ if ($SkipAuthFlow) {
             $failed++
         } else {
             Write-Pass "Supabase returned an access token."
+            Write-Info "Access Token: $accessToken"
 
             $authHeaders = @{ "Authorization" = "Bearer $accessToken" }
             $authStatus = Get-StatusCodeForGet -Uri $protectedUri -Headers $authHeaders
