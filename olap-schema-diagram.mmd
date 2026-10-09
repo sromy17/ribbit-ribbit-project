@@ -1,0 +1,51 @@
+erDiagram
+    %% OLAP (Online Analytical Processing) Data Warehouse Schema
+    %% Denormalized for fast analytics queries and reporting
+    %% Fed via ETL pipeline from OLTP database
+
+    TRADE_FACTS {
+        int trade_fact_id PK
+        int executeid
+        int requestid
+        int accountid
+        int instrumentid
+        int userid
+        string username
+        string ticker
+        string side
+        int quantity_requested
+        int quantity_executed
+        numeric bid_price
+        numeric ask_price
+        date execution_date
+        string trade_status
+    }
+
+    ACCOUNTS_INFO {
+        int account_info_id PK
+        int accountid
+        int userid
+        string username
+        numeric available_funds
+        date account_creation_date
+        string account_type
+    }
+
+    HOLDINGS_INFO {
+        int holding_id PK
+        int accountid
+        int instrumentid
+        int quantity
+        date as_of_date
+    }
+
+    EMPLOYEES_INFO {
+        int employee_info_id PK
+        int employeeid
+        int ticket_id
+        string employee_username
+        string ticket_reason
+        timestamp ticket_created_at
+        string ticket_status
+        string employee_roles
+    }

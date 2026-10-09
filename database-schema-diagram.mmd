@@ -1,11 +1,17 @@
 erDiagram
+    %% OLTP (Online Transaction Processing) Database Schema
+    %% Optimized for real-time operations and transactional consistency
+
     USERS ||--o{ ACCOUNTS : has
     ACCOUNTS ||--o{ TRADE_REQUEST : makes
+    ACCOUNTS ||--o{ HOLDINGS : contains
     ACCOUNTS ||--o{ SUPPORT_TICKET : submits
     INSTRUMENTS ||--o{ TRADE_REQUEST : involves
+    INSTRUMENTS ||--o{ HOLDINGS : tracked_by
     TRADE_REQUEST ||--o{ TRADES_EXECUTED : executes
     TRADE_REQUEST ||--o{ DISPUTED_ORDERS : raises
     TRADE_REQUEST ||--o{ CANCELED_ORDER : cancels
+    TRADE_REQUEST ||--o{ REJECTED_ORDERS : rejected_by
     EMPLOYEES ||--o{ DISPUTED_ORDERS : reviews
     EMPLOYEES ||--o{ SUPPORT_TICKET : handles
 
@@ -28,6 +34,13 @@ erDiagram
         int instrumentid PK
         string ticker UK
         string instrumentname
+    }
+
+    HOLDINGS {
+        int accountid PK
+        int instrumentid PK
+        int quantity
+        date as_of_date
     }
 
     TRADE_REQUEST {
@@ -71,6 +84,13 @@ erDiagram
         int request_id FK
         string reason
         date cancel_date
+    }
+
+    REJECTED_ORDERS {
+        int reject_id PK
+        int request_id FK
+        string reason
+        date reject_date
     }
 
     SUPPORT_TICKET {

@@ -1,0 +1,53 @@
+graph LR
+    subgraph OLTP["OLTP Database (Transactional)"]
+        USERS["👤 USERS"]
+        ACCOUNTS["💰 ACCOUNTS"]
+        INSTRUMENTS["📊 INSTRUMENTS"]
+        HOLDINGS["📈 HOLDINGS"]
+        TRADE_REQ["📝 TRADE_REQUEST"]
+        TRADES_EXE["✅ TRADES_EXECUTED"]
+        EMPLOYEES["👨‍💼 EMPLOYEES"]
+        DISPUTES["⚠️ DISPUTED_ORDERS"]
+        CANCELED["❌ CANCELED_ORDER"]
+        REJECTED["🚫 REJECTED_ORDERS"]
+        TICKETS["🎫 SUPPORT_TICKET"]
+    end
+
+    subgraph ETL["ETL Pipeline"]
+        SCHEDULER["⏰ ETL Scheduler"]
+        SERVICE["🔄 OLAPETLService"]
+        CALC["📊 Holdings Calc"]
+    end
+
+    subgraph OLAP["OLAP Data Warehouse (Analytics)"]
+        TRADE_FACTS["📊 TRADE_FACTS<br/>Denormalized"]
+        ACCOUNTS_INFO["💼 ACCOUNTS_INFO<br/>Consolidated"]
+        HOLDINGS_INFO["📈 HOLDINGS_INFO<br/>Position Data"]
+        EMPLOYEES_INFO["👨‍💼 EMPLOYEES_INFO<br/>Support Data"]
+    end
+
+    %% ETL Flow
+    SCHEDULER -->|Cron: Every 6h| SERVICE
+    SERVICE -->|Recalculate| CALC
+    CALC -->|Update| HOLDINGS
+    SERVICE -->|Extract| TRADES_EXE
+    SERVICE -->|Extract| TRADE_REQ
+    SERVICE -->|Extract| USERS
+    SERVICE -->|Extract| ACCOUNTS
+    SERVICE -->|Extract| EMPLOYEES
+    SERVICE -->|Extract| TICKETS
+
+    %% Load to OLAP
+    CALC -->|Load| HOLDINGS_INFO
+    SERVICE -->|Transform & Load| TRADE_FACTS
+    SERVICE -->|Transform & Load| ACCOUNTS_INFO
+    SERVICE -->|Transform & Load| EMPLOYEES_INFO
+
+    %% Styling
+    classDef oltp fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef etl fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef olap fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    
+    class USERS,ACCOUNTS,INSTRUMENTS,HOLDINGS,TRADE_REQ,TRADES_EXE,EMPLOYEES,DISPUTES,CANCELED,REJECTED,TICKETS oltp
+    class SCHEDULER,SERVICE,CALC etl
+    class TRADE_FACTS,ACCOUNTS_INFO,HOLDINGS_INFO,EMPLOYEES_INFO olap

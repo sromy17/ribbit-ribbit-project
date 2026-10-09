@@ -1,3 +1,4 @@
+/*
 package com.neueda.leap.trading.config;
 
 import com.zaxxer.hikari.HikariDataSource;
@@ -16,3 +17,5 @@ public class OLAPDataSourceConfig {
         return new HikariDataSource();
     }
 }
+*/
+// OLAP datasource config disabled - using single database for now

@@ -13,12 +13,6 @@ spring:
         format_sql: true
     open-in-view: false
 
-olap:
-  datasource:
-    url: ${OLAP_DB_URL:jdbc:h2:mem:trading_olap;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}
-    username: ${OLAP_DB_USER:sa}
-    password: ${OLAP_DB_PASSWORD:}
-
 mybatis:
   mapper-locations: classpath*:mapper/**/*.xml
   configuration:

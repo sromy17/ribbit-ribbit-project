@@ -1,7 +1,6 @@
 package com.neueda.leap.trading.service.impl;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,15 +14,15 @@ public class OLAPETLService {
     
     private static final Logger logger = LoggerFactory.getLogger(OLAPETLService.class);
     
-    private final JdbcTemplate olapJdbcTemplate;
+    private final JdbcTemplate jdbcTemplate;
     private final TradingOrderService tradingOrderService;
     
     @Autowired
     public OLAPETLService(
-        @Qualifier("olapDataSource") DataSource olapDataSource,
+        DataSource dataSource,
         TradingOrderService tradingOrderService
     ) {
-        this.olapJdbcTemplate = new JdbcTemplate(olapDataSource);
+        this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.tradingOrderService = tradingOrderService;
     }
     
@@ -31,7 +30,7 @@ public class OLAPETLService {
     public void executeTradeFacts() {
         try {
             logger.info("Loading trade_facts to OLAP...");
-            olapJdbcTemplate.execute("TRUNCATE TABLE trade_facts CASCADE");
+            jdbcTemplate.execute("TRUNCATE TABLE trade_facts CASCADE");
             logger.info("✓ Trade facts table cleared");
         } catch (Exception e) {
             logger.error("Error loading trade_facts", e);
@@ -43,7 +42,7 @@ public class OLAPETLService {
     public void executeAccountsInfo() {
         try {
             logger.info("Loading accounts_info to OLAP...");
-            olapJdbcTemplate.execute("TRUNCATE TABLE accounts_info CASCADE");
+            jdbcTemplate.execute("TRUNCATE TABLE accounts_info CASCADE");
             logger.info("✓ Accounts info table cleared");
         } catch (Exception e) {
             logger.error("Error loading accounts_info", e);
@@ -55,7 +54,7 @@ public class OLAPETLService {
     public void executeEmployeesInfo() {
         try {
             logger.info("Loading employees_info to OLAP...");
-            olapJdbcTemplate.execute("TRUNCATE TABLE employees_info CASCADE");
+            jdbcTemplate.execute("TRUNCATE TABLE employees_info CASCADE");
             logger.info("✓ Employees info table cleared");
         } catch (Exception e) {
             logger.error("Error loading employees_info", e);
@@ -88,7 +87,7 @@ public class OLAPETLService {
     public void loadHoldingsToOLAP() {
         try {
             logger.info("Loading holdings_info to OLAP...");
-            olapJdbcTemplate.execute("TRUNCATE TABLE holdings_info CASCADE");
+            jdbcTemplate.execute("TRUNCATE TABLE holdings_info CASCADE");
             logger.info("✓ Holdings loaded to OLAP");
         } catch (Exception e) {
             logger.error("Error loading holdings to OLAP", e);
