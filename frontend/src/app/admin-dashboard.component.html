@@ -41,7 +41,7 @@
     <!-- HEATMAP TAB -->
     <div *ngIf="activeTab === 'heatmap'" class="tab-content">
       <h2>Trading Popularity Heatmap</h2>
-      <p class="description">Treemap visualization showing trading activity by sector and symbol. Larger blocks indicate higher trading volume.</p>
+      <p class="description">Treemap view: block size tracks traded volume and color reflects buy/sell pressure.</p>
 
       <!-- Heatmap by Sector -->
       <div class="sectors-container">
@@ -52,14 +52,15 @@
               *ngFor="let trend of (symbolTrends | slice:0:20)"
               [hidden]="getSymbolSector(trend.symbol) !== sector"
               class="heatmap-cell-treemap"
-              [style.background-color]="getPopularityColor(trend.popularityScore)"
-              [style.opacity]="getPopularityIntensity(trend.popularityScore)"
-              [style.flex-grow]="getSizeMultiplier(trend.popularityScore)"
-              [title]="trend.symbol + ' - Popularity: ' + trend.popularityScore + '% - Volume: ' + trend.totalVolume"
+              [style.background-color]="getHeatmapColor(trend)"
+              [style.flex-grow]="getSizeMultiplier(trend)"
+              [style.flex-basis.px]="getHeatmapCellSize(trend)"
+              [style.min-height.px]="getHeatmapCellSize(trend)"
+              [title]="getHeatmapTitle(trend)"
             >
               <div class="cell-symbol">{{ trend.symbol }}</div>
               <div class="cell-score">{{ trend.popularityScore }}%</div>
-              <div class="cell-volume">{{ trend.totalVolume }} trades</div>
+              <div class="cell-volume">{{ trend.totalVolume }} vol</div>
             </div>
           </div>
         </div>
@@ -67,31 +68,19 @@
 
       <!-- Legend -->
       <div class="heatmap-legend">
-        <p class="legend-title">Popularity & Activity Scale</p>
+        <p class="legend-title">Reading The Map</p>
         <div class="legend-items">
           <div class="legend-item">
-            <div class="legend-color" style="background-color: #1e40af"></div>
-            <span>Very High (85-100%) - Maximum Activity</span>
+            <div class="legend-color" style="background-color: #1b5e20"></div>
+            <span>Green = Buy pressure (bullish flow)</span>
           </div>
           <div class="legend-item">
-            <div class="legend-color" style="background-color: #3b82f6"></div>
-            <span>High (70-84%) - Strong Activity</span>
+            <div class="legend-color" style="background-color: #b71c1c"></div>
+            <span>Red = Sell pressure (bearish flow)</span>
           </div>
           <div class="legend-item">
-            <div class="legend-color" style="background-color: #06b6d4"></div>
-            <span>Medium-High (55-69%) - Good Activity</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #10b981"></div>
-            <span>Medium (40-54%) - Moderate Activity</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #8b5cf6"></div>
-            <span>Low (25-39%) - Light Activity</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #ec4899"></div>
-            <span>Very Low (&lt;25%) - Minimal Activity</span>
+            <div class="legend-color" style="background-color: #6a6a6a"></div>
+            <span>Larger blocks = more traded volume</span>
           </div>
         </div>
       </div>

@@ -270,23 +270,39 @@ export class DashboardComponent implements OnInit {
     return 'Other';
   }
 
-  // Fire gradient heatmap color scheme (hot activity indicator)
-  getPopularityColor(score: number): string {
-    if (score >= 85) return '#dc2626'; // Bright red
-    if (score >= 70) return '#ea580c'; // Red-orange
-    if (score >= 55) return '#f59e0b'; // Orange
-    if (score >= 40) return '#fbbf24'; // Amber
-    if (score >= 25) return '#fce7b8'; // Light amber
-    return '#fffbeb'; // Very light cream
+  getBuySellDeltaPercent(trend: SymbolTrend): number {
+    const total = trend.buyCount + trend.sellCount;
+    if (!total) return 0;
+    return ((trend.buyCount - trend.sellCount) / total) * 100;
   }
 
-  // Calculate size multiplier for treemap effect (1x to 3x)
-  getSizeMultiplier(score: number): number {
-    return 1 + (score / 100) * 2;
+  getHeatmapColor(trend: SymbolTrend): string {
+    const delta = this.getBuySellDeltaPercent(trend);
+    const intensity = Math.min(Math.abs(delta), 100);
+
+    if (delta >= 0) {
+      const lightness = 42 - intensity * 0.12;
+      return `hsl(148 62% ${Math.max(lightness, 28)}%)`;
+    }
+
+    const lightness = 44 - intensity * 0.12;
+    return `hsl(2 72% ${Math.max(lightness, 30)}%)`;
   }
 
-  getPopularityIntensity(score: number): number {
-    return 0.8 + (score / 100) * 0.2;
+  getSizeMultiplier(trend: SymbolTrend): number {
+    const volumeWeight = Math.min(trend.totalVolume / 550, 2.6);
+    const popularityWeight = trend.popularityScore / 100;
+    return Number((0.9 + volumeWeight + popularityWeight).toFixed(2));
+  }
+
+  getHeatmapCellSize(trend: SymbolTrend): number {
+    return Math.max(54, Math.min(126, 44 + trend.totalVolume * 0.06 + trend.popularityScore * 0.3));
+  }
+
+  getHeatmapTitle(trend: SymbolTrend): string {
+    const delta = this.getBuySellDeltaPercent(trend);
+    const direction = delta >= 0 ? 'Bullish flow' : 'Bearish flow';
+    return `${trend.symbol} | ${direction} ${delta.toFixed(1)}% | Volume ${trend.totalVolume}`;
   }
 }
 

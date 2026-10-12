@@ -541,57 +541,93 @@ export class ApiService {
     return [
       {
         symbol: 'AAPL',
-        tradeCount: 12,
-        totalVolume: 500,
+        tradeCount: 18,
+        totalVolume: 980,
         avgPrice: 150.25,
-        buyCount: 8,
-        sellCount: 4,
-        popularityScore: 92
+        buyCount: 12,
+        sellCount: 6,
+        popularityScore: 95
       },
       {
         symbol: 'NVDA',
-        tradeCount: 10,
-        totalVolume: 250,
+        tradeCount: 16,
+        totalVolume: 820,
         avgPrice: 875.00,
-        buyCount: 6,
-        sellCount: 4,
-        popularityScore: 85
+        buyCount: 7,
+        sellCount: 9,
+        popularityScore: 91
       },
       {
         symbol: 'MSFT',
-        tradeCount: 8,
-        totalVolume: 300,
+        tradeCount: 13,
+        totalVolume: 620,
         avgPrice: 380.50,
-        buyCount: 5,
-        sellCount: 3,
-        popularityScore: 78
+        buyCount: 9,
+        sellCount: 4,
+        popularityScore: 84
       },
       {
         symbol: 'TSLA',
-        tradeCount: 6,
-        totalVolume: 400,
+        tradeCount: 14,
+        totalVolume: 880,
         avgPrice: 248.50,
-        buyCount: 4,
-        sellCount: 2,
-        popularityScore: 72
+        buyCount: 5,
+        sellCount: 9,
+        popularityScore: 87
       },
       {
         symbol: 'AMD',
-        tradeCount: 5,
-        totalVolume: 350,
+        tradeCount: 11,
+        totalVolume: 560,
         avgPrice: 120.75,
-        buyCount: 3,
-        sellCount: 2,
-        popularityScore: 65
+        buyCount: 8,
+        sellCount: 3,
+        popularityScore: 76
       },
       {
         symbol: 'GOOGL',
-        tradeCount: 4,
-        totalVolume: 200,
+        tradeCount: 9,
+        totalVolume: 470,
         avgPrice: 140.75,
+        buyCount: 4,
+        sellCount: 5,
+        popularityScore: 68
+      },
+      {
+        symbol: 'JPM',
+        tradeCount: 10,
+        totalVolume: 410,
+        avgPrice: 194.10,
         buyCount: 3,
-        sellCount: 1,
-        popularityScore: 58
+        sellCount: 7,
+        popularityScore: 63
+      },
+      {
+        symbol: 'PFE',
+        tradeCount: 7,
+        totalVolume: 290,
+        avgPrice: 30.85,
+        buyCount: 5,
+        sellCount: 2,
+        popularityScore: 52
+      },
+      {
+        symbol: 'XOM',
+        tradeCount: 12,
+        totalVolume: 700,
+        avgPrice: 119.35,
+        buyCount: 4,
+        sellCount: 8,
+        popularityScore: 74
+      },
+      {
+        symbol: 'BAC',
+        tradeCount: 8,
+        totalVolume: 260,
+        avgPrice: 41.80,
+        buyCount: 6,
+        sellCount: 2,
+        popularityScore: 49
       }
     ];
   }
