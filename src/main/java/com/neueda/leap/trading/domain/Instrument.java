@@ -36,7 +36,7 @@ public class Instrument {
     private String instrumentName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", length = 20)
     private InstrumentStatus status = InstrumentStatus.ACTIVE;
 
     @JsonIgnore

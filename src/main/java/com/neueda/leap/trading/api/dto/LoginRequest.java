@@ -1,8 +1,8 @@
-package com.neueda.leap.trading.api;
+package com.neueda.leap.trading.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
-public record CreateUserRequest(
+public record LoginRequest(
     @NotBlank String username,
     @NotBlank String password
 ) {
