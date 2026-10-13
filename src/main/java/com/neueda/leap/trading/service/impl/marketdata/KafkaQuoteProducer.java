@@ -9,15 +9,15 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KafkaQuotePublisher {
-    private static final Logger log = LoggerFactory.getLogger(KafkaQuotePublisher.class);
+public class KafkaQuoteProducer {
+    private static final Logger log = LoggerFactory.getLogger(KafkaQuoteProducer.class);
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final boolean kafkaEnabled;
     private final String quoteTopic;
 
-    public KafkaQuotePublisher(
+    public KafkaQuoteProducer(
         KafkaTemplate<String, String> kafkaTemplate,
         ObjectMapper objectMapper,
         @Value("${market-data.kafka.enabled:false}") boolean kafkaEnabled,
@@ -29,7 +29,7 @@ public class KafkaQuotePublisher {
         this.quoteTopic = quoteTopic;
     }
 
-    public void publish(QuoteSnapshot snapshot) {
+    public void produce(QuoteSnapshot snapshot) {
         if (!kafkaEnabled || snapshot == null || snapshot.symbol() == null || snapshot.symbol().isBlank()) {
             return;
         }
@@ -46,7 +46,7 @@ public class KafkaQuotePublisher {
             kafkaTemplate.send(quoteTopic, snapshot.symbol(), payload)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
-                        log.warn("Failed to publish quote for {} to Kafka topic {}", snapshot.symbol(), quoteTopic, ex);
+                        log.warn("Failed to Produce quote for {} to Kafka topic {}", snapshot.symbol(), quoteTopic, ex);
                     }
                 });
         } catch (JsonProcessingException ex) {

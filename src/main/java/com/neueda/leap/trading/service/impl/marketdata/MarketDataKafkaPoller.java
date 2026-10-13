@@ -19,14 +19,14 @@ public class MarketDataKafkaPoller {
 
     private final InstrumentRepository instrumentRepository;
     private final FauxnanceQuoteClient fauxnanceQuoteClient;
-    private final KafkaQuotePublisher kafkaQuotePublisher;
+    private final KafkaQuoteProducer kafkaQuotePublisher;
     private final QuoteCache quoteCache;
     private final boolean kafkaEnabled;
 
     public MarketDataKafkaPoller(
         InstrumentRepository instrumentRepository,
         FauxnanceQuoteClient fauxnanceQuoteClient,
-        KafkaQuotePublisher kafkaQuotePublisher,
+        KafkaQuoteProducer kafkaQuotePublisher,
         QuoteCache quoteCache,
         @Value("${market-data.kafka.enabled:false}") boolean kafkaEnabled
     ) {
@@ -58,7 +58,7 @@ public class MarketDataKafkaPoller {
                 BigDecimal price = fauxnanceQuoteClient.fetchQuote(symbol);
                 QuoteSnapshot snapshot = new QuoteSnapshot(symbol, price, System.currentTimeMillis(), "fauxnance-poller");
                 quoteCache.upsert(snapshot);
-                kafkaQuotePublisher.publish(snapshot);
+                kafkaQuotePublisher.produce(snapshot);
             } catch (RuntimeException ex) {
                 log.debug("Skipping quote publish for symbol {} due to polling error", symbol, ex);
             }

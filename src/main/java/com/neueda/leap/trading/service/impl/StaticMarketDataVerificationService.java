@@ -5,7 +5,7 @@ import java.time.Duration;
 import java.util.Locale;
 
 import com.neueda.leap.trading.service.impl.marketdata.FauxnanceQuoteClient;
-import com.neueda.leap.trading.service.impl.marketdata.KafkaQuotePublisher;
+import com.neueda.leap.trading.service.impl.marketdata.KafkaQuoteProducer;
 import com.neueda.leap.trading.service.impl.marketdata.QuoteCache;
 import com.neueda.leap.trading.service.impl.marketdata.QuoteSnapshot;
 import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
@@ -22,20 +22,20 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
 
     private final FauxnanceQuoteClient fauxnanceQuoteClient;
     private final QuoteCache quoteCache;
-    private final KafkaQuotePublisher kafkaQuotePublisher;
+    private final KafkaQuoteProducer kafkaQuoteProducer;
     private final boolean useOrderPriceFallback;
     private final long quoteCacheMaxAgeMs;
 
     public StaticMarketDataVerificationService(
         FauxnanceQuoteClient fauxnanceQuoteClient,
         QuoteCache quoteCache,
-        KafkaQuotePublisher kafkaQuotePublisher,
+        KafkaQuoteProducer kafkaQuoteProducer,
         @Value("${market-data.fauxnance.use-order-price-fallback:true}") boolean useOrderPriceFallback,
         @Value("${market-data.kafka.quote-cache-max-age-ms:1500}") long quoteCacheMaxAgeMs
     ) {
         this.fauxnanceQuoteClient = fauxnanceQuoteClient;
         this.quoteCache = quoteCache;
-        this.kafkaQuotePublisher = kafkaQuotePublisher;
+        this.kafkaQuoteProducer = kafkaQuoteProducer;
         this.useOrderPriceFallback = useOrderPriceFallback;
         this.quoteCacheMaxAgeMs = quoteCacheMaxAgeMs;
     }
@@ -54,7 +54,7 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
             BigDecimal livePrice = fauxnanceQuoteClient.fetchQuote(symbol);
             QuoteSnapshot snapshot = new QuoteSnapshot(symbol, livePrice, System.currentTimeMillis(), "fauxnance-sync");
             quoteCache.upsert(snapshot);
-            kafkaQuotePublisher.publish(snapshot);
+            kafkaQuoteProducer.produce(snapshot);
             return livePrice;
         } catch (RuntimeException ex) {
             return fallbackToOrderPrice(order, "Failed to retrieve market data for symbol " + symbol + ": " + ex.getMessage(), ex);
