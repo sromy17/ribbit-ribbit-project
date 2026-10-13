@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Objects;
+
 @Component
 public class KafkaQuoteProducer {
     private static final Logger log = LoggerFactory.getLogger(KafkaQuoteProducer.class);
@@ -38,15 +40,18 @@ public class KafkaQuoteProducer {
             return;
         }
 
+        final String topic = Objects.requireNonNull(quoteTopic);
+        final String symbol = Objects.requireNonNull(snapshot.symbol());
+
         try {
             String payload = objectMapper.writeValueAsString(snapshot);
             if (payload == null || payload.isBlank()) {
                 return;
             }
-            kafkaTemplate.send(quoteTopic, snapshot.symbol(), payload)
+            kafkaTemplate.send(topic, symbol, payload)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
-                        log.warn("Failed to Produce quote for {} to Kafka topic {}", snapshot.symbol(), quoteTopic, ex);
+                        log.warn("Failed to Produce quote for {} to Kafka topic {}", symbol, topic, ex);
                     }
                 });
         } catch (JsonProcessingException ex) {

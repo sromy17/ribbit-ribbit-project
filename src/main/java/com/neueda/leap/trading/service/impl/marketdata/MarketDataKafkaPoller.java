@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-import com.neueda.leap.trading.domain.Instrument;
 import com.neueda.leap.trading.repository.jpa.InstrumentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
