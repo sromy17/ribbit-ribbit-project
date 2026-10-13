@@ -40,3 +40,8 @@ market-data:
     group-id: ${MARKET_DATA_KAFKA_GROUP_ID:trading-market-data}
     poll-ms: ${MARKET_DATA_KAFKA_POLL_MS:5000}
     quote-cache-max-age-ms: ${MARKET_DATA_QUOTE_CACHE_MAX_AGE_MS:1500}
+  execution:
+    kafka:
+      enabled: ${ORDER_EXECUTION_KAFKA_ENABLED:true}
+      topic: ${ORDER_EXECUTION_KAFKA_TOPIC:orders.execute}
+      group-id: ${ORDER_EXECUTION_KAFKA_GROUP_ID:trading-order-execution}

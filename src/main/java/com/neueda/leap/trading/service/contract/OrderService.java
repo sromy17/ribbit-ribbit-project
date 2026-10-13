@@ -15,6 +15,8 @@ public interface OrderService {
 
     ProcessOrderResponse submitOrder(ProcessOrderRequest request);
 
+    void enqueueExecution(Integer orderId);
+
     void cancelOrder(Integer orderId);
 
     List<Order> getOrders(Integer accountId);

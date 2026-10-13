@@ -29,6 +29,8 @@ import com.neueda.leap.trading.repository.jpa.TradeRepository;
 import com.neueda.leap.trading.repository.jpa.TradingAccountRepository;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderReadMapper;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderSummary;
+import com.neueda.leap.trading.service.impl.marketdata.KafkaOrderExecutionProducer;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class TradingOrderService implements OrderService {
@@ -42,6 +44,7 @@ public class TradingOrderService implements OrderService {
     private final OrderValidator orderValidator;
     private final TradingRulesService tradingRulesService;
     private final AccountOrderReadMapper readMapper;
+    private final KafkaOrderExecutionProducer executionProducer;
 
     public TradingOrderService(
         OrderRepository orderRepository,
@@ -55,6 +58,35 @@ public class TradingOrderService implements OrderService {
         TradingRulesService tradingRulesService,
         AccountOrderReadMapper readMapper
     ) {
+        this(
+            orderRepository,
+            tradeRepository,
+            accountRepository,
+            instrumentRepository,
+            holdingRepository,
+            feeCalculator,
+            marketDataVerificationService,
+            orderValidator,
+            tradingRulesService,
+            readMapper,
+            null
+        );
+    }
+
+    @Autowired
+    public TradingOrderService(
+        OrderRepository orderRepository,
+        TradeRepository tradeRepository,
+        TradingAccountRepository accountRepository,
+        InstrumentRepository instrumentRepository,
+        HoldingRepository holdingRepository,
+        FeeCalculator feeCalculator,
+        MarketDataVerificationService marketDataVerificationService,
+        OrderValidator orderValidator,
+        TradingRulesService tradingRulesService,
+        AccountOrderReadMapper readMapper,
+        KafkaOrderExecutionProducer executionProducer
+    ) {
         this.orderRepository = orderRepository;
         this.tradeRepository = tradeRepository;
         this.accountRepository = accountRepository;
@@ -65,11 +97,15 @@ public class TradingOrderService implements OrderService {
         this.orderValidator = orderValidator;
         this.tradingRulesService = tradingRulesService;
         this.readMapper = readMapper;
+        this.executionProducer = executionProducer;
     }
 
     @Override
     @Transactional
     public ProcessOrderResponse executeOrder(Integer orderId) {
+        if (orderId == null) {
+            throw new IllegalArgumentException("Order ID cannot be null");
+        }
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
 
@@ -125,8 +161,12 @@ public class TradingOrderService implements OrderService {
     @Override
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
-        TradingAccount account = accountRepository.findById(request.accountId())
-            .orElseThrow(() -> new IllegalArgumentException("Account not found: " + request.accountId()));
+        if (request == null || request.accountId() == null) {
+            throw new IllegalArgumentException("Request and account ID cannot be null");
+        }
+        int accountId = request.accountId();
+        TradingAccount account = accountRepository.findById(accountId)
+            .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
 
         Instrument instrument = instrumentRepository.findByTickerIgnoreCase(request.ticker())
             .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.ticker()));
@@ -181,8 +221,28 @@ public class TradingOrderService implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public void enqueueExecution(Integer orderId) {
+        if (orderId == null) {
+            throw new IllegalArgumentException("Order ID cannot be null");
+        }
+        if (executionProducer == null) {
+            throw new IllegalStateException("Asynchronous order execution is not configured");
+        }
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new IllegalArgumentException("Only PENDING orders can be queued for execution");
+        }
+        executionProducer.enqueue(orderId);
+    }
+
+    @Override
     @Transactional
     public void cancelOrder(Integer orderId) {
+        if (orderId == null) {
+            throw new IllegalArgumentException("Order ID cannot be null");
+        }
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
         order.cancel();
