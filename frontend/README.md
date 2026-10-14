@@ -36,6 +36,30 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Application structure
+
+The Angular application is organized by responsibility and feature so the
+course topics map directly to the code:
+
+```text
+src/app/
+├── core/
+│   ├── guards/       # Authenticated flows and role checks
+│   └── services/     # Singleton API and authentication services
+├── features/
+│   ├── auth/login/   # Login form and navigation
+│   └── dashboard/
+│       ├── investor/ # Portfolio, orders, and trade history
+│       ├── admin/    # Platform administration views
+│       └── analyst/  # Market trends and heatmap views
+├── app.routes.ts     # Route configuration and route data
+└── app.config.ts     # Application providers
+```
+
+Components and templates stay with their feature, services handle HTTP and
+dependency injection, forms stay in the login/investor components, and
+authenticated routing is centralized in the reusable `AuthGuard`.
+
 ## Running unit tests
 
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:

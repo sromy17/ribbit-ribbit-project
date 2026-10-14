@@ -2,8 +2,8 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { AuthService, User } from './auth.service';
-import { ApiService, Holding, Order, Trade, SymbolTrend } from './api.service';
+import { AuthService, User } from '../../../core/services/auth.service';
+import { ApiService, Holding, Order, Trade, SymbolTrend } from '../../../core/services/api.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -305,4 +305,3 @@ export class DashboardComponent implements OnInit {
     return `${trend.symbol} | ${direction} ${delta.toFixed(1)}% | Volume ${trend.totalVolume}`;
   }
 }
-

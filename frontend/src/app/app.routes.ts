@@ -1,14 +1,30 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './login/login.component';
-import { DashboardComponent } from './dashboard.component';
-import { AdminDashboardComponent } from './admin-dashboard.component';
-import { AnalystDashboardComponent } from './analyst-dashboard.component';
+import { LoginComponent } from './features/auth/login/login.component';
+import { AuthGuard } from './core/guards/auth.guard';
+import { AdminDashboardComponent } from './features/dashboard/admin/admin-dashboard.component';
+import { AnalystDashboardComponent } from './features/dashboard/analyst/analyst-dashboard.component';
+import { DashboardComponent } from './features/dashboard/investor/dashboard.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
-  { path: 'investor-dashboard', component: DashboardComponent },
-  { path: 'admin-dashboard', component: AdminDashboardComponent },
-  { path: 'analyst-dashboard', component: AnalystDashboardComponent },
+  {
+    path: 'investor-dashboard',
+    component: DashboardComponent,
+    canActivate: [AuthGuard],
+    data: { role: 'investor' }
+  },
+  {
+    path: 'admin-dashboard',
+    component: AdminDashboardComponent,
+    canActivate: [AuthGuard],
+    data: { role: 'admin' }
+  },
+  {
+    path: 'analyst-dashboard',
+    component: AnalystDashboardComponent,
+    canActivate: [AuthGuard],
+    data: { role: 'analyst' }
+  },
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' }
 ];
