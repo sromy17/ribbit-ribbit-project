@@ -11,11 +11,29 @@ app.use(express.json());
 
 const PORT = Number(process.env.AUTH_STUB_PORT || 4000);
 const SHARED_SECRET = process.env.JWT_SHARED_SECRET;
-const JWT_EXPIRATION_SECONDS = Number(process.env.JWT_EXPIRATION_SECONDS || 3600);
+const JWT_EXPIRATION_SECONDS = Number(process.env.JWT_EXPIRATION_SECONDS || 1200);
+const REFRESH_TOKEN_VALID_DAYS = Number(process.env.REFRESH_TOKEN_VALID_DAYS || 7);
 const DB_URL = process.env.DB_URL;
 const DB_USER = process.env.DB_USER;
 const DB_PASSWORD = process.env.DB_PASSWORD;
 const DB_SSL = (process.env.DB_SSL || "false").toLowerCase() === "true";
+
+function formatDateOnly(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function extractBearerToken(authHeader) {
+  if (typeof authHeader !== "string") {
+    return undefined;
+  }
+
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : undefined;
+}
+
+function generateRefreshTokenValue() {
+  return Math.floor(Math.random() * 900000000) + 100000000;
+}
 
 function normalizeDbUrl(url) {
   if (!url) {
@@ -86,6 +104,38 @@ function issueToken(user) {
     algorithm: "HS256",
     expiresIn: JWT_EXPIRATION_SECONDS
   });
+}
+
+async function allocateRefreshToken() {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = generateRefreshTokenValue();
+    const existing = await pool.query(
+      "SELECT 1 FROM user_sessions WHERE refreshtoken = $1",
+      [candidate]
+    );
+    if (existing.rowCount === 0) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Unable to allocate a refresh token");
+}
+
+async function upsertUserSession(userId, refreshToken, dateIssued) {
+  await pool.query(
+    `INSERT INTO user_sessions (userid, refreshtoken, dateissued)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (userid)
+     DO UPDATE SET refreshtoken = EXCLUDED.refreshtoken, dateissued = EXCLUDED.dateissued`,
+    [userId, refreshToken, dateIssued]
+  );
+}
+
+function isRefreshTokenExpired(dateIssued) {
+  const issuedAt = new Date(dateIssued);
+  const ageMs = Date.now() - issuedAt.getTime();
+  const maxAgeMs = REFRESH_TOKEN_VALID_DAYS * 24 * 60 * 60 * 1000;
+  return ageMs > maxAgeMs;
 }
 
 async function generateUserId(client) {
@@ -190,11 +240,15 @@ app.post("/login", async (req, res) => {
       username: user.username,
       roles: ["MISSION_OPERATOR"]
     });
+    const refreshToken = await allocateRefreshToken();
+    const dateIssued = formatDateOnly(new Date());
+    await upsertUserSession(Number(user.userid), refreshToken, dateIssued);
 
     return res.json({
       token,
       tokenType: "Bearer",
-      expiresInSeconds: JWT_EXPIRATION_SECONDS
+      expiresInSeconds: JWT_EXPIRATION_SECONDS,
+      refreshToken
     });
   } catch (error) {
     console.error("Login error", error);
@@ -202,8 +256,81 @@ app.post("/login", async (req, res) => {
   }
 });
 
-app.post("/logout", (_req, res) => {
-  return res.status(204).send();
+app.post("/refresh", async (req, res) => {
+  const refreshToken = Number(req.body?.refreshToken);
+
+  if (!Number.isInteger(refreshToken)) {
+    return res.status(400).json({ message: "refreshToken is required" });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT us.userid, us.refreshtoken, us.dateissued, u.username
+       FROM user_sessions us
+       INNER JOIN users u ON u.userid = us.userid
+       WHERE us.refreshtoken = $1`,
+      [refreshToken]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    const session = result.rows[0];
+    if (isRefreshTokenExpired(session.dateissued)) {
+      await pool.query("DELETE FROM user_sessions WHERE userid = $1", [Number(session.userid)]);
+      return res.status(401).json({ message: "Refresh token expired" });
+    }
+
+    const newAccessToken = issueToken({
+      userId: Number(session.userid),
+      username: session.username,
+      roles: ["MISSION_OPERATOR"]
+    });
+    const newRefreshToken = await allocateRefreshToken();
+    const dateIssued = formatDateOnly(new Date());
+    await upsertUserSession(Number(session.userid), newRefreshToken, dateIssued);
+
+    return res.json({
+      token: newAccessToken,
+      tokenType: "Bearer",
+      expiresInSeconds: JWT_EXPIRATION_SECONDS,
+      refreshToken: newRefreshToken
+    });
+  } catch (error) {
+    console.error("Refresh error", error);
+    return res.status(500).json({ message: "Token refresh failed" });
+  }
+});
+
+app.post("/logout", async (req, res) => {
+  const tokenFromHeader = extractBearerToken(req.headers.authorization);
+  const tokenFromBody = typeof req.body?.accessToken === "string" ? req.body.accessToken.trim() : "";
+  const token = tokenFromBody || tokenFromHeader;
+
+  if (!token) {
+    return res.status(400).json({ message: "accessToken is required" });
+  }
+
+  try {
+    const payload = jwt.verify(token, SHARED_SECRET, {
+      algorithms: ["HS256"],
+      ignoreExpiration: true
+    });
+
+    const userId = Number(payload.uid);
+    if (!Number.isInteger(userId)) {
+      return res.status(400).json({ message: "Invalid access token payload" });
+    }
+
+    const revokedRefreshToken = await allocateRefreshToken();
+    const revokeFromDate = new Date();
+    revokeFromDate.setDate(revokeFromDate.getDate() + 1);
+    await upsertUserSession(userId, revokedRefreshToken, formatDateOnly(revokeFromDate));
+    return res.status(204).send();
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid access token" });
+  }
 });
 
 ensureDatabaseConnection().then(() => {

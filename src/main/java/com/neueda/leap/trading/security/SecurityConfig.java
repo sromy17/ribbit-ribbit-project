@@ -18,11 +18,17 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+    private final SessionTokenValidationFilter sessionTokenValidationFilter;
+
+    public SecurityConfig(SessionTokenValidationFilter sessionTokenValidationFilter) {
+        this.sessionTokenValidationFilter = sessionTokenValidationFilter;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http)
@@ -41,7 +47,8 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter)));
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter)))
+            .addFilterAfter(sessionTokenValidationFilter, BearerTokenAuthenticationFilter.class);
 
         return http.build();
     }
