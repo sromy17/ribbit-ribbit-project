@@ -3,6 +3,7 @@ package com.neueda.leap.trading.api;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -57,12 +58,25 @@ public class AccountController {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
 
+        int nextAccountId = generateAccountId();
         TradingAccount account = new TradingAccount();
+        account.setAccountId(nextAccountId);
         account.setUser(user);
         account.setType(request.accountType());
         account.setAvailableFunds(request.initialCashBalance());
         account.setCreationDate(LocalDate.now());
         return accountRepository.save(account);
+    }
+
+    private int generateAccountId() {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            int candidate = ThreadLocalRandom.current().nextInt(100000, 1_000_000);
+            if (!accountRepository.existsById(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Unable to allocate an account id");
     }
 
     @GetMapping("/{accountId}")

@@ -1,6 +1,7 @@
 package com.neueda.leap.trading.domain;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -37,6 +38,9 @@ public class Holding {
 
     @Column(name = "averagecost", nullable = false)
     private BigDecimal averageCost;
+
+    @Column(name = "as_of_date", nullable = false)
+    private LocalDate asOfDate;
 
     public void updatePosition(boolean isBuy, int deltaQty, BigDecimal executionPrice) {
         if (deltaQty <= 0) {
@@ -100,5 +104,13 @@ public class Holding {
 
     public void setInstrument(Instrument instrument) {
         this.instrument = instrument;
+    }
+
+    public LocalDate getAsOfDate() {
+        return asOfDate;
+    }
+
+    public void setAsOfDate(LocalDate asOfDate) {
+        this.asOfDate = asOfDate;
     }
 }

@@ -21,8 +21,7 @@ logging:
 
 security:
   jwt:
-    secret: ${JWT_SECRET:please-change-this-jwt-secret-to-at-least-32-chars}
-    expiration-minutes: ${JWT_EXPIRATION_MINUTES:20}
+    shared-secret: ${JWT_SHARED_SECRET:${JWT_SECRET:please-change-this-jwt-secret-to-at-least-32-chars}}
 
 market-data:
   fauxnance:

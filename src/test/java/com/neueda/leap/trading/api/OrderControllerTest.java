@@ -28,7 +28,6 @@ import com.neueda.leap.trading.domain.Order;
 import com.neueda.leap.trading.domain.OrderSide;
 import com.neueda.leap.trading.domain.OrderStatus;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderSummary;
-import com.neueda.leap.trading.service.contract.AuthService;
 import com.neueda.leap.trading.service.contract.OrderService;
 
 @WebMvcTest(OrderController.class)
@@ -43,9 +42,6 @@ class OrderControllerTest {
 
     @MockBean
     private OrderService orderService;
-
-    @MockBean
-    private AuthService authService;
 
     @Test
     void createOrder_returnsCreated() throws Exception {

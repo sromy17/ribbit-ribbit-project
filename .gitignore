@@ -7,3 +7,4 @@
 **/.settings/
 **/src/main/resources/application-local.yml
 .env
+**/shared/auth-stub/.env

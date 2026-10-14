@@ -19,7 +19,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neueda.leap.trading.api.dto.CreateUserRequest;
 import com.neueda.leap.trading.domain.User;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
-import com.neueda.leap.trading.service.contract.AuthService;
 
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -36,9 +35,6 @@ class UserControllerTest {
 
     @MockBean
     private PasswordEncoder passwordEncoder;
-
-    @MockBean
-    private AuthService authService;
 
     @Test
     void createUser_returnsCreatedUser() throws Exception {
