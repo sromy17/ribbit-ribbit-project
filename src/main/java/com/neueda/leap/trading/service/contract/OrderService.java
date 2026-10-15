@@ -2,10 +2,10 @@ package com.neueda.leap.trading.service.contract;
 
 import java.util.List;
 
-import com.neueda.leap.trading.api.CreateOrderRequest;
-import com.neueda.leap.trading.api.CreateOrderResponse;
-import com.neueda.leap.trading.api.ProcessOrderRequest;
-import com.neueda.leap.trading.api.ProcessOrderResponse;
+import com.neueda.leap.trading.api.dto.CreateOrderRequest;
+import com.neueda.leap.trading.api.dto.CreateOrderResponse;
+import com.neueda.leap.trading.api.dto.ProcessOrderRequest;
+import com.neueda.leap.trading.api.dto.ProcessOrderResponse;
 import com.neueda.leap.trading.domain.Order;
 
 public interface OrderService {

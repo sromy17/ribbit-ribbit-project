@@ -9,7 +9,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.neueda.leap.trading.api.dto.CreateUserRequest;
+import com.neueda.leap.trading.api.dto.UpdateUserRequest;
 import com.neueda.leap.trading.domain.User;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
 
@@ -19,9 +22,11 @@ import jakarta.validation.Valid;
 @RestController
 public class UserController {
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserController(UserRepository userRepository) {
+    public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping
@@ -31,7 +36,7 @@ public class UserController {
         user.setUserId((int) System.currentTimeMillis() % 1000000); // Simple ID generation
         user.setUsername(request.username());
         user.setSalt("contract-salt");
-        user.setUserHashedSaltedPassword(request.password());
+        user.setUserHashedSaltedPassword(passwordEncoder.encode(request.password()));
         return userRepository.save(user);
     }
 

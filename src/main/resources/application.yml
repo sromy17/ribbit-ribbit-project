@@ -19,6 +19,10 @@ logging:
   level:
     com.neueda.leap: INFO
 
+security:
+  jwt:
+    shared-secret: ${JWT_SHARED_SECRET:${JWT_SECRET:please-change-this-jwt-secret-to-at-least-32-chars}}
+
 market-data:
   fauxnance:
     base-url: ${FAUXNANCE_BASE_URL:https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
