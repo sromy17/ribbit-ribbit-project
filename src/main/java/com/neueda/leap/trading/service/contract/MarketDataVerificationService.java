@@ -6,4 +6,6 @@ import com.neueda.leap.trading.domain.Order;
 
 public interface MarketDataVerificationService {
     BigDecimal verifyExecutionPrice(Order order);
+
+    boolean isTickerValid(String ticker);
 }
