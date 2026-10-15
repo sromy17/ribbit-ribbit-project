@@ -46,13 +46,29 @@ This repository now includes a Spring Boot backend skeleton for one-order proces
 - `POST /accounts/{accountId}/orders`
 - `GET /accounts/{accountId}/trades`
 - `DELETE /accounts/{accountId}/orders/{orderId}/status`
+
+### External auth-stub endpoints (Node service)
+- `POST /register`
 - `POST /login`
 - `POST /logout`
 
 ### Run locally
+
+1. Start the Node auth-stub
+
+```bash
+cd shared/auth-stub
+npm install
+npm start
+```
+
+2. Start the Spring trading service
+
 ```bash
 mvn spring-boot:run
 ```
+
+Both services must share the same `JWT_SHARED_SECRET` value.
 
 ### Test account order creation
 ```bash

@@ -3,6 +3,7 @@ package com.neueda.leap.trading.service.impl;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import com.neueda.leap.trading.service.contract.FeeCalculator;
 import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
@@ -11,11 +12,12 @@ import com.neueda.leap.trading.service.contract.TradingRulesService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.neueda.leap.trading.api.CreateOrderRequest;
-import com.neueda.leap.trading.api.CreateOrderResponse;
-import com.neueda.leap.trading.api.ProcessOrderRequest;
-import com.neueda.leap.trading.api.ProcessOrderResponse;
+import com.neueda.leap.trading.api.dto.CreateOrderRequest;
+import com.neueda.leap.trading.api.dto.CreateOrderResponse;
+import com.neueda.leap.trading.api.dto.ProcessOrderRequest;
+import com.neueda.leap.trading.api.dto.ProcessOrderResponse;
 import com.neueda.leap.trading.domain.Instrument;
+import com.neueda.leap.trading.domain.InstrumentStatus;
 import com.neueda.leap.trading.domain.Holding;
 import com.neueda.leap.trading.domain.Order;
 import com.neueda.leap.trading.domain.OrderSide;
@@ -168,8 +170,7 @@ public class TradingOrderService implements OrderService {
         TradingAccount account = accountRepository.findById(accountId)
             .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
 
-        Instrument instrument = instrumentRepository.findByTickerIgnoreCase(request.ticker())
-            .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.ticker()));
+        Instrument instrument = resolveInstrument(request.ticker());
 
         // BR-05: Validate trading rules BEFORE accepting the order
         ValidationResult validation = tradingRulesService.validateOrderSubmission(
@@ -284,6 +285,7 @@ public class TradingOrderService implements OrderService {
 
         boolean isBuy = side == OrderSide.BUY;
         holding.updatePosition(isBuy, quantity, executionPrice);
+        holding.setAsOfDate(LocalDate.now());
         holdingRepository.save(holding);
     }
 
@@ -293,5 +295,39 @@ public class TradingOrderService implements OrderService {
 
     private Integer nextTradeId() {
         return tradeRepository.findMaxTradeId() + 1;
+    }
+
+    private Instrument resolveInstrument(String ticker) {
+        if (ticker == null || ticker.isBlank()) {
+            throw new IllegalArgumentException("Ticker is required");
+        }
+
+        String normalizedTicker = ticker.trim().toUpperCase();
+        return instrumentRepository.findByTickerIgnoreCase(normalizedTicker)
+            .orElseGet(() -> createInstrumentFromTicker(normalizedTicker));
+    }
+
+    private Instrument createInstrumentFromTicker(String ticker) {
+        if (!marketDataVerificationService.isTickerValid(ticker)) {
+            throw new IllegalArgumentException("Instrument not found in Fauxnance: " + ticker);
+        }
+
+        Instrument instrument = new Instrument();
+        instrument.setInstrumentId(generateInstrumentId());
+        instrument.setTicker(ticker);
+        instrument.setInstrumentName(ticker);
+        instrument.setStatus(InstrumentStatus.ACTIVE);
+        return instrumentRepository.save(instrument);
+    }
+
+    private int generateInstrumentId() {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            int candidate = ThreadLocalRandom.current().nextInt(100000, 1_000_000);
+            if (!instrumentRepository.existsById(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new IllegalArgumentException("Unable to allocate instrument id");
     }
 }
