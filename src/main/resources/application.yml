@@ -10,6 +10,16 @@ spring:
       hibernate:
         format_sql: true
     open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: latest
+      group-id: ${MARKET_DATA_KAFKA_GROUP_ID:trading-market-data}
 
 mybatis:
   configuration:
@@ -28,3 +38,14 @@ market-data:
     base-url: ${FAUXNANCE_BASE_URL:https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
     api-key: ${FAUXNANCE_API_KEY:}
     use-order-price-fallback: ${FAUXNANCE_USE_ORDER_PRICE_FALLBACK:true}
+  kafka:
+    enabled: ${MARKET_DATA_KAFKA_ENABLED:false}
+    topic: ${MARKET_DATA_KAFKA_TOPIC:market.quotes}
+    group-id: ${MARKET_DATA_KAFKA_GROUP_ID:trading-market-data}
+    poll-ms: ${MARKET_DATA_KAFKA_POLL_MS:5000}
+    quote-cache-max-age-ms: ${MARKET_DATA_QUOTE_CACHE_MAX_AGE_MS:1500}
+  execution:
+    kafka:
+      enabled: ${ORDER_EXECUTION_KAFKA_ENABLED:true}
+      topic: ${ORDER_EXECUTION_KAFKA_TOPIC:orders.execute}
+      group-id: ${ORDER_EXECUTION_KAFKA_GROUP_ID:trading-order-execution}

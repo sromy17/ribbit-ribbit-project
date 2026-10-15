@@ -45,6 +45,25 @@ public class OrderController {
         ));
     }
 
+    @PostMapping("/{orderId}/execute")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void executeOrderAsync(
+        @PathVariable("accountId") Integer accountId,
+        @PathVariable("orderId") Integer orderId
+    ) {
+        boolean accountOwnsOrder = orderService.getOrders(accountId).stream()
+            .anyMatch(order -> orderId.equals(order.getOrderId()));
+
+        if (!accountOwnsOrder) {
+            throw new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Order not found for account: " + accountId
+            );
+        }
+
+        orderService.enqueueExecution(orderId);
+    }
+
     @DeleteMapping("/{orderId}/status")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancelOrder(
