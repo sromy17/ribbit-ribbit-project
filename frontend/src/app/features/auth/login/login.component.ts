@@ -17,7 +17,7 @@ export class LoginComponent {
   error = '';
   loading = false;
 
-  constructor(private auth: AuthService, private router: Router) {}
+  constructor(public auth: AuthService, public router: Router) {}
 
   login() {
     this.loading = true;

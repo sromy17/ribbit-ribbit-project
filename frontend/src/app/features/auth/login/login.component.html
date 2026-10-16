@@ -34,6 +34,10 @@
       <button type="submit" [disabled]="loading" class="btn-login">
         {{ loading ? 'Signing in...' : 'Sign In' }}
       </button>
+
+      <button type="button" class="btn-secondary" (click)="router.navigate(['/register'])">
+        Create a user profile
+      </button>
     </form>
 
     <div class="test-credentials">

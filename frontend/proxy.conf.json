@@ -1,14 +1,20 @@
 {
   "/api": {
-    "target": "http://localhost:8082",
+    "target": "http://localhost:8081",
     "secure": false,
     "changeOrigin": true,
+    "pathRewrite": {
+      "^/api": ""
+    },
     "logLevel": "info"
   },
   "/auth": {
     "target": "http://localhost:4000",
     "secure": false,
     "changeOrigin": true,
+    "pathRewrite": {
+      "^/auth": ""
+    },
     "logLevel": "info"
   }
 }

@@ -26,8 +26,8 @@ export interface User {
 
 export interface TradingAccount {
   accountId: string;
-  accountType: string;
-  cashBalance: number;
+  type: string;
+  availableFunds: number;
   creationDate?: string;
 }
 
@@ -78,6 +78,17 @@ export interface Transaction {
 export interface LoginRequest {
   username: string;
   password: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  password: string;
+}
+
+export interface CreateAccountRequest {
+  userId: number;
+  accountType: string;
+  initialCashBalance: number;
 }
 
 export interface LoginResponse {
@@ -149,14 +160,22 @@ export class ApiService {
     return this.http.post(`/auth/logout`, {});
   }
 
+  register(request: RegisterRequest): Observable<{ userId: number; username: string }> {
+    return this.http.post<{ userId: number; username: string }>(`/auth/register`, request);
+  }
+
   // Accounts
 
   getAccountDetails(accountId: string): Observable<TradingAccount> {
     return this.http.get<TradingAccount>(`${this.apiUrl}/accounts/${accountId}`);
   }
 
-  getAccountForUser(userId: string): Observable<TradingAccount> {
-    return this.http.get<TradingAccount>(`${this.apiUrl}/accounts/user/${userId}`);
+  getAccountsForUser(userId: string): Observable<TradingAccount[]> {
+    return this.http.get<TradingAccount[]>(`${this.apiUrl}/accounts/user/${userId}`);
+  }
+
+  createAccount(request: CreateAccountRequest): Observable<TradingAccount> {
+    return this.http.post<TradingAccount>(`${this.apiUrl}/accounts`, request);
   }
 
   getAccountBalance(accountId: string): Observable<{ accountId: string; cashBalance: number }> {
@@ -285,8 +304,8 @@ export class ApiService {
   private mockGetAccountDetails(accountId: string): TradingAccount {
     return {
       accountId,
-      accountType: 'BROKERAGE',
-      cashBalance: 50000,
+      type: 'TRADING',
+      availableFunds: 50000,
       creationDate: '2025-01-15'
     };
   }

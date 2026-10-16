@@ -17,7 +17,7 @@ function Write-Pass([string]$Message) {
 
 function Write-Fail([string]$Message) {
     Write-Host "[FAIL] $Message" -ForegroundColor Red
-}8
+}
 
 function Import-EnvFile([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) {

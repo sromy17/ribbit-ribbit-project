@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, map, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
+import { RegisterRequest } from './api.service';
 
 export interface User {
   id: string;
@@ -48,6 +49,10 @@ export class AuthService {
       }),
       map(() => this.currentUser.value as User)
     );
+  }
+
+  register(request: RegisterRequest): Observable<{ userId: number; username: string }> {
+    return this.http.post<{ userId: number; username: string }>('/auth/register', request);
   }
 
   logout(): void {

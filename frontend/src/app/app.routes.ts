@@ -4,9 +4,18 @@ import { AuthGuard } from './core/guards/auth.guard';
 import { AdminDashboardComponent } from './features/dashboard/admin/admin-dashboard.component';
 import { AnalystDashboardComponent } from './features/dashboard/analyst/analyst-dashboard.component';
 import { DashboardComponent } from './features/dashboard/investor/dashboard.component';
+import { RegisterComponent } from './features/auth/register/register.component';
+import { CreateAccountComponent } from './features/accounts/create-account/create-account.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
+  { path: 'register', component: RegisterComponent },
+  {
+    path: 'accounts/create',
+    component: CreateAccountComponent,
+    canActivate: [AuthGuard],
+    data: { role: 'investor' }
+  },
   {
     path: 'investor-dashboard',
     component: DashboardComponent,

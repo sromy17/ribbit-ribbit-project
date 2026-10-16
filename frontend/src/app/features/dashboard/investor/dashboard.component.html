@@ -19,7 +19,39 @@
   </div>
 
   <!-- INVESTOR DASHBOARD -->
-  <div *ngIf="currentRole === 'investor'" class="investor-dashboard">
+  <div *ngIf="currentRole === 'investor'" class="account-page">
+    <aside class="account-sidebar">
+      <div class="sidebar-heading">
+        <div>
+          <p class="eyebrow">Your workspace</p>
+          <h2>Accounts</h2>
+        </div>
+        <button class="btn-add-account" type="button" (click)="createAccount()" title="Create account">+</button>
+      </div>
+
+      <div *ngIf="loadingAccounts" class="loading-indicator">Loading accounts...</div>
+      <div *ngIf="!loadingAccounts && accounts.length === 0" class="empty-state">
+        <p>You do not have any accounts yet.</p>
+        <button class="btn-primary" type="button" (click)="createAccount()">Create an account</button>
+      </div>
+      <button
+        *ngFor="let account of accounts"
+        type="button"
+        class="account-item"
+        [class.selected]="selectedAccount?.accountId === account.accountId"
+        (click)="selectAccount(account)">
+        <strong>{{ account.type }}</strong>
+        <span>Account {{ account.accountId }} · ${{ account.availableFunds | number: '1.2-2' }}</span>
+      </button>
+    </aside>
+
+    <div class="account-main">
+      <div *ngIf="!loadingAccounts && accounts.length === 0" class="no-account-panel">
+        <h1>Welcome to your trading workspace</h1>
+        <p>Create your first account to start managing balances, holdings, orders, and trades.</p>
+      </div>
+
+      <div *ngIf="!loadingAccounts && accounts.length > 0" class="investor-dashboard">
     <!-- LEFT COLUMN: Portfolio Overview -->
     <div class="dashboard-column left-column">
       <div class="cards">
@@ -223,6 +255,8 @@
             <span>Larger blocks = more traded volume</span>
           </div>
         </div>
+      </div>
+    </div>
       </div>
     </div>
   </div>

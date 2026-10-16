@@ -103,6 +103,96 @@
 }
 
 .investor-dashboard {
+  .account-page {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+    animation: content-slide 220ms ease-out;
+  }
+  .account-sidebar {
+    position: sticky;
+    top: 82px;
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    background: var(--md-surface);
+    border: 1px solid var(--md-outline-variant);
+    border-radius: 18px;
+    box-shadow: 0 2px 8px var(--md-shadow);
+  }
+  .sidebar-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 2px 8px;
+  }
+  .sidebar-heading h2,
+  .sidebar-heading p {
+    margin: 0;
+  }
+  .sidebar-heading h2 {
+    font-size: 1.1rem;
+  }
+  .eyebrow {
+    color: var(--md-on-surface-variant);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .btn-add-account {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--md-outline);
+    border-radius: 50%;
+    background: var(--md-surface-container-high);
+    color: var(--md-primary);
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .account-item {
+    display: grid;
+    gap: 5px;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--md-on-surface);
+    text-align: left;
+    cursor: pointer;
+  }
+  .account-item span {
+    color: var(--md-on-surface-variant);
+    font-size: 0.78rem;
+  }
+  .account-item:hover,
+  .account-item.selected {
+    border-color: var(--md-outline-variant);
+    background: var(--md-surface-container);
+  }
+  .account-main {
+    min-width: 0;
+  }
+  .no-account-panel {
+    padding: 36px;
+    background: var(--md-surface);
+    border: 1px solid var(--md-outline-variant);
+    border-radius: 18px;
+    box-shadow: 0 2px 8px var(--md-shadow);
+  }
+  .no-account-panel h1 {
+    margin-top: 0;
+    font-size: 1.5rem;
+  }
+  .no-account-panel p {
+    color: var(--md-on-surface-variant);
+  }
+  .account-sidebar .btn-primary {
+    width: 100%;
+  }
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.95fr);
   gap: 20px;
@@ -484,6 +574,14 @@
 @media (max-width: 1080px) {
   .cards {
     grid-template-columns: 1fr;
+  }
+
+  .account-page {
+    grid-template-columns: 1fr;
+  }
+
+  .account-sidebar {
+    position: static;
   }
 
   .investor-dashboard {

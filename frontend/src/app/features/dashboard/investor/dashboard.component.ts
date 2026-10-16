@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService, User } from '../../../core/services/auth.service';
-import { ApiService, Holding, Order, Trade, SymbolTrend } from '../../../core/services/api.service';
+import { ApiService, Holding, Order, Trade, SymbolTrend, TradingAccount } from '../../../core/services/api.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -16,6 +16,9 @@ export class DashboardComponent implements OnInit {
   currentUser: User | null = null;
   currentRole: string = '';
   accountId: string = ''; // Store account ID for API calls
+  accounts: TradingAccount[] = [];
+  selectedAccount: TradingAccount | null = null;
+  loadingAccounts = false;
   loading = false;
   loadingBalance = false;
   loadingHoldings = false;
@@ -55,16 +58,51 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit() {
     if (this.currentUser) {
-      this.api.getAccountForUser(this.currentUser.id).subscribe({
-        next: (account) => {
-          this.accountId = String(account.accountId);
-          this.loadDashboardData();
-        },
-        error: () => {
-          this.error = 'Failed to load your trading account';
-        }
-      });
+      this.loadAccounts();
     }
+  }
+
+  loadAccounts(): void {
+    if (!this.currentUser) {
+      return;
+    }
+
+    this.loadingAccounts = true;
+    this.api.getAccountsForUser(this.currentUser.id).subscribe({
+      next: (accounts) => {
+        this.accounts = accounts;
+        this.loadingAccounts = false;
+        if (accounts.length > 0) {
+          this.selectAccount(accounts[0]);
+        } else {
+          this.selectedAccount = null;
+          this.accountId = '';
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.error = 'Failed to load your accounts';
+        this.loadingAccounts = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  selectAccount(account: TradingAccount): void {
+    this.selectedAccount = account;
+    this.accountId = String(account.accountId);
+    this.resetDashboardData();
+    this.loadDashboardData();
+  }
+
+  resetDashboardData(): void {
+    this.portfolio = { cash: 0, holdings: [], totalValue: 0 };
+    this.orders = [];
+    this.trades = [];
+  }
+
+  createAccount(): void {
+    this.router.navigate(['/accounts/create']);
   }
 
   loadDashboardData() {

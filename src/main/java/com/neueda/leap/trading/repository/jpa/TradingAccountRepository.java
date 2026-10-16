@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.neueda.leap.trading.domain.TradingAccount;
 
 public interface TradingAccountRepository extends JpaRepository<TradingAccount, Integer> {
-    java.util.Optional<TradingAccount> findFirstByUserUserId(Integer userId);
+    java.util.List<TradingAccount> findAllByUserUserIdOrderByAccountIdAsc(Integer userId);
 }
