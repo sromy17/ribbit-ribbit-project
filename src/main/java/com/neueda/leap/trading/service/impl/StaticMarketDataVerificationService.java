@@ -63,27 +63,7 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
             return false;
         }
 
-        String symbol = ticker.trim().toUpperCase(Locale.ROOT);
-
-        try {
-            QuoteApiResponse response = restClient.get()
-                .uri("/quotes/{symbol}", symbol)
-                .headers(headers -> {
-                    if (apiKey != null && !apiKey.isBlank()) {
-                        headers.set("X-Api-Key", apiKey);
-                    }
-                })
-                .retrieve()
-                .body(QuoteApiResponse.class);
-
-            return response != null
-                && response.error() == null
-                && response.data() != null
-                && response.data().price() != null
-                && response.data().price().compareTo(BigDecimal.ZERO) > 0;
-        } catch (RuntimeException ex) {
-            return false;
-        }
+        return fauxnanceQuoteClient.isTickerValid(ticker.trim().toUpperCase(Locale.ROOT));
     }
 
     private String extractSymbol(Order order) {

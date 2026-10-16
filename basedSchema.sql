@@ -119,8 +119,8 @@ CREATE TABLE holdings
 
 CREATE TABLE user_sessions
 (
-    userid INT REFERENCES users(userid) PRIMARY KEY;
-    refreshToken INT;
-    dateIssued DATE;
+    userid INT REFERENCES users(userid) PRIMARY KEY,
+    refreshToken INT,
+    dateIssued DATE
 );
 -- the clock dont stop, the clock dont stop, the clock dont stop, the clock dont stop

@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neueda.leap.trading.api.dto.CreateUserRequest;
 import com.neueda.leap.trading.domain.User;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
+import com.neueda.leap.trading.repository.jpa.SessionRepository;
 
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -33,7 +34,10 @@ class UserControllerTest {
     @MockitoBean
     private UserRepository userRepository;
 
-    @MockBean
+    @MockitoBean
+    private SessionRepository sessionRepository;
+
+    @MockitoBean
     private PasswordEncoder passwordEncoder;
 
     @Test
