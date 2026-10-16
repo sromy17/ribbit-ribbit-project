@@ -23,21 +23,19 @@ export class LoginComponent {
     this.loading = true;
     this.error = '';
 
-    // Simulate API delay
-    setTimeout(() => {
-      if (this.auth.login(this.username, this.password)) {
-        const user = this.auth.getUser();
-        if (user?.role === 'investor') {
+    this.auth.login(this.username, this.password).subscribe({
+      next: (user) => {
+        if (user.role === 'investor') {
           this.router.navigate(['/investor-dashboard']);
-        } else if (user?.role === 'admin') {
-          this.router.navigate(['/admin-dashboard']);
-        } else if (user?.role === 'analyst') {
-          this.router.navigate(['/analyst-dashboard']);
         }
-      } else {
+      },
+      error: () => {
         this.error = 'Invalid credentials';
+        this.loading = false;
+      },
+      complete: () => {
+        this.loading = false;
       }
-      this.loading = false;
-    }, 500);
+    });
   }
 }

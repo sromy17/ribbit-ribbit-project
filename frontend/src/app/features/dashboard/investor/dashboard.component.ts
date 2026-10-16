@@ -50,14 +50,20 @@ export class DashboardComponent implements OnInit {
       this.router.navigate(['/login']);
     } else {
       this.currentRole = this.currentUser.role;
-      // For now, use user ID as account ID (update this when backend provides proper account lookup)
-      this.accountId = this.currentUser.id;
     }
   }
 
   ngOnInit() {
-    if (this.accountId) {
-      this.loadDashboardData();
+    if (this.currentUser) {
+      this.api.getAccountForUser(this.currentUser.id).subscribe({
+        next: (account) => {
+          this.accountId = String(account.accountId);
+          this.loadDashboardData();
+        },
+        error: () => {
+          this.error = 'Failed to load your trading account';
+        }
+      });
     }
   }
 

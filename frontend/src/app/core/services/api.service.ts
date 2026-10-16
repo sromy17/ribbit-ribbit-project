@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { delay } from 'rxjs/operators';
 
 // Component -> ApiService -> HttpClient -> API
@@ -40,6 +40,15 @@ export interface Order {
   price: number;
   status: 'PENDING' | 'FILLED' | 'CANCELLED';
   createdAt?: string;
+}
+
+export interface ProcessOrderResponse {
+  orderId: number;
+  tradeId?: number;
+  status: string;
+  executedQuantity?: number;
+  executionPrice?: number;
+  fee?: number;
 }
 
 export interface Trade {
@@ -125,99 +134,75 @@ export interface MarketTrend {
   providedIn: 'root'
 })
 export class ApiService {
-  private apiUrl = 'https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1'; // updated with actual API base URL
-  private useMockData = true; // Toggle this to switch between mock and real API // flipping this back to True because no login endpoint yet
+  private apiUrl = '/api';
+  private useMockData = false;
 
   constructor(private http: HttpClient) {}
 
   // Authentication
 
   login(request: LoginRequest): Observable<LoginResponse> {
-    if (this.useMockData) {
-      return of(this.mockLogin(request)).pipe(delay(500));
-    }
-    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, request);
+    return this.http.post<LoginResponse>(`/auth/login`, request);
   }
 
   logout(): Observable<any> {
-    if (this.useMockData) {
-      return of({ success: true }).pipe(delay(200));
-    }
-    return this.http.post(`${this.apiUrl}/logout`, {});
+    return this.http.post(`/auth/logout`, {});
   }
 
   // Accounts
 
   getAccountDetails(accountId: string): Observable<TradingAccount> {
-    if (this.useMockData) {
-      return of(this.mockGetAccountDetails(accountId)).pipe(delay(300));
-    }
     return this.http.get<TradingAccount>(`${this.apiUrl}/accounts/${accountId}`);
   }
 
+  getAccountForUser(userId: string): Observable<TradingAccount> {
+    return this.http.get<TradingAccount>(`${this.apiUrl}/accounts/user/${userId}`);
+  }
+
   getAccountBalance(accountId: string): Observable<{ accountId: string; cashBalance: number }> {
-    if (this.useMockData) {
-      return of(this.mockGetAccountBalance(accountId)).pipe(delay(200));
-    }
     return this.http.get<{ accountId: string; cashBalance: number }>(
       `${this.apiUrl}/accounts/${accountId}/balance`
     );
   }
 
   updateAccountBalance(accountId: string, amount: number): Observable<any> {
-    if (this.useMockData) {
-      return of({ success: true, newBalance: amount }).pipe(delay(200));
-    }
-    return this.http.put(`${this.apiUrl}/accounts/${accountId}/balance`, { amount });
+    return this.http.put(`${this.apiUrl}/accounts/${accountId}/balance`, { cashBalance: amount });
   }
 
   // Holdings
 
   getHoldings(accountId: string): Observable<Holding[]> {
-    if (this.useMockData) {
-      return of(this.mockGetHoldings(accountId)).pipe(delay(300));
-    }
     return this.http.get<Holding[]>(`${this.apiUrl}/accounts/${accountId}/holdings`);
   }
 
   // Orders
 
   getOrders(accountId: string): Observable<Order[]> {
-    if (this.useMockData) {
-      return of(this.mockGetOrders(accountId)).pipe(delay(300));
-    }
     return this.http.get<Order[]>(`${this.apiUrl}/accounts/${accountId}/orders`);
   }
 
-  createOrder(accountId: string, order: Omit<Order, 'orderId' | 'accountId' | 'createdAt'>): Observable<Order> {
-    if (this.useMockData) {
-      return of(this.mockCreateOrder(accountId, order)).pipe(delay(500));
-    }
-    return this.http.post<Order>(`${this.apiUrl}/accounts/${accountId}/orders`, order);
+  createOrder(accountId: string, order: Omit<Order, 'orderId' | 'accountId' | 'createdAt'>): Observable<ProcessOrderResponse> {
+    return this.http.post<ProcessOrderResponse>(`${this.apiUrl}/accounts/${accountId}/orders`, {
+      ticker: order.symbol,
+      side: order.side,
+      quantity: order.quantity,
+      price: order.price
+    });
   }
 
   cancelOrder(accountId: string, orderId: string): Observable<any> {
-    if (this.useMockData) {
-      return of({ success: true, orderId }).pipe(delay(300));
-    }
     return this.http.delete(`${this.apiUrl}/accounts/${accountId}/orders/${orderId}/status`);
   }
 
   // Trades
 
   getTrades(accountId: string): Observable<Trade[]> {
-    if (this.useMockData) {
-      return of(this.mockGetTrades(accountId)).pipe(delay(300));
-    }
     return this.http.get<Trade[]>(`${this.apiUrl}/accounts/${accountId}/trades`);
   }
 
   // Admin Dashboard APIs
 
   getAllInvestors(): Observable<InvestorInfo[]> {
-    if (this.useMockData) {
-      return of(this.mockGetAllInvestors()).pipe(delay(500));
-    }
     return this.http.get<InvestorInfo[]>(`${this.apiUrl}/admin/investors`);
   }
 

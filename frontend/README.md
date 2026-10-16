@@ -7,10 +7,45 @@ This project was generated using [Angular CLI](https://github.com/angular/angula
 To start a local development server, run:
 
 ```bash
-ng serve
+npm start
 ```
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+
+## Connecting to the local backend
+
+The frontend uses the real services by default. `npm start` loads
+[`proxy.conf.json`](./proxy.conf.json), forwarding `/api/*` to the Spring
+trading service at `http://localhost:8082` and `/auth/*` to the Node auth stub
+at `http://localhost:4000`.
+
+Start the services in this order:
+
+```bash
+# Terminal 1: database and Spring
+docker compose up -d postgres
+export JWT_SHARED_SECRET='use-the-same-secret-for-auth-and-spring-32-chars-minimum'
+mvn spring-boot:run
+
+# Terminal 2: authentication stub, using the same database and JWT secret
+cd shared/auth-stub
+npm install
+npm start
+
+# Terminal 3: Angular
+cd frontend
+npm install
+npm start
+```
+
+Set `FAUXNANCE_API_KEY` if the Fauxnance deployment requires one. The Spring
+service calls Fauxnance server-side when an order is submitted, so the browser
+does not need the Fauxnance API key.
+
+The frontend stores the auth-stub bearer token in `localStorage` and attaches
+it to `/api` requests. The investor dashboard resolves the user's account
+through `GET /api/accounts/user/{userId}` instead of assuming that a user ID
+is an account ID.
 
 ## Code scaffolding
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable, map, tap } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 
 export interface User {
   id: string;
@@ -7,39 +8,53 @@ export interface User {
   role: 'investor' | 'admin' | 'analyst';
 }
 
+interface AuthResponse {
+  token: string;
+  tokenType: string;
+  expiresInSeconds: number;
+  refreshToken?: number;
+  userId: number;
+  username: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private currentUser = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUser.asObservable();
 
-  constructor() {
-    // Load from localStorage on app init
+  constructor(private http: HttpClient) {
     const saved = localStorage.getItem('currentUser');
     if (saved) {
       this.currentUser.next(JSON.parse(saved));
     }
   }
 
-  login(username: string, password: string): boolean {
-    // Mock users - replace with real API call later
-    const mockUsers: Record<string, User> = {
-      'investor@test.com': { id: '1', username: 'investor@test.com', role: 'investor' },
-      'admin@test.com': { id: '2', username: 'admin@test.com', role: 'admin' },
-      'analyst@test.com': { id: '3', username: 'analyst@test.com', role: 'analyst' }
-    };
-
-    const user = mockUsers[username];
-    if (user && password === 'password') {
+  login(username: string, password: string): Observable<User> {
+    return this.http.post<AuthResponse>('/auth/login', { username, password }).pipe(
+      tap((response) => {
+      localStorage.setItem('accessToken', response.token);
+      localStorage.setItem('refreshToken', String(response.refreshToken ?? ''));
+      }),
+      // The current auth stub supplies a mission-operator role. Until backend
+      // role claims are available, authenticated users use the investor flow.
+      tap((response) => {
+      const user = {
+        id: String(response.userId),
+        username: response.username,
+        role: 'investor' as const
+      };
       this.currentUser.next(user);
       localStorage.setItem('currentUser', JSON.stringify(user));
-      return true;
-    }
-    return false;
+      }),
+      map(() => this.currentUser.value as User)
+    );
   }
 
-  logout() {
+  logout(): void {
     this.currentUser.next(null);
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
   }
 
   isLoggedIn(): boolean {
