@@ -34,10 +34,10 @@ export class DashboardComponent implements OnInit {
   };
 
   orders: Order[] = [];
-  trades: Trade[] = [];
+  successfulOrders: Order[] = [];
   symbolTrends: SymbolTrend[] = [];
 
-  orderForm = { symbol: '', side: 'BUY', quantity: 0, price: 0 };
+  orderForm = { symbol: '', side: 'BUY', quantity: 0 };
   orderFormErrors: { [key: string]: string } = {};
   cancelingOrderId: string | null = null;
 
@@ -98,11 +98,22 @@ export class DashboardComponent implements OnInit {
   resetDashboardData(): void {
     this.portfolio = { cash: 0, holdings: [], totalValue: 0 };
     this.orders = [];
-    this.trades = [];
+    this.successfulOrders = [];
   }
 
   createAccount(): void {
     this.router.navigate(['/accounts/create']);
+  }
+
+  formatAccountType(type: string): string {
+    const normalizedType = type.toLowerCase();
+    return `${normalizedType.charAt(0).toUpperCase()}${normalizedType.slice(1)} Account`;
+  }
+
+  getAccountPanelTitle(): string {
+    return this.selectedAccount
+      ? `Your ${this.formatAccountType(this.selectedAccount.type)}`
+      : 'Your Accounts';
   }
 
   loadDashboardData() {
@@ -131,7 +142,7 @@ export class DashboardComponent implements OnInit {
     // Load holdings
     this.api.getHoldings(this.accountId).subscribe({
       next: (holdings) => {
-        this.portfolio.holdings = holdings;
+        this.portfolio.holdings = holdings.filter((holding) => holding.quantity > 0);
         this.updateTotalValue();
         this.loadingHoldings = false;
         this.cdr.detectChanges();
@@ -148,6 +159,10 @@ export class DashboardComponent implements OnInit {
     this.api.getOrders(this.accountId).subscribe({
       next: (orders) => {
         this.orders = orders;
+        this.successfulOrders = orders.filter((order) => {
+          const status = order.status as string;
+          return status === 'FILLED' || status === 'EXECUTED';
+        });
         this.loadingOrders = false;
         this.cdr.detectChanges();
       },
@@ -159,19 +174,8 @@ export class DashboardComponent implements OnInit {
       }
     });
 
-    // Load trades
-    this.api.getTrades(this.accountId).subscribe({
-      next: (trades) => {
-        this.trades = trades;
-        this.loadingTrades = false;
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error loading trades:', err);
-        this.loadingTrades = false;
-        this.cdr.detectChanges();
-      }
-    });
+    // Successful orders represent the trades that changed the cash balance.
+    this.loadingTrades = false;
 
     // Market trend data is not exposed by the current backend contract.
     this.symbolTrends = [];
@@ -193,10 +197,6 @@ export class DashboardComponent implements OnInit {
       this.orderFormErrors['quantity'] = 'Quantity must be a whole number';
     }
 
-    if (!this.orderForm.price || this.orderForm.price <= 0) {
-      this.orderFormErrors['price'] = 'Price must be greater than 0';
-    }
-
     return Object.keys(this.orderFormErrors).length === 0;
   }
 
@@ -214,21 +214,32 @@ export class DashboardComponent implements OnInit {
       symbol: this.orderForm.symbol.toUpperCase(),
       side: this.orderForm.side as 'BUY' | 'SELL',
       quantity: this.orderForm.quantity,
-      price: this.orderForm.price,
       status: 'PENDING'
     }).subscribe({
       next: (order) => {
         this.loading = false;
+        this.resetOrderForm();
+        if (order.status === 'REJECTED') {
+          this.orderFormErrors = {
+            submit: 'Order rejected: insufficient funds or another trading rule prevented this order.'
+          };
+          this.loadDashboardData();
+          return;
+        }
         this.orderFormErrors = {};
-        this.orderForm = { symbol: '', side: 'BUY', quantity: 0, price: 0 };
         this.loadDashboardData(); // Refresh orders list
       },
       error: (err) => {
         console.error('Error placing order:', err);
+        this.resetOrderForm();
         this.orderFormErrors['submit'] = 'Failed to place order. Please try again.';
         this.loading = false;
       }
     });
+  }
+
+  resetOrderForm(): void {
+    this.orderForm = { symbol: '', side: 'BUY', quantity: 0 };
   }
 
   // Cancel Order
@@ -265,6 +276,8 @@ export class DashboardComponent implements OnInit {
         return 'status-pending';
       case 'CANCELLED':
         return 'status-cancelled';
+      case 'REJECTED':
+        return 'status-rejected';
       default:
         return '';
     }

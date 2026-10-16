@@ -59,8 +59,7 @@ class OrderControllerTest {
         CreateAccountOrderRequest request = new CreateAccountOrderRequest(
             "AAPL",
             OrderSide.BUY,
-            10,
-            new BigDecimal("25.00")
+            10
         );
 
         mockMvc.perform(post("/accounts/1/orders")

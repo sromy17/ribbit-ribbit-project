@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -104,6 +105,11 @@ public class Holding {
 
     public void setInstrument(Instrument instrument) {
         this.instrument = instrument;
+    }
+
+    @JsonProperty("symbol")
+    public String getSymbol() {
+        return instrument == null ? null : instrument.getTicker();
     }
 
     public LocalDate getAsOfDate() {

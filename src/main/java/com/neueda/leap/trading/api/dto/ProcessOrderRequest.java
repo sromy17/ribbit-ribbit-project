@@ -14,6 +14,6 @@ public record ProcessOrderRequest(
     @NotBlank String ticker,
     @NotNull OrderSide side,
     @NotNull @Min(1) Integer quantity,
-    @NotNull @DecimalMin("0.01") BigDecimal price
+    BigDecimal price
 ) {
 }

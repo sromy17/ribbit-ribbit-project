@@ -23,10 +23,9 @@
     <aside class="account-sidebar">
       <div class="sidebar-heading">
         <div>
-          <p class="eyebrow">Your workspace</p>
-          <h2>Accounts</h2>
+          <p class="eyebrow">Account selection</p>
+          <h2>{{ getAccountPanelTitle() }}</h2>
         </div>
-        <button class="btn-add-account" type="button" (click)="createAccount()" title="Create account">+</button>
       </div>
 
       <div *ngIf="loadingAccounts" class="loading-indicator">Loading accounts...</div>
@@ -40,8 +39,10 @@
         class="account-item"
         [class.selected]="selectedAccount?.accountId === account.accountId"
         (click)="selectAccount(account)">
-        <strong>{{ account.type }}</strong>
-        <span>Account {{ account.accountId }} · ${{ account.availableFunds | number: '1.2-2' }}</span>
+        <strong>{{ formatAccountType(account.type) }}</strong>
+      </button>
+      <button type="button" class="btn-primary create-account-button" (click)="createAccount()">
+        Create a new account
       </button>
     </aside>
 
@@ -57,12 +58,12 @@
       <div class="cards">
         <div class="card">
           <h3>Cash</h3>
-          <p class="value" *ngIf="!loadingBalance">${{ portfolio.cash | number: '1.0-0' }}</p>
+          <p class="value" *ngIf="!loadingBalance">${{ portfolio.cash | number: '1.2-2' }}</p>
           <p class="value loading" *ngIf="loadingBalance">Loading...</p>
         </div>
         <div class="card">
           <h3>Portfolio Value</h3>
-          <p class="value" *ngIf="!loadingBalance">${{ getTotalValue() | number: '1.0-0' }}</p>
+          <p class="value" *ngIf="!loadingBalance">${{ getTotalValue() | number: '1.2-2' }}</p>
           <p class="value loading" *ngIf="loadingBalance">Loading...</p>
         </div>
         <div class="card">
@@ -103,26 +104,26 @@
       <div class="section">
         <h2>Trade History</h2>
         <div *ngIf="loadingTrades" class="loading-indicator">Loading trades...</div>
-        <div *ngIf="!loadingTrades && trades.length === 0" class="empty-state">
-          No trades yet
+        <div *ngIf="!loadingTrades && successfulOrders.length === 0" class="empty-state">
+          No successful trades yet
         </div>
-        <table class="table" *ngIf="!loadingTrades && trades.length > 0">
+        <table class="table" *ngIf="!loadingTrades && successfulOrders.length > 0">
           <thead>
             <tr>
-              <th>Trade ID</th>
+              <th>Order ID</th>
               <th>Symbol</th>
-              <th>Execution Price</th>
-              <th>Qty</th>
+              <th>Price</th>
+              <th>Quantity</th>
               <th>Date</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let t of trades">
-              <td>{{ t.tradeId }}</td>
-              <td><strong>{{ t.symbol }}</strong></td>
-              <td>${{ t.executionPrice | number: '1.2-2' }}</td>
-              <td>{{ t.executedQuantity }}</td>
-              <td>{{ t.executedAt | date: 'short' }}</td>
+            <tr *ngFor="let order of successfulOrders">
+              <td>{{ order.orderId }}</td>
+              <td><strong>{{ order.symbol }}</strong></td>
+              <td>${{ order.price | number: '1.2-2' }}</td>
+              <td>{{ order.quantity }}</td>
+              <td>{{ (order.createdAt) | date: 'short' }}</td>
             </tr>
           </tbody>
         </table>
@@ -151,11 +152,6 @@
             <input type="number" [(ngModel)]="orderForm.quantity" placeholder="10" [disabled]="loading" (blur)="validateOrderForm()" />
             <span class="error-text" *ngIf="orderFormErrors['quantity']">{{ orderFormErrors['quantity'] }}</span>
           </div>
-          <div class="form-field">
-            <label>Price</label>
-            <input type="number" [(ngModel)]="orderForm.price" placeholder="100.00" step="0.01" [disabled]="loading" (blur)="validateOrderForm()" />
-            <span class="error-text" *ngIf="orderFormErrors['price']">{{ orderFormErrors['price'] }}</span>
-          </div>
           <button (click)="placeOrder()" [disabled]="loading || !isFormValid()" class="btn-primary btn-full-width">
             {{ loading ? 'Placing...' : 'Place Order' }}
           </button>
@@ -163,8 +159,8 @@
         <div class="error-text" *ngIf="orderFormErrors['submit']">{{ orderFormErrors['submit'] }}</div>
       </div>
 
-      <div class="section">
-        <h2>Recent Orders</h2>
+      <details class="section recent-orders-dropdown">
+        <summary>Recent Orders <span class="dropdown-chevron">⌄</span></summary>
         <div *ngIf="loadingOrders" class="loading-indicator">Loading orders...</div>
         <div *ngIf="!loadingOrders && orders.length === 0" class="empty-state">
           No orders yet
@@ -207,7 +203,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </details>
     </div>
 
     <!-- Market Heatmap Section -->

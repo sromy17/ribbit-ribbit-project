@@ -2,15 +2,6 @@
   display: block;
 }
 
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: color-mix(in srgb, var(--md-surface) 88%, white);
-  border-bottom: 1px solid var(--md-outline-variant);
-  backdrop-filter: blur(8px);
-}
-
 .header-content {
   max-width: 1400px;
   margin: 0 auto;
@@ -102,6 +93,47 @@
   margin-bottom: 18px;
 }
 
+.account-page {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  animation: content-slide 220ms ease-out;
+}
+
+.account-sidebar {
+  position: sticky;
+  top: 82px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 420px;
+  padding: 18px;
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 18px;
+  box-shadow: 0 2px 8px var(--md-shadow);
+}
+
+.account-sidebar .create-account-button {
+  margin-top: auto;
+}
+
+.account-item.selected {
+  border-color: var(--md-primary);
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  box-shadow: 0 4px 12px var(--md-primary-shadow);
+}
+
+.account-item.selected span {
+  color: color-mix(in srgb, var(--md-on-primary) 78%, transparent);
+}
+
+.account-main {
+  min-width: 0;
+}
+
 .investor-dashboard {
   .account-page {
     display: grid;
@@ -140,17 +172,6 @@
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-  }
-  .btn-add-account {
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--md-outline);
-    border-radius: 50%;
-    background: var(--md-surface-container-high);
-    color: var(--md-primary);
-    font-size: 1.3rem;
-    line-height: 1;
-    cursor: pointer;
   }
   .account-item {
     display: grid;
@@ -192,6 +213,10 @@
   }
   .account-sidebar .btn-primary {
     width: 100%;
+  }
+
+  .create-account-button {
+    margin-top: 4px;
   }
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.95fr);
@@ -371,6 +396,35 @@
   gap: 12px;
 }
 
+.recent-orders-dropdown > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--md-on-surface);
+}
+
+.recent-orders-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+
+.dropdown-chevron {
+  color: var(--md-primary);
+  font-size: 1.3rem;
+  transition: transform 0.18s ease;
+}
+
+.recent-orders-dropdown[open] .dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.recent-orders-dropdown > summary + * {
+  margin-top: 16px;
+}
+
 .order-card {
   padding: 14px;
   transition: box-shadow 0.18s ease, transform 0.18s ease;
@@ -412,7 +466,8 @@
 }
 
 .order-side.sell,
-.status-cancelled {
+.status-cancelled,
+.status-rejected {
   background: var(--md-danger-bg);
   color: var(--md-danger-fg);
 }
@@ -597,6 +652,16 @@
 
   .container {
     padding: 20px 14px 26px;
+  }
+
+  .account-context {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .account-context-meta {
+    justify-content: flex-start;
   }
 
   .table {

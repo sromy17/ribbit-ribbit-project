@@ -37,7 +37,7 @@ export interface Order {
   symbol: string;
   side: 'BUY' | 'SELL';
   quantity: number;
-  price: number;
+  price?: number;
   status: 'PENDING' | 'FILLED' | 'CANCELLED';
   createdAt?: string;
 }
@@ -206,8 +206,7 @@ export class ApiService {
     return this.http.post<ProcessOrderResponse>(`${this.apiUrl}/accounts/${accountId}/orders`, {
       ticker: order.symbol,
       side: order.side,
-      quantity: order.quantity,
-      price: order.price
+      quantity: order.quantity
     });
   }
 
