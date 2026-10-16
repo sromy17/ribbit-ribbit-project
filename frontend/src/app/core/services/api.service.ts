@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, map } from 'rxjs';
 import { delay } from 'rxjs/operators';
 
 // Component -> ApiService -> HttpClient -> API
@@ -171,7 +171,9 @@ export class ApiService {
   }
 
   getAccountsForUser(userId: string): Observable<TradingAccount[]> {
-    return this.http.get<TradingAccount[]>(`${this.apiUrl}/accounts/user/${userId}`);
+    return this.http.get<TradingAccount | TradingAccount[]>(`${this.apiUrl}/accounts/user/${userId}`).pipe(
+      map((response) => Array.isArray(response) ? response : [response])
+    );
   }
 
   createAccount(request: CreateAccountRequest): Observable<TradingAccount> {

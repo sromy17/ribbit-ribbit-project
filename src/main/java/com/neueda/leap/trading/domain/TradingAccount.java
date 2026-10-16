@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -112,7 +111,7 @@ public class TradingAccount {
 	}
 
 	@Transient
-	@JsonProperty("trades")
+	@JsonIgnore
 	public List<Trade> getTrades() {
 		return orders.stream()
 			.flatMap(order -> order.getTrades().stream())

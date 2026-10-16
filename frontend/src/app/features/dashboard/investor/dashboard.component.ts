@@ -173,17 +173,8 @@ export class DashboardComponent implements OnInit {
       }
     });
 
-    // Load symbol trends (for heatmap)
-    this.api.getSymbolTrends().subscribe({
-      next: (trends) => {
-        this.symbolTrends = trends.sort((a, b) => b.popularityScore - a.popularityScore);
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error loading symbol trends:', err);
-        // Non-critical error, continue without heatmap data
-      }
-    });
+    // Market trend data is not exposed by the current backend contract.
+    this.symbolTrends = [];
   }
 
   // Form Validation Methods
