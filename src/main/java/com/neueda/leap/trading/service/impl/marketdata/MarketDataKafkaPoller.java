@@ -63,7 +63,7 @@ public class MarketDataKafkaPoller {
             .stream()
             .map(instrument -> instrument != null ? instrument.getTicker() : null)
             .filter(Objects::nonNull)
-            .map(ticker -> ticker != null ? ticker.trim() : "")
+            .map(ticker -> ticker.trim())
             .filter(s -> !s.isEmpty())
             .map(s -> s.toUpperCase(Locale.ROOT))
             .filter(symbol -> !prioritySet.contains(symbol))
@@ -92,7 +92,7 @@ public class MarketDataKafkaPoller {
         }
 
         return Arrays.stream(configuredSymbols.split(","))
-            .map(String::trim)
+            .map(symbol -> symbol.trim())
             .filter(symbol -> !symbol.isEmpty())
             .map(symbol -> symbol.toUpperCase(Locale.ROOT))
             .distinct()

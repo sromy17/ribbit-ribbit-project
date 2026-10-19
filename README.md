@@ -17,7 +17,7 @@
 This repository now includes a Spring Boot backend skeleton for one-order processing end-to-end.
 
 ### Tech stack in code
-- Spring Boot 3 (REST + DI)
+- Spring Boot 4 (REST + DI), Java 25
 - JPA/Hibernate for CRUD persistence of core entities
 - MyBatis for a complex aggregate query (account/order summary)
 - PostgreSQL (runtime) and H2 (default/test profile)
@@ -116,5 +116,6 @@ curl -X POST http://localhost:8081/accounts/1/orders \
 ```
 
 ### Existing tests
-- `GreeterTest` (legacy baseline)
-- `OrderProcessingIntegrationTest` (new end-to-end verification)
+- Controller tests for user and order endpoints
+- Order service and trading-rule validation tests
+- Application context and configuration binding smoke test

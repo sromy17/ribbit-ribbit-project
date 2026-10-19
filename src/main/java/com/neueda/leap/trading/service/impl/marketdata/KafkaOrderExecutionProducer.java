@@ -4,8 +4,8 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -46,7 +46,7 @@ public class KafkaOrderExecutionProducer {
             String key = Objects.requireNonNull(String.valueOf(orderId));
             String configuredTopic = Objects.requireNonNull(topic);
             kafkaTemplate.send(configuredTopic, key, payload);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new IllegalStateException("Could not serialize order execution command", ex);
         }
     }

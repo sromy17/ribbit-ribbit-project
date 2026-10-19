@@ -1,5 +1,6 @@
 package com.neueda.leap.trading.service.impl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -7,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.jspecify.annotations.NonNull;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -174,19 +176,18 @@ public class OltpToOlapEtlService {
         );
     }
 
-    private void batchInsert(String sql, List<Map<String, Object>> rows, String... columns) {
+    private void batchInsert(@NonNull String sql, List<Map<String, Object>> rows, String... columns) {
         if (rows.isEmpty()) {
             return;
         }
-        List<Object[]> arguments = rows.stream()
-            .map(row -> {
-                Object[] values = new Object[columns.length];
-                for (int i = 0; i < columns.length; i++) {
-                    values[i] = row.get(columns[i]);
-                }
-                return values;
-            })
-            .toList();
+        List<Object[]> arguments = new ArrayList<>(rows.size());
+        for (Map<String, Object> row : rows) {
+            Object[] values = new Object[columns.length];
+            for (int i = 0; i < columns.length; i++) {
+                values[i] = row.get(columns[i]);
+            }
+            arguments.add(values);
+        }
         olapJdbcTemplate.batchUpdate(sql, arguments);
     }
 

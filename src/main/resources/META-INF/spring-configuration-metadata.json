@@ -1,0 +1,117 @@
+{
+  "groups": [
+    {
+      "name": "app.datasource.olap"
+    },
+    {
+      "name": "security.jwt"
+    },
+    {
+      "name": "market-data.fauxnance"
+    },
+    {
+      "name": "market-data.refresh"
+    },
+    {
+      "name": "market-data.kafka"
+    },
+    {
+      "name": "market-data.execution.kafka"
+    },
+    {
+      "name": "etl.schedule"
+    }
+  ],
+  "properties": [
+    {
+      "name": "app.datasource.olap.url",
+      "type": "java.lang.String",
+      "description": "JDBC URL of the OLAP database."
+    },
+    {
+      "name": "app.datasource.olap.username",
+      "type": "java.lang.String",
+      "description": "OLAP database login name."
+    },
+    {
+      "name": "app.datasource.olap.password",
+      "type": "java.lang.String",
+      "description": "OLAP database login password."
+    },
+    {
+      "name": "security.jwt.shared-secret",
+      "type": "java.lang.String",
+      "description": "Shared HMAC secret used to sign and verify access tokens."
+    },
+    {
+      "name": "security.jwt.session-lifetime-seconds",
+      "type": "java.lang.Long",
+      "description": "Session lifetime in seconds."
+    },
+    {
+      "name": "market-data.fauxnance.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL of the Fauxnance market data API."
+    },
+    {
+      "name": "market-data.fauxnance.api-key",
+      "type": "java.lang.String",
+      "description": "API key for the Fauxnance market data API."
+    },
+    {
+      "name": "market-data.refresh.priority-symbols",
+      "type": "java.lang.String",
+      "description": "Comma-separated ticker symbols refreshed on the priority schedule."
+    },
+    {
+      "name": "market-data.refresh.priority-poll-ms",
+      "type": "java.lang.Long",
+      "description": "Delay between priority quote refreshes in milliseconds."
+    },
+    {
+      "name": "market-data.refresh.secondary-poll-ms",
+      "type": "java.lang.Long",
+      "description": "Delay between secondary quote refreshes in milliseconds."
+    },
+    {
+      "name": "market-data.kafka.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable Kafka quote publication and consumption."
+    },
+    {
+      "name": "market-data.kafka.topic",
+      "type": "java.lang.String",
+      "description": "Kafka topic for quote snapshots."
+    },
+    {
+      "name": "market-data.kafka.group-id",
+      "type": "java.lang.String",
+      "description": "Consumer group for quote snapshots."
+    },
+    {
+      "name": "market-data.kafka.quote-cache-max-age-ms",
+      "type": "java.lang.Long",
+      "description": "Maximum quote cache age in milliseconds."
+    },
+    {
+      "name": "market-data.execution.kafka.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable Kafka order execution."
+    },
+    {
+      "name": "market-data.execution.kafka.topic",
+      "type": "java.lang.String",
+      "description": "Kafka topic for order execution commands."
+    },
+    {
+      "name": "market-data.execution.kafka.group-id",
+      "type": "java.lang.String",
+      "description": "Consumer group for order execution commands."
+    },
+    {
+      "name": "etl.schedule.cron",
+      "type": "java.lang.String",
+      "description": "Cron schedule for OLTP to OLAP loads; a hyphen disables scheduled loads."
+    }
+  ]
+}

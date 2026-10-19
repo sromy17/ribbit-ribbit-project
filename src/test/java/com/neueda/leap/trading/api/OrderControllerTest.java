@@ -14,14 +14,14 @@ import java.util.List;
 import java.util.Objects;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.neueda.leap.trading.api.dto.CreateAccountOrderRequest;
 import com.neueda.leap.trading.api.dto.ProcessOrderRequest;
 import com.neueda.leap.trading.api.dto.ProcessOrderResponse;
@@ -72,9 +72,9 @@ class OrderControllerTest {
             new BigDecimal("25.00")
         );
 
-        mockMvc.perform(post("/accounts/1/orders")
+        mockMvc.perform(Objects.requireNonNull(post("/accounts/1/orders")
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
-                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request)))))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.orderId").value(501))
             .andExpect(jsonPath("$.tradeId").value(701))

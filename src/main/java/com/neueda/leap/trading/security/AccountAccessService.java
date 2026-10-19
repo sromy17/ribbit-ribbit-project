@@ -19,16 +19,16 @@ public class AccountAccessService {
         this.accountRepository = accountRepository;
     }
 
-    public void requireAccountOwner(Integer accountId) {
+    public void requireAccountOwner(int accountId) {
         TradingAccount account = getAccount(accountId);
         if (!isCurrentUser(account.getUser().getUserId())) {
             deny();
         }
     }
 
-    public void requireAccountAccess(Integer accountId, String staffPermission) {
+    public void requireAccountAccess(int accountId, String staffPermission) {
         Authentication authentication = currentAuthentication();
-        if (authentication.getAuthorities().stream().anyMatch(a -> staffPermission.equals(a.getAuthority()))) {
+        if (authentication.getAuthorities().stream().anyMatch(a -> a != null && staffPermission.equals(a.getAuthority()))) {
             return;
         }
         requireAccountOwner(accountId);
@@ -36,7 +36,7 @@ public class AccountAccessService {
 
     public void requireUserAccess(Integer userId, String staffPermission) {
         Authentication authentication = currentAuthentication();
-        if (authentication.getAuthorities().stream().anyMatch(a -> staffPermission.equals(a.getAuthority()))) {
+        if (authentication.getAuthorities().stream().anyMatch(a -> a != null && staffPermission.equals(a.getAuthority()))) {
             return;
         }
         if (!isCurrentUser(userId)) {
@@ -44,7 +44,7 @@ public class AccountAccessService {
         }
     }
 
-    private TradingAccount getAccount(Integer accountId) {
+    private TradingAccount getAccount(int accountId) {
         return accountRepository.findById(accountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId));
     }

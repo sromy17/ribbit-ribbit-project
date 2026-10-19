@@ -92,7 +92,7 @@ public class AccountController {
 
     @PutMapping("/{accountId}")
     public TradingAccount updateAccount(
-        @PathVariable("accountId") Integer accountId,
+        @PathVariable("accountId") int accountId,
         @Valid @RequestBody UpdateAccountRequest request
     ) {
         accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
@@ -104,13 +104,13 @@ public class AccountController {
 
     @DeleteMapping("/{accountId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteAccount(@PathVariable("accountId") Integer accountId) {
+    public void deleteAccount(@PathVariable("accountId") int accountId) {
         accountAccessService.requireAccountOwner(accountId);
         accountRepository.deleteById(accountId);
     }
 
     @GetMapping("/{accountId}/balance")
-    public Map<String, Object> getBalance(@PathVariable("accountId") Integer accountId) {
+    public Map<String, Object> getBalance(@PathVariable("accountId") int accountId) {
         accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
         TradingAccount account = accountRepository.findById(accountId).get();
 
@@ -122,7 +122,7 @@ public class AccountController {
 
     @PutMapping("/{accountId}/balance")
     public Map<String, Object> updateBalance(
-        @PathVariable("accountId") Integer accountId,
+        @PathVariable("accountId") int accountId,
         @Valid @RequestBody UpdateBalanceRequest request
     ) {
         accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
@@ -138,15 +138,15 @@ public class AccountController {
     }
 
     @GetMapping("/{accountId}/holdings")
-    public List<Holding> getHoldings(@PathVariable("accountId") Integer accountId) {
+    public List<Holding> getHoldings(@PathVariable("accountId") int accountId) {
         accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
 
         return holdingRepository.findByAccountAccountId(accountId);
     }
 
     @GetMapping("/{accountId}/trades")
-    public List<Trade> getTrades(@PathVariable("accountId") Integer accountId) {
-        if (accountId == null || !accountRepository.existsById(accountId)) {
+    public List<Trade> getTrades(@PathVariable("accountId") int accountId) {
+        if (!accountRepository.existsById(accountId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
         }
 

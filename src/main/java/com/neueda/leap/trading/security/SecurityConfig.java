@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Locale;
+import org.jspecify.annotations.NonNull;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -104,7 +105,7 @@ public class SecurityConfig {
         return authorities;
     }
 
-    private Collection<String> permissionsFor(String role) {
+    private Collection<@NonNull String> permissionsFor(String role) {
         return switch (role) {
             case "OPERATIONS" -> java.util.List.of(
                 "PERM_ORDER_INVESTIGATION", "PERM_ACCOUNT_DETAILS", "PERM_HISTORICAL_EVIDENCE");

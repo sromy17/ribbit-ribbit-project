@@ -6,7 +6,6 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import com.neueda.leap.trading.api.dto.LoginRequest;
-import com.neueda.leap.trading.domain.Role;
 import com.neueda.leap.trading.domain.Session;
 import com.neueda.leap.trading.domain.User;
 import com.neueda.leap.trading.repository.jpa.SessionRepository;
@@ -51,7 +50,7 @@ public class AuthenticationService {
 
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plusSeconds(sessionLifetimeSeconds);
-        List<String> roles = user.getRoles().stream().map(Role::getRoleName).toList();
+        List<String> roles = user.getRoles().stream().map(role -> role.getRoleName()).toList();
         JwtClaimsSet claims = JwtClaimsSet.builder()
             .subject(user.getUsername())
             .claim("uid", user.getUserId())
