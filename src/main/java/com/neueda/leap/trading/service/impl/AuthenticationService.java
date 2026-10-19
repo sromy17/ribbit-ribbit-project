@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 
-import com.neueda.leap.trading.api.LoginRequest;
+import com.neueda.leap.trading.api.dto.LoginRequest;
 import com.neueda.leap.trading.domain.Role;
 import com.neueda.leap.trading.domain.Session;
 import com.neueda.leap.trading.domain.User;

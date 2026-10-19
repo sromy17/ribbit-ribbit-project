@@ -30,6 +30,7 @@ import com.neueda.leap.trading.domain.OrderSide;
 import com.neueda.leap.trading.domain.OrderStatus;
 import com.neueda.leap.trading.repository.jpa.SessionRepository;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderSummary;
+import com.neueda.leap.trading.security.AccountAccessService;
 import com.neueda.leap.trading.service.contract.OrderService;
 
 @WebMvcTest(OrderController.class)
@@ -47,6 +48,9 @@ class OrderControllerTest {
 
     @MockitoBean
     private SessionRepository sessionRepository;
+
+    @MockitoBean
+    private AccountAccessService accountAccessService;
 
     @Test
     void createOrder_returnsCreated() throws Exception {

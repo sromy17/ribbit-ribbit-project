@@ -1,6 +1,6 @@
 package com.neueda.leap.trading.domain;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -13,29 +13,30 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "user_sessions")
+@Table(name = "sessions")
 public class Session {
     @Id
-    @Column(name = "userid")
-    private Integer userId;
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @Column(name = "sessionid")
+    private Integer sessionId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "userid", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "userid", nullable = false)
     @JsonIgnore
     private User user;
 
-    @Column(name = "refreshtoken", nullable = false)
-    private Integer refreshToken;
+    @Column(name = "accesstoken", nullable = false, unique = true, length = 256)
+    private String accessToken;
 
-    @Column(name = "dateissued", nullable = false)
-    private LocalDate dateIssued;
+    @Column(name = "expiresat", nullable = false)
+    private LocalDateTime expiresAt;
 
-    public Integer getUserId() {
-        return userId;
+    public Integer getSessionId() {
+        return sessionId;
     }
 
-    public void setUserId(Integer userId) {
-        this.userId = userId;
+    public void setSessionId(Integer sessionId) {
+        this.sessionId = sessionId;
     }
 
     public User getUser() {
@@ -46,19 +47,23 @@ public class Session {
         this.user = user;
     }
 
-    public Integer getRefreshToken() {
-        return refreshToken;
+    public String getAccessToken() {
+        return accessToken;
     }
 
-    public void setRefreshToken(Integer refreshToken) {
-        this.refreshToken = refreshToken;
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
     }
 
-    public LocalDate getDateIssued() {
-        return dateIssued;
+    public LocalDateTime getExpiresAt() {
+        return expiresAt;
     }
 
-    public void setDateIssued(LocalDate dateIssued) {
-        this.dateIssued = dateIssued;
+    public void setExpiresAt(LocalDateTime expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    public boolean isValid() {
+        return expiresAt != null && expiresAt.isAfter(LocalDateTime.now());
     }
 }

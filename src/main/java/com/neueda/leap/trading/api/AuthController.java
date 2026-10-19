@@ -2,13 +2,12 @@ package com.neueda.leap.trading.api;
 
 import java.util.Map;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
-
 import jakarta.validation.Valid;
+import com.neueda.leap.trading.api.dto.LoginRequest;
+import com.neueda.leap.trading.api.dto.LogoutRequest;
 import com.neueda.leap.trading.service.impl.AuthenticationService;
 
 @RestController

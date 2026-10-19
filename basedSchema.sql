@@ -150,6 +150,7 @@ CREATE TABLE holdings
     accountid INT NOT NULL REFERENCES accounts(accountid),
     instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
     quantity INT NOT NULL CHECK (quantity >= 0),
+    average_cost NUMERIC NOT NULL DEFAULT 0,
     as_of_date DATE NOT NULL,
     UNIQUE (accountid, instrumentid)
 );

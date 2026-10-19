@@ -20,6 +20,7 @@ import com.neueda.leap.trading.api.dto.CreateUserRequest;
 import com.neueda.leap.trading.domain.User;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
 import com.neueda.leap.trading.repository.jpa.SessionRepository;
+import com.neueda.leap.trading.security.AccountAccessService;
 
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -39,6 +40,9 @@ class UserControllerTest {
 
     @MockitoBean
     private PasswordEncoder passwordEncoder;
+
+    @MockitoBean
+    private AccountAccessService accountAccessService;
 
     @Test
     void createUser_returnsCreatedUser() throws Exception {
