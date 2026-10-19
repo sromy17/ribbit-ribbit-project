@@ -1,0 +1,87 @@
+package com.neueda.leap.trading.security;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+
+import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.neueda.leap.trading.domain.Session;
+import com.neueda.leap.trading.repository.jpa.SessionRepository;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+@Component
+public class SessionTokenValidationFilter extends OncePerRequestFilter {
+    private final SessionRepository sessionRepository;
+
+    public SessionTokenValidationFilter(SessionRepository sessionRepository) {
+        this.sessionRepository = sessionRepository;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        return "/actuator/health".equals(path) || "/actuator/info".equals(path);
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+        throws ServletException, IOException {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (!(authentication instanceof JwtAuthenticationToken jwtAuthenticationToken)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        Jwt jwt = jwtAuthenticationToken.getToken();
+        String accessToken = extractBearerToken(request.getHeader("Authorization"));
+        Object userIdClaim = jwt.getClaim("uid");
+        Integer userId = userIdClaim instanceof Number number ? number.intValue() : null;
+        Instant issuedAt = jwt.getIssuedAt();
+
+        if (accessToken == null || userId == null || issuedAt == null) {
+            reject(response, "Session is invalid");
+            return;
+        }
+
+        Session session = sessionRepository.findByAccessToken(accessToken).orElse(null);
+        if (session == null || !session.isValid()
+            || session.getUser() == null || !userId.equals(session.getUser().getUserId())) {
+            reject(response, "Session is invalid");
+            return;
+        }
+
+        if (issuedAt.isAfter(session.getExpiresAt().toInstant(ZoneOffset.UTC))) {
+            reject(response, "Session is invalid");
+            return;
+        }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private void reject(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write("{\"message\":\"" + message + "\"}");
+    }
+
+    private String extractBearerToken(String authorization) {
+        if (authorization == null || !authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return null;
+        }
+        String token = authorization.substring(7).trim();
+        return token.isEmpty() ? null : token;
+    }
+}

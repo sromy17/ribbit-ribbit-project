@@ -24,9 +24,11 @@ public class User {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
+    @JsonIgnore
     @Column(name = "salt", nullable = false, length = 25)
     private String salt;
 
+    @JsonIgnore
     @Column(name = "userHashedSaltedPassword", nullable = false, length = 64)
     private String userHashedSaltedPassword;
 

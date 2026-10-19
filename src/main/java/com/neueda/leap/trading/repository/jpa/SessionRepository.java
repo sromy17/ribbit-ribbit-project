@@ -10,4 +10,6 @@ public interface SessionRepository extends JpaRepository<Session, Integer> {
     Optional<Session> findByAccessToken(String accessToken);
 
     void deleteByAccessToken(String accessToken);
+
+    void deleteByUserUserId(Integer userId);
 }

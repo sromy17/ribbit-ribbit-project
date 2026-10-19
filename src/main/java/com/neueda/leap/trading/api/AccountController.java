@@ -24,6 +24,7 @@ import com.neueda.leap.trading.repository.jpa.HoldingRepository;
 import com.neueda.leap.trading.repository.jpa.TradeRepository;
 import com.neueda.leap.trading.repository.jpa.TradingAccountRepository;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
+import com.neueda.leap.trading.security.AccountAccessService;
 
 import jakarta.validation.Valid;
 
@@ -34,23 +35,27 @@ public class AccountController {
     private final UserRepository userRepository;
     private final HoldingRepository holdingRepository;
     private final TradeRepository tradeRepository;
+    private final AccountAccessService accountAccessService;
 
     public AccountController(
         TradingAccountRepository accountRepository,
         UserRepository userRepository,
         HoldingRepository holdingRepository,
-        TradeRepository tradeRepository
+        TradeRepository tradeRepository,
+        AccountAccessService accountAccessService
     ) {
         this.accountRepository = accountRepository;
         this.userRepository = userRepository;
         this.holdingRepository = holdingRepository;
         this.tradeRepository = tradeRepository;
+        this.accountAccessService = accountAccessService;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TradingAccount createAccount(@Valid @RequestBody CreateAccountRequest request) {
         int userId = request.userId();
+        accountAccessService.requireUserAccess(userId, "PERM_ACCOUNT_DETAILS");
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
 
@@ -64,9 +69,7 @@ public class AccountController {
 
     @GetMapping("/{accountId}")
     public TradingAccount getAccount(@PathVariable("accountId") int accountId) {
-        if (!accountRepository.existsById(accountId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
-        }
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
         return accountRepository.findById(accountId).get();
     }
 
@@ -75,9 +78,7 @@ public class AccountController {
         @PathVariable("accountId") Integer accountId,
         @Valid @RequestBody UpdateAccountRequest request
     ) {
-        if (accountId == null || !accountRepository.existsById(accountId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
-        }
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
         TradingAccount account = accountRepository.findById(accountId).get();
 
         account.setType(request.accountType());
@@ -87,17 +88,13 @@ public class AccountController {
     @DeleteMapping("/{accountId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAccount(@PathVariable("accountId") Integer accountId) {
-        if (accountId == null || !accountRepository.existsById(accountId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
-        }
+        accountAccessService.requireAccountOwner(accountId);
         accountRepository.deleteById(accountId);
     }
 
     @GetMapping("/{accountId}/balance")
     public Map<String, Object> getBalance(@PathVariable("accountId") Integer accountId) {
-        if (accountId == null || !accountRepository.existsById(accountId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
-        }
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
         TradingAccount account = accountRepository.findById(accountId).get();
 
         return Map.of(
@@ -111,9 +108,7 @@ public class AccountController {
         @PathVariable("accountId") Integer accountId,
         @Valid @RequestBody UpdateBalanceRequest request
     ) {
-        if (accountId == null || !accountRepository.existsById(accountId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
-        }
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
         TradingAccount account = accountRepository.findById(accountId).get();
 
         account.setAvailableFunds(request.cashBalance());
@@ -127,9 +122,7 @@ public class AccountController {
 
     @GetMapping("/{accountId}/holdings")
     public List<Holding> getHoldings(@PathVariable("accountId") Integer accountId) {
-        if (accountId == null || !accountRepository.existsById(accountId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
-        }
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
 
         return holdingRepository.findByAccountAccountId(accountId);
     }
