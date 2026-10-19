@@ -1,0 +1,32 @@
+flowchart LR
+    subgraph OLTP["ribbit_oltp"]
+        TR["trade_request"]
+        TE["trades_executed"]
+        CO["canceled_order"]
+        RO["rejected_orders"]
+        DO["disputed_orders"]
+        A["accounts"]
+        U["users"]
+        I["instruments"]
+        E["employees"]
+    end
+
+    ETL["OLTP-to-OLAP ETL<br/>join, aggregate, and enrich"]
+
+    subgraph OLAP["ribbit_olap"]
+        TF["trade_facts"]
+    end
+
+    TR --> ETL
+    TE --> ETL
+    CO --> ETL
+    RO --> ETL
+    DO --> ETL
+    A --> ETL
+    U --> ETL
+    I --> ETL
+    E --> ETL
+    ETL --> TF
+
+    TF_note["One row per trade request<br/>with execution, cancellation,<br/>rejection, dispute, account,<br/>user, instrument, and employee data"]
+    TF -.-> TF_note

@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:h2:mem:trading;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}
+    url: ${DB_OLTP_URL:${DB_URL:jdbc:h2:mem:trading;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}}
     username: ${DB_USER:sa}
     password: ${DB_PASSWORD:}
   jpa:
@@ -20,6 +20,13 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: latest
       group-id: ${MARKET_DATA_KAFKA_GROUP_ID:trading-market-data}
+
+app:
+  datasource:
+    olap:
+      url: ${DB_OLAP_URL:jdbc:h2:mem:trading-olap;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}
+      username: ${DB_OLAP_USER:${DB_USER:sa}}
+      password: ${DB_OLAP_PASSWORD:${DB_PASSWORD:}}
 
 mybatis:
   configuration:

@@ -134,8 +134,6 @@ public class TradingOrderService implements OrderService {
         applyFunds(account, order.getSide(), executionPrice, order.getQuantity(), fee);
         accountRepository.save(account);
 
-        updateHolding(account, instrument, order.getSide(), order.getQuantity(), executionPrice);
-
         Trade trade = new Trade();
         trade.setTradeId(nextTradeId());
         trade.setOrder(order);
@@ -146,6 +144,8 @@ public class TradingOrderService implements OrderService {
 
         order.setStatus(OrderStatus.EXECUTED);
         order = orderRepository.save(order);
+
+        updateHolding(account, instrument, order.getSide(), trade.getExecutedQuantity());
 
         AccountOrderSummary summary = readMapper.getAccountOrderSummary(account.getAccountId());
 
@@ -269,8 +269,7 @@ public class TradingOrderService implements OrderService {
         TradingAccount account,
         Instrument instrument,
         OrderSide side,
-        Integer quantity,
-        BigDecimal executionPrice
+        Integer quantity
     ) {
         Holding holding = holdingRepository
             .findByAccountAccountIdAndInstrumentInstrumentId(account.getAccountId(), instrument.getInstrumentId())
@@ -279,12 +278,16 @@ public class TradingOrderService implements OrderService {
                 newHolding.setAccount(account);
                 newHolding.setInstrument(instrument);
                 newHolding.setQuantity(0);
-                newHolding.setAverageCost(BigDecimal.ZERO);
                 return newHolding;
             });
 
         boolean isBuy = side == OrderSide.BUY;
-        holding.updatePosition(isBuy, quantity, executionPrice);
+        holding.updatePosition(isBuy, quantity);
+        if (holding.getQuantity() == 0) {
+            holdingRepository.delete(holding);
+            return;
+        }
+
         holding.setAsOfDate(LocalDate.now());
         holdingRepository.save(holding);
     }
