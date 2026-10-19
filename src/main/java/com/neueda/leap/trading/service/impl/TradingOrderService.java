@@ -1,7 +1,7 @@
 package com.neueda.leap.trading.service.impl;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -139,7 +139,7 @@ public class TradingOrderService implements OrderService {
         trade.setOrder(order);
         trade.setExecutionPrice(executionPrice);
         trade.setExecutedQuantity(order.getQuantity());
-        trade.setExecutedAt(LocalDate.now());
+        trade.setExecutedAt(Instant.now());
         trade = tradeRepository.save(trade);
 
         order.setStatus(OrderStatus.EXECUTED);
@@ -188,7 +188,7 @@ public class TradingOrderService implements OrderService {
         order.setSide(request.side());
         order.setQuantity(request.quantity());
         order.setPrice(request.price());
-        order.setDateRequested(LocalDate.now());
+        order.setDateRequested(Instant.now());
 
         // Set order status based on validation result
         if (!validation.isValid()) {
@@ -288,7 +288,7 @@ public class TradingOrderService implements OrderService {
             return;
         }
 
-        holding.setAsOfDate(LocalDate.now());
+        holding.setAsOfDate(Instant.now());
         holdingRepository.save(holding);
     }
 

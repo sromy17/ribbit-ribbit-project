@@ -1,6 +1,6 @@
 package com.neueda.leap.trading.domain;
 
-import java.time.LocalDate;
+import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -28,7 +28,7 @@ public class Session {
     private Integer refreshToken;
 
     @Column(name = "dateissued", nullable = false)
-    private LocalDate dateIssued;
+    private Instant dateIssued;
 
     public Integer getUserId() {
         return userId;
@@ -54,11 +54,11 @@ public class Session {
         this.refreshToken = refreshToken;
     }
 
-    public LocalDate getDateIssued() {
+    public Instant getDateIssued() {
         return dateIssued;
     }
 
-    public void setDateIssued(LocalDate dateIssued) {
+    public void setDateIssued(Instant dateIssued) {
         this.dateIssued = dateIssued;
     }
 }

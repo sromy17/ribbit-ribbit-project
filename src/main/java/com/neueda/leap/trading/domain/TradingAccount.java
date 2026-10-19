@@ -1,7 +1,7 @@
 package com.neueda.leap.trading.domain;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,7 +37,7 @@ public class TradingAccount {
 	private BigDecimal availableFunds;
 
 	@Column(name = "creationdate", nullable = false)
-	private LocalDate creationDate;
+	private Instant creationDate;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "account_type", nullable = false, length = 20)
@@ -87,11 +87,11 @@ public class TradingAccount {
 		this.availableFunds = availableFunds;
 	}
 
-	public LocalDate getCreationDate() {
+	public Instant getCreationDate() {
 		return creationDate;
 	}
 
-	public void setCreationDate(LocalDate creationDate) {
+	public void setCreationDate(Instant creationDate) {
 		this.creationDate = creationDate;
 	}
 

@@ -1,6 +1,6 @@
 package com.neueda.leap.trading.domain;
 
-import java.time.LocalDate;
+import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -36,7 +36,7 @@ public class Holding {
     private Integer quantity;
 
     @Column(name = "as_of_date", nullable = false)
-    private LocalDate asOfDate;
+    private Instant asOfDate;
 
     public void updatePosition(boolean isBuy, int deltaQty) {
         if (deltaQty <= 0) {
@@ -62,11 +62,11 @@ public class Holding {
         this.quantity = quantity;
     }
 
-    public LocalDate getAsOfDate() {
+    public Instant getAsOfDate() {
         return asOfDate;
     }
 
-    public void setAsOfDate(LocalDate asOfDate) {
+    public void setAsOfDate(Instant asOfDate) {
         this.asOfDate = asOfDate;
     }
 
@@ -94,11 +94,4 @@ public class Holding {
         this.instrument = instrument;
     }
 
-    public LocalDate getAsOfDate() {
-        return asOfDate;
-    }
-
-    public void setAsOfDate(LocalDate asOfDate) {
-        this.asOfDate = asOfDate;
-    }
 }

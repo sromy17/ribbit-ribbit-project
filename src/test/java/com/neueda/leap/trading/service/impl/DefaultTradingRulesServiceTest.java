@@ -335,7 +335,6 @@ public class DefaultTradingRulesServiceTest {
         Holding holding = new Holding();
         holding.setHoldingId(1);
         holding.setQuantity(quantity);
-        holding.setAverageCost(BigDecimal.valueOf(100));
         return holding;
     }
 }

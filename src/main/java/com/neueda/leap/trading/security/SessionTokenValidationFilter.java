@@ -2,8 +2,6 @@ package com.neueda.leap.trading.security;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -60,10 +58,7 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
             return;
         }
 
-        LocalDate minIssueDate = session.getDateIssued();
-        Instant minIssueInstant = minIssueDate.atStartOfDay().toInstant(ZoneOffset.UTC);
-
-        if (issuedAt.isBefore(minIssueInstant)) {
+        if (issuedAt.isBefore(session.getDateIssued())) {
             reject(response, "Session is invalid");
             return;
         }
