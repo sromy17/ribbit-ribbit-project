@@ -57,63 +57,26 @@ export class DashboardComponent implements OnInit {
   }
 
   ngOnInit() {
-    if (this.currentUser) {
-      this.loadAccounts();
-    }
-  }
-
-  loadAccounts(): void {
+    const accountId = this.route.snapshot.paramMap.get('accountId');
     if (!this.currentUser) {
       return;
     }
-
-    this.loadingAccounts = true;
-    this.api.getAccountsForUser(this.currentUser.id).subscribe({
-      next: (accounts) => {
-        this.accounts = accounts;
-        this.loadingAccounts = false;
-        if (accounts.length > 0) {
-          this.selectAccount(accounts[0]);
-        } else {
-          this.selectedAccount = null;
-          this.accountId = '';
-        }
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.error = 'Failed to load your accounts';
-        this.loadingAccounts = false;
-        this.cdr.detectChanges();
-      }
-    });
+    if (!accountId) {
+      this.router.navigate(['/accounts']);
+      return;
+    }
+    this.accountId = accountId;
+    this.loadDashboardData();
   }
 
-  selectAccount(account: TradingAccount): void {
-    this.selectedAccount = account;
-    this.accountId = String(account.accountId);
-    this.resetDashboardData();
-    this.loadDashboardData();
+  backToAccounts(): void {
+    this.router.navigate(['/accounts']);
   }
 
   resetDashboardData(): void {
     this.portfolio = { cash: 0, holdings: [], totalValue: 0 };
     this.orders = [];
     this.successfulOrders = [];
-  }
-
-  createAccount(): void {
-    this.router.navigate(['/accounts/create']);
-  }
-
-  formatAccountType(type: string): string {
-    const normalizedType = type.toLowerCase();
-    return `${normalizedType.charAt(0).toUpperCase()}${normalizedType.slice(1)} Account`;
-  }
-
-  getAccountPanelTitle(): string {
-    return this.selectedAccount
-      ? `Your ${this.formatAccountType(this.selectedAccount.type)}`
-      : 'Your Accounts';
   }
 
   loadDashboardData() {

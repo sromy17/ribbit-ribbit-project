@@ -19,40 +19,13 @@
   </div>
 
   <!-- INVESTOR DASHBOARD -->
-  <div *ngIf="currentRole === 'investor'" class="account-page">
-    <aside class="account-sidebar">
-      <div class="sidebar-heading">
-        <div>
-          <p class="eyebrow">Account selection</p>
-          <h2>{{ getAccountPanelTitle() }}</h2>
-        </div>
-      </div>
-
-      <div *ngIf="loadingAccounts" class="loading-indicator">Loading accounts...</div>
-      <div *ngIf="!loadingAccounts && accounts.length === 0" class="empty-state">
-        <p>You do not have any accounts yet.</p>
-        <button class="btn-primary" type="button" (click)="createAccount()">Create an account</button>
-      </div>
-      <button
-        *ngFor="let account of accounts"
-        type="button"
-        class="account-item"
-        [class.selected]="selectedAccount?.accountId === account.accountId"
-        (click)="selectAccount(account)">
-        <strong>{{ formatAccountType(account.type) }}</strong>
-      </button>
-      <button type="button" class="btn-primary create-account-button" (click)="createAccount()">
-        Create a new account
-      </button>
-    </aside>
-
+  <div *ngIf="currentRole === 'investor'" class="account-page account-page-full">
     <div class="account-main">
-      <div *ngIf="!loadingAccounts && accounts.length === 0" class="no-account-panel">
-        <h1>Welcome to your trading workspace</h1>
-        <p>Create your first account to start managing balances, holdings, orders, and trades.</p>
+      <div class="account-toolbar">
+        <button type="button" class="btn-small" (click)="backToAccounts()">← All accounts</button>
       </div>
 
-      <div *ngIf="!loadingAccounts && accounts.length > 0" class="investor-dashboard">
+      <div class="investor-dashboard">
     <!-- LEFT COLUMN: Portfolio Overview -->
     <div class="dashboard-column left-column">
       <div class="cards">

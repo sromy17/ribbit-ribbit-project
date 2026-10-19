@@ -26,7 +26,7 @@ export class LoginComponent {
     this.auth.login(this.username, this.password).subscribe({
       next: (user) => {
         if (user.role === 'investor') {
-          this.router.navigate(['/investor-dashboard']);
+          this.router.navigate(['/accounts']);
         }
       },
       error: () => {

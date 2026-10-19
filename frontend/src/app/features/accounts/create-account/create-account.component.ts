@@ -44,7 +44,7 @@ export class CreateAccountComponent {
       accountType: this.accountType,
       initialCashBalance: this.initialCashBalance
     }).subscribe({
-      next: () => this.router.navigate(['/investor-dashboard']),
+      next: (account) => this.router.navigate(['/investor-dashboard', account.accountId]),
       error: () => {
         this.error = 'Unable to create the account';
         this.loading = false;
