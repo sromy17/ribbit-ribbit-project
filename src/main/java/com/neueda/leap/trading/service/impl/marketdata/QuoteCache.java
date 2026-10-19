@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -21,6 +23,11 @@ public class QuoteCache {
     }
 
     public Optional<BigDecimal> getFreshPrice(String symbol, Duration maxAge) {
+        Optional<QuoteSnapshot> snapshot = getFreshSnapshot(symbol, maxAge);
+        return snapshot.isPresent() ? Optional.of(snapshot.get().price()) : Optional.empty();
+    }
+
+    public Optional<QuoteSnapshot> getFreshSnapshot(String symbol, Duration maxAge) {
         if (symbol == null || symbol.isBlank() || maxAge == null || maxAge.isNegative() || maxAge.isZero()) {
             return Optional.empty();
         }
@@ -35,7 +42,11 @@ public class QuoteCache {
             return Optional.empty();
         }
 
-        return Optional.of(snapshot.price());
+        return Optional.of(snapshot);
+    }
+
+    public Collection<QuoteSnapshot> getAll() {
+        return List.copyOf(quotesBySymbol.values());
     }
 
     private String normalize(String symbol) {

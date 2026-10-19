@@ -61,6 +61,15 @@ public class FauxnanceQuoteClient {
         }
     }
 
+    public boolean isTickerValid(String symbol) {
+        try {
+            fetchQuote(symbol);
+            return true;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     private String normalizeSymbol(String symbol) {
         if (symbol == null || symbol.isBlank()) {
             throw new IllegalArgumentException("Instrument ticker is blank");
