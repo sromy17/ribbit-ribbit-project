@@ -20,6 +20,9 @@ public class TradingAccountService implements AccountService {
     @Override
     @Transactional
     public TradingAccount deposit(Integer accountId, BigDecimal amount) {
+        if (accountId == null) {
+            throw new IllegalArgumentException("Account ID cannot be null");
+        }
         TradingAccount account = accountRepository.findById(accountId)
             .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
         account.depositFunds(amount);
@@ -29,6 +32,9 @@ public class TradingAccountService implements AccountService {
     @Override
     @Transactional
     public TradingAccount withdraw(Integer accountId, BigDecimal amount) {
+        if (accountId == null) {
+            throw new IllegalArgumentException("Account ID cannot be null");
+        }
         TradingAccount account = accountRepository.findById(accountId)
             .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
         account.withdrawFunds(amount);

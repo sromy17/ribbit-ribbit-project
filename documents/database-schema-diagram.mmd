@@ -1,0 +1,83 @@
+erDiagram
+    USERS ||--o{ ACCOUNTS : has
+    ACCOUNTS ||--o{ TRADE_REQUEST : makes
+    ACCOUNTS ||--o{ SUPPORT_TICKET : submits
+    INSTRUMENTS ||--o{ TRADE_REQUEST : involves
+    TRADE_REQUEST ||--o{ TRADES_EXECUTED : executes
+    TRADE_REQUEST ||--o{ DISPUTED_ORDERS : raises
+    TRADE_REQUEST ||--o{ CANCELED_ORDER : cancels
+    EMPLOYEES ||--o{ DISPUTED_ORDERS : reviews
+    EMPLOYEES ||--o{ SUPPORT_TICKET : handles
+
+    USERS {
+        int userid PK
+        string username UK
+        string salt
+        string userHashedSaltedPassword
+    }
+
+    ACCOUNTS {
+        int accountid PK
+        int userid FK
+        numeric availablefunds
+        date creationdate
+        string account_type
+    }
+
+    INSTRUMENTS {
+        int instrumentid PK
+        string ticker UK
+        string instrumentname
+    }
+
+    TRADE_REQUEST {
+        int requestid PK
+        int accountid FK
+        int instrumentid FK
+        string side
+        int quantity
+        numeric bidprice
+        date date_request
+        string status
+    }
+
+    TRADES_EXECUTED {
+        int executeid PK
+        int requestid FK
+        numeric askprice
+        date date_execution
+        int quantity_executed
+    }
+
+    EMPLOYEES {
+        int employeeid PK
+        string employeeusername UK
+        string employeesalt
+        string employeeHashedSaltedPassword
+        string employeeRoles
+    }
+
+    DISPUTED_ORDERS {
+        int disputeid PK
+        int requestid FK
+        string status
+        int employeeid FK
+        string category
+        string reason
+    }
+
+    CANCELED_ORDER {
+        int cancel_id PK
+        int request_id FK
+        string reason
+        date cancel_date
+    }
+
+    SUPPORT_TICKET {
+        int ticket_id PK
+        int accountid FK
+        string reason
+        timestamp created_at
+        string status
+        int assigned_to FK
+    }

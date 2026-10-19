@@ -1,0 +1,215 @@
+classDiagram
+
+%% =========================
+%% Trading System
+%% =========================
+
+    class TradingAccount {
+        -UUID accountId
+        -AccountType type
+        -Decimal cashBalance
+        -AccountStatus status
+        +depositFunds()
+        +withdrawFunds()
+    }
+
+    class User {
+        -UUID userId
+        -String email
+        -String passwordHash
+        -String firstName
+        -String lastName
+        +updateProfile()
+    }
+
+    class Instrument {
+        -String symbol
+        -String name
+        -InstrumentType type
+    }
+
+    class Order {
+        -UUID orderId
+        -OrderSide side
+        -OrderType type
+        -Integer quantity
+        -Decimal price
+        -OrderStatus status
+        +cancel()
+    }
+
+    class Trade {
+        -UUID tradeId
+        -Integer executedQty
+        -Decimal executionPrice
+        -DateTime executedAt
+    }
+
+    class Holding {
+        -UUID holdingId
+        -Integer quantity
+        -Decimal averageCost
+        +updatePosition()
+    }
+
+    class TransactionRecord {
+        -UUID transactionId
+        -TransactionType type
+        -Decimal amount
+        -DateTime timestamp
+    }
+
+    class OrderService {
+        <<interface>>
+        +submitOrder(accountId, order)
+        +cancelOrder(orderId)
+        +getOrders(accountId)
+    }
+
+    class AccountService {
+        <<interface>>
+        +deposit(accountId, amount)
+        +withdraw(accountId, amount)
+    }
+
+    class FeeCalculator {
+        <<interface>>
+        +calculate(order, instrument)
+    }
+
+    class ValidationResult {
+        -isValid: boolean
+        -reason: String
+        +isValid() boolean
+        +getReason() String
+        +valid()$ ValidationResult
+        +invalid(reason)$ ValidationResult
+    }
+
+    class OrderValidator {
+        +validate(order, quantity, price, cashBalance) ValidationResult
+    }
+
+    class OrderRepository {
+        <<interface>>
+        +save(order)
+        +findById(orderId)
+        +findByAccountId(accountId)
+        +delete(orderId)
+    }
+
+    class AccountRepository {
+        <<interface>>
+        +save(account)
+        +findById(accountId)
+    }
+
+    class TradingOrderService {
+        -OrderRepository orderRepository
+        -AccountRepository accountRepository
+        -FeeCalculator feeCalculator
+        +submitOrder(accountId, order)
+        +cancelOrder(orderId)
+        +getOrders(accountId)
+    }
+
+    class TradingAccountService {
+        -AccountRepository accountRepository
+        +deposit(accountId, amount)
+        +withdraw(accountId, amount)
+    }
+
+    class InstrumentFeeCalculator {
+        +calculate(order, instrument)
+    }
+
+    class DatabaseOrderRepository {
+        +save(order)
+        +findById(orderId)
+        +findByAccountId(accountId)
+        +delete(orderId)
+    }
+
+    class DatabaseAccountRepository {
+        +save(account)
+        +findById(accountId)
+    }
+
+    class InstrumentFactory {
+        +create(symbol, type) Instrument
+    }
+
+    class OrderBatchReader {
+        -instrumentFactory: InstrumentFactory
+        +readAll(List~String~) List~Order~
+    }
+
+    class HoldingUpdater {
+        +applyOrder(holding, isBuy, quantity) void
+    }
+
+    class SettlementReport {
+        -report: List~String~
+        -totalFees: double
+        +recordAccepted(clientId, symbol, price) void
+        +recordRejected(clientId, reason) void
+        +render() String
+    }
+
+    class OrderProcessingEngine {
+        -clients: Map~String,User~
+        -validator: OrderValidator
+        -updater: HoldingUpdater
+        -batchReader: OrderBatchReader
+        +process(List~Order~) SettlementReport
+    }
+
+%% =========================
+%% Domain Relationships
+%% =========================
+
+    User "1" --> "0..*" TradingAccount : owns
+
+    TradingAccount "1" --> "0..*" Order : places
+    TradingAccount "1" --> "0..*" Trade : executes
+    TradingAccount "1" --> "0..*" Holding : contains
+    TradingAccount "1" --> "0..*" TransactionRecord : records
+
+    Instrument "1" --> "0..*" Order : referenced by
+    Instrument "1" --> "0..*" Trade : traded
+    Instrument "1" --> "0..*" Holding : held by
+
+    Order "1" --> "0..*" Trade : produces
+
+%% =========================
+%% Validation & Factory
+%% =========================
+
+    OrderValidator --> ValidationResult : returns
+    InstrumentFactory --> Instrument : creates
+    OrderBatchReader --> InstrumentFactory : uses
+    OrderBatchReader --> Order : parses
+    HoldingUpdater --> Holding : updates
+
+%% =========================
+%% Interface Implementations & Dependencies
+%% =========================
+
+    TradingOrderService ..|> OrderService
+    TradingAccountService ..|> AccountService
+    InstrumentFeeCalculator ..|> FeeCalculator
+
+    DatabaseOrderRepository ..|> OrderRepository
+    DatabaseAccountRepository ..|> AccountRepository
+
+    TradingOrderService --> OrderRepository
+    TradingOrderService --> AccountRepository
+    TradingOrderService --> FeeCalculator
+
+    TradingAccountService --> AccountRepository
+
+    OrderProcessingEngine --> OrderValidator
+    OrderProcessingEngine --> HoldingUpdater
+    OrderProcessingEngine --> OrderBatchReader
+    OrderProcessingEngine --> SettlementReport : returns
+    OrderProcessingEngine --> User : manages

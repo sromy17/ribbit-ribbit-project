@@ -8,15 +8,20 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.neueda.leap.trading.api.dto.CreateAccountOrderRequest;
+import com.neueda.leap.trading.api.dto.ProcessOrderRequest;
+import com.neueda.leap.trading.api.dto.ProcessOrderResponse;
 import com.neueda.leap.trading.domain.Order;
 import com.neueda.leap.trading.service.contract.OrderService;
 
 import jakarta.validation.Valid;
 
+@RequestMapping("/accounts/{accountId}/orders")
 @RestController
 public class OrderController {
     private final OrderService orderService;
@@ -25,7 +30,7 @@ public class OrderController {
         this.orderService = orderService;
     }
 
-    @PostMapping("/accounts/{accountId}/orders")
+    @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ProcessOrderResponse createOrder(
         @PathVariable("accountId") Integer accountId,
@@ -40,7 +45,26 @@ public class OrderController {
         ));
     }
 
-    @DeleteMapping("/accounts/{accountId}/orders/{orderId}/status")
+    @PostMapping("/{orderId}/execute")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void executeOrderAsync(
+        @PathVariable("accountId") Integer accountId,
+        @PathVariable("orderId") Integer orderId
+    ) {
+        boolean accountOwnsOrder = orderService.getOrders(accountId).stream()
+            .anyMatch(order -> orderId.equals(order.getOrderId()));
+
+        if (!accountOwnsOrder) {
+            throw new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Order not found for account: " + accountId
+            );
+        }
+
+        orderService.enqueueExecution(orderId);
+    }
+
+    @DeleteMapping("/{orderId}/status")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancelOrder(
         @PathVariable("accountId") Integer accountId,
@@ -59,7 +83,7 @@ public class OrderController {
         orderService.cancelOrder(orderId);
     }
 
-    @GetMapping("/accounts/{accountId}/orders")
+    @GetMapping
     public List<Order> getOrdersByAccount(@PathVariable("accountId") Integer accountId) {
         return orderService.getOrders(accountId);
     }

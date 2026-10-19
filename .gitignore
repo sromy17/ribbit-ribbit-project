@@ -7,3 +7,7 @@
 **/.settings/
 **/src/main/resources/application-local.yml
 .env
+**/shared/auth-stub/.env
+**/PHASE_2_QUICK_REFERENCE.md
+**/PHASE_2_IMPLEMENTATION.md
+**/shared/auth-stub/node_modules

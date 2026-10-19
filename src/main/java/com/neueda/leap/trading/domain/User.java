@@ -9,8 +9,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
@@ -27,9 +25,11 @@ public class User {
     private String username;
 
     @Column(name = "salt", nullable = false, length = 25)
+    @JsonIgnore
     private String salt;
 
-    @Column(name = "userHashedSaltedPassword", nullable = false, length = 64)
+    @Column(name = "userhashedsaltedpassword", nullable = false, length = 64)
+    @JsonIgnore
     private String userHashedSaltedPassword;
 
     @JsonIgnore

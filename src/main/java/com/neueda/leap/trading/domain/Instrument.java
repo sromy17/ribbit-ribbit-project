@@ -11,8 +11,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
@@ -23,7 +23,6 @@ import jakarta.persistence.Transient;
 @Table(name = "instruments")
 public class Instrument {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "instrumentid")
     private Integer instrumentId;
 
@@ -32,6 +31,10 @@ public class Instrument {
 
     @Column(name = "instrumentname", nullable = false, length = 25)
     private String instrumentName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20)
+    private InstrumentStatus status = InstrumentStatus.ACTIVE;
 
     @JsonIgnore
     @OneToMany(mappedBy = "instrument")
@@ -99,5 +102,22 @@ public class Instrument {
 
     public void setWatchlists(Set<Watchlist> watchlists) {
         this.watchlists = watchlists;
+    }
+
+    public InstrumentStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(InstrumentStatus status) {
+        this.status = status;
+    }
+
+    /**
+     * Check if this instrument is currently available for trading.
+     * BR-05: Validates that instrument is tradable before accepting orders.
+     * @return true if the instrument can accept new orders
+     */
+    public boolean isTradable() {
+        return status != null && status.isTradable();
     }
 }
