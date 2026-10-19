@@ -24,15 +24,12 @@ public class User {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
-    @JsonIgnore
     @Column(name = "salt", nullable = false, length = 25)
     @JsonIgnore
     private String salt;
 
     @JsonIgnore
     @Column(name = "userHashedSaltedPassword", nullable = false, length = 64)
-    @Column(name = "userhashedsaltedpassword", nullable = false, length = 64)
-    @JsonIgnore
     private String userHashedSaltedPassword;
 
     @JsonIgnore
