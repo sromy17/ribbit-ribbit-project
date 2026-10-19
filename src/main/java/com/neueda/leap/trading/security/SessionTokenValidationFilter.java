@@ -46,7 +46,8 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
         }
 
         Jwt jwt = jwtAuthenticationToken.getToken();
-        Integer userId = jwt.getClaim("uid");
+        Object userIdClaim = jwt.getClaim("uid");
+        Integer userId = userIdClaim instanceof Number number ? number.intValue() : null;
         Instant issuedAt = jwt.getIssuedAt();
 
         if (userId == null || issuedAt == null) {

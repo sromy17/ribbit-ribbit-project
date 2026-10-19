@@ -93,12 +93,4 @@ public class Holding {
     public void setInstrument(Instrument instrument) {
         this.instrument = instrument;
     }
-
-    public LocalDate getAsOfDate() {
-        return asOfDate;
-    }
-
-    public void setAsOfDate(LocalDate asOfDate) {
-        this.asOfDate = asOfDate;
-    }
 }
