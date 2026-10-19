@@ -17,8 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.neueda.leap.trading.api.CreateOrderRequest;
-import com.neueda.leap.trading.api.CreateOrderResponse;
+import com.neueda.leap.trading.api.dto.CreateOrderRequest;
+import com.neueda.leap.trading.api.dto.CreateOrderResponse;
 import com.neueda.leap.trading.domain.Instrument;
 import com.neueda.leap.trading.domain.Order;
 import com.neueda.leap.trading.domain.OrderSide;

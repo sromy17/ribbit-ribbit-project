@@ -17,10 +17,10 @@ DROP TABLE IF EXISTS holdings cascade;
 
 CREATE TABLE users
 (
-userid INT PRIMARY KEY,
-username varchar(50) UNIQUE NOT NULL,
-salt varchar(25) NOT NULL,
-userHashedSaltedPassword varchar(64) NOT NULL
+    userid INT PRIMARY KEY,
+    username varchar(50) UNIQUE NOT NULL,
+    salt varchar(25) NOT NULL,
+    userHashedSaltedPassword varchar(64) NOT NULL
 );
 
 CREATE TABLE roles
@@ -58,96 +58,106 @@ CREATE TABLE audit_records
 
 CREATE TABLE accounts
 (
-accountid INT PRIMARY KEY,
-userid INT REFERENCES users(userid) NOT NULL,
-availablefunds NUMERIC NOT NULL DEFAULT 0,
-CHECK (availablefunds >= 0),
-creationdate DATE NOT NULL,
-account_type VARCHAR(20) NOT NULL,
-FOREIGN KEY (userid) REFERENCES users(userid)
+    accountid INT PRIMARY KEY,
+    userid INT REFERENCES users(userid) NOT NULL,
+    availablefunds NUMERIC NOT NULL DEFAULT 0,
+    CHECK (availablefunds >= 0),
+    creationdate DATE NOT NULL,
+    account_type VARCHAR(20) NOT NULL,
+    FOREIGN KEY (userid) REFERENCES users(userid)
 );
 
 CREATE TABLE instruments
 (
-instrumentid INT PRIMARY KEY,
-ticker VARCHAR(25) NOT NULL UNIQUE,
-instrumentname VARCHAR(25) NOT NULL
+    instrumentid INT PRIMARY KEY,
+    ticker VARCHAR(25) NOT NULL UNIQUE,
+    instrumentname VARCHAR(25) NOT NULL
 );
 
 CREATE TABLE trade_request
 (
-requestid INT PRIMARY KEY,
-accountid INT NOT NULL REFERENCES accounts(accountid),
-instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
-side CHAR(5) NOT NULL CHECK (side IN ('BUY', 'SELL')),
-quantity INT NOT NULL CHECK (quantity > 0),
-bidprice NUMERIC NOT NULL CHECK (bidprice >= 0),
-date_request DATE NOT NULL,
-status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'EXECUTED', 'CANCELLED'))
+    requestid INT PRIMARY KEY,
+    accountid INT NOT NULL REFERENCES accounts(accountid),
+    instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
+    side CHAR(5) NOT NULL CHECK (side IN ('BUY', 'SELL')),
+    quantity INT NOT NULL CHECK (quantity > 0),
+    bidprice NUMERIC NOT NULL CHECK (bidprice >= 0),
+    date_request DATE NOT NULL,
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'EXECUTED', 'CANCELLED', 'REJECTED'))
 );
 
 CREATE TABLE trades_executed
 (
-executeid INT PRIMARY KEY,
-requestid INT NOT NULL REFERENCES trade_request(requestid),
-askprice NUMERIC NOT NULL CHECK (askprice >= 0),
-date_execution DATE NOT NULL,
-quantity_executed INT NOT NULL CHECK (quantity_executed > 0)
+    executeid INT PRIMARY KEY,
+    requestid INT NOT NULL REFERENCES trade_request(requestid),
+    askprice NUMERIC NOT NULL CHECK (askprice >= 0),
+    date_execution DATE NOT NULL,
+    quantity_executed INT NOT NULL CHECK (quantity_executed > 0)
 );
 
 CREATE TABLE employees
 (
-employeeid INT PRIMARY KEY,
-employeeusername VARCHAR(50) UNIQUE NOT NULL,
-employeesalt VARCHAR(25) NOT NULL, 
-employeeHashedSaltedPassword VARCHAR(64) NOT NULL,
-employeeRoles VARCHAR(20)
+    employeeid INT PRIMARY KEY,
+    employeeusername VARCHAR(50) UNIQUE NOT NULL,
+    employeesalt VARCHAR(25) NOT NULL,
+    employeeHashedSaltedPassword VARCHAR(64) NOT NULL,
+    employeeRoles VARCHAR(20)
 );
 
 CREATE TABLE disputed_orders
 (
-disputeid INT PRIMARY KEY NOT NULL,
-requestid INT REFERENCES trade_request(requestid) NOT NULL,
-status VARCHAR(20) DEFAULT 'DISPUTED' CHECK (status IN ('DISPUTED', 'UNDER-REVIEW', 'COMPLETED')),
-employeeid int DEFAULT NULL REFERENCES employees(employeeid),
-category VARCHAR(20) CHECK (category IN ('Fraud', 'Accident', 'Incorrect transfer')),
-reason VARCHAR(75)
+    disputeid INT PRIMARY KEY NOT NULL,
+    requestid INT REFERENCES trade_request(requestid) NOT NULL,
+    status VARCHAR(20) DEFAULT 'DISPUTED' CHECK (status IN ('DISPUTED', 'UNDER-REVIEW', 'COMPLETED')),
+    employeeid int DEFAULT NULL REFERENCES employees(employeeid),
+    category VARCHAR(20) CHECK (category IN ('Fraud', 'Accident', 'Incorrect transfer')),
+    reason VARCHAR(75)
 );
-// table for orders canceled by the user itself
+
+-- table for orders canceled by the user(lmao)
 CREATE TABLE canceled_order
 (
-cancel_id INT PRIMARY KEY NOT NULL,
-request_id INT REFERENCES trade_request(requestid) NOT NULL,
-reason VARCHAR(50),
-cancel_date DATE NOT NULL
+    cancel_id INT PRIMARY KEY NOT NULL,
+    request_id INT REFERENCES trade_request(requestid) NOT NULL,
+    reason VARCHAR(50),
+    cancel_date DATE NOT NULL
 );
 
 CREATE TABLE support_ticket
 (
-ticket_id INT PRIMARY KEY NOT NULL,
-accountid INT NOT NULL REFERENCES accounts(accountid),
-reason VARCHAR(75) NOT NULL,
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-status VARCHAR(20) DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED')),
-assigned_to INT REFERENCES employees(employeeid),
-closed_at TIMESTAMP DEFAULT NULL
+    ticket_id INT PRIMARY KEY NOT NULL,
+    accountid INT NOT NULL REFERENCES accounts(accountid),
+    reason VARCHAR(75) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED')),
+    assigned_to INT REFERENCES employees(employeeid),
+    closed_at TIMESTAMP DEFAULT NULL
 );
 
-// table for orders rejected by the system
+-- literally 1984!!!!!! The system dont want me to trade!!!!!
 CREATE TABLE rejected_orders
 (
-reject_id INT PRIMARY KEY NOT NULL,
-request_id INT REFERENCES trade_request(requestid) NOT NULL,
-reason VARCHAR(20) CHECK (reason IN ('insufficient_funds', 'unavailable_ticker', )),
-reject_date DATE NOT NULL
+    reject_id INT PRIMARY KEY NOT NULL,
+    request_id INT REFERENCES trade_request(requestid) NOT NULL,
+    reason VARCHAR(50),
+    reject_date DATE NOT NULL
 );
 
-// table for current holdings of each account - reflects the quantity of each instrument held by the account as of a specific date
+-- ho wmuch one user owns of one particular stock
 CREATE TABLE holdings
 (
-accountid INT NOT NULL REFERENCES accounts(accountid),
-instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
-quantity INT NOT NULL CHECK (quantity >= 0),
-as_of_date DATE NOT NULL,
-PRIMARY KEY (accountid, instrumentid)
+    holdingid INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    accountid INT NOT NULL REFERENCES accounts(accountid),
+    instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
+    quantity INT NOT NULL CHECK (quantity >= 0),
+    as_of_date DATE NOT NULL,
+    UNIQUE (accountid, instrumentid)
+);
+-- the clock dont stop, the clock dont stop, the clock dont stop, the clock dont stop
+
+CREATE TABLE user_sessions
+(
+	userid INT REFERENCES users(userid) PRIMARY KEY,
+	refreshToken INT,	
+	dateIssued DATE
 );

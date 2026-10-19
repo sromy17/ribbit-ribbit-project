@@ -13,8 +13,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
@@ -25,7 +23,6 @@ import jakarta.persistence.Transient;
 @Table(name = "instruments")
 public class Instrument {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "instrumentid")
     private Integer instrumentId;
 
@@ -36,7 +33,7 @@ public class Instrument {
     private String instrumentName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", length = 20)
     private InstrumentStatus status = InstrumentStatus.ACTIVE;
 
     @JsonIgnore

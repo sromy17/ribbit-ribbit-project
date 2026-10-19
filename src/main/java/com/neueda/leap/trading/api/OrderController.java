@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.neueda.leap.trading.api.dto.CreateAccountOrderRequest;
+import com.neueda.leap.trading.api.dto.ProcessOrderRequest;
+import com.neueda.leap.trading.api.dto.ProcessOrderResponse;
 import com.neueda.leap.trading.domain.Order;
 import com.neueda.leap.trading.service.contract.OrderService;
 import com.neueda.leap.trading.security.AccountAccessService;
@@ -44,6 +47,25 @@ public class OrderController {
             request.quantity(),
             request.price()
         ));
+    }
+
+    @PostMapping("/{orderId}/execute")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void executeOrderAsync(
+        @PathVariable("accountId") Integer accountId,
+        @PathVariable("orderId") Integer orderId
+    ) {
+        boolean accountOwnsOrder = orderService.getOrders(accountId).stream()
+            .anyMatch(order -> orderId.equals(order.getOrderId()));
+
+        if (!accountOwnsOrder) {
+            throw new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Order not found for account: " + accountId
+            );
+        }
+
+        orderService.enqueueExecution(orderId);
     }
 
     @DeleteMapping("/{orderId}/status")

@@ -1,4 +1,4 @@
-package com.neueda.leap.trading.api;
+package com.neueda.leap.trading.api.dto;
 
 import com.neueda.leap.trading.domain.AccountType;
 

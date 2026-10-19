@@ -1,0 +1,189 @@
+erDiagram
+    %% OLTP database: ribbit_oltp.public
+    USERS ||--o{ ACCOUNTS : has
+    USERS ||--o| USER_SESSIONS : owns
+    ACCOUNTS ||--o{ TRADE_REQUEST : makes
+    ACCOUNTS ||--o{ SUPPORT_TICKET : submits
+    ACCOUNTS ||--o{ HOLDINGS : owns
+    INSTRUMENTS ||--o{ TRADE_REQUEST : involves
+    INSTRUMENTS ||--o{ HOLDINGS : identifies
+    TRADE_REQUEST ||--o{ TRADES_EXECUTED : executes
+    TRADE_REQUEST ||--o{ DISPUTED_ORDERS : raises
+    TRADE_REQUEST ||--o{ CANCELED_ORDER : cancels
+    TRADE_REQUEST ||--o{ REJECTED_ORDERS : rejects
+    EMPLOYEES ||--o{ DISPUTED_ORDERS : reviews
+    EMPLOYEES ||--o{ SUPPORT_TICKET : handles
+
+    USERS {
+        int userid PK
+        varchar username UK
+        varchar salt
+        varchar userHashedSaltedPassword
+    }
+
+    ACCOUNTS {
+        int accountid PK
+        int userid FK
+        numeric availablefunds
+        date creationdate
+        varchar account_type
+    }
+
+    INSTRUMENTS {
+        int instrumentid PK
+        varchar ticker UK
+        varchar instrumentname
+    }
+
+    TRADE_REQUEST {
+        int requestid PK
+        int accountid FK
+        int instrumentid FK
+        char side
+        int quantity
+        numeric bidprice
+        date date_request
+        varchar status
+    }
+
+    TRADES_EXECUTED {
+        int executeid PK
+        int requestid FK
+        numeric askprice
+        date date_execution
+        int quantity_executed
+    }
+
+    EMPLOYEES {
+        int employeeid PK
+        varchar employeeusername UK
+        varchar employeesalt
+        varchar employeeHashedSaltedPassword
+        varchar employeeRoles
+    }
+
+    DISPUTED_ORDERS {
+        int disputeid PK
+        int requestid FK
+        varchar status
+        int employeeid FK
+        varchar category
+        varchar reason
+    }
+
+    CANCELED_ORDER {
+        int cancel_id PK
+        int request_id FK
+        varchar reason
+        date cancel_date
+    }
+
+    REJECTED_ORDERS {
+        int reject_id PK
+        int request_id FK
+        varchar reason
+        date reject_date
+    }
+
+    SUPPORT_TICKET {
+        int ticket_id PK
+        int accountid FK
+        varchar reason
+        timestamp created_at
+        varchar status
+        int assigned_to FK
+        timestamp closed_at
+    }
+
+    HOLDINGS {
+        int holdingid PK
+        int accountid FK
+        int instrumentid FK
+        int quantity
+        date as_of_date
+    }
+
+    USER_SESSIONS {
+        int userid PK
+        int refreshToken
+        date dateIssued
+    }
+
+    %% OLAP database: ribbit_olap.public
+    TRADE_REQUEST ||..|| TRADE_FACTS : "ETL load"
+    ACCOUNTS ||..|| ACCOUNTS_INFO : "ETL load"
+    SUPPORT_TICKET ||..|| EMPLOYEES_INFO : "ETL load"
+    HOLDINGS ||..|| HOLDINGS_INFO : "ETL load"
+
+    TRADE_FACTS {
+        int requestid PK
+        int accountid
+        int userid
+        int instrumentid
+        char side
+        int quantity_requested
+        numeric bidprice
+        date date_request
+        int executeid
+        int execution_count
+        numeric last_execution_price
+        date first_execution_date
+        date last_execution_date
+        int quantity_executed
+        int cancel_id
+        varchar cancel_reason
+        date cancel_date
+        int reject_id
+        varchar reject_reason
+        date reject_date
+        int disputeid
+        varchar dispute_status
+        varchar dispute_category
+        varchar dispute_reason
+        int dispute_employee_id
+        numeric availablefunds
+        date creationdate
+        varchar account_type
+        varchar username
+        varchar ticker
+        varchar instrumentname
+        varchar dispute_employeeusername
+        varchar dispute_employeeRoles
+        varchar order_status
+        varchar lifecycle_status
+        timestamp last_synced_at
+    }
+
+    ACCOUNTS_INFO {
+        int accountid PK
+        int userid
+        varchar username
+        numeric availablefunds
+        date creationdate
+        varchar account_type
+    }
+
+    EMPLOYEES_INFO {
+        int ticket_id PK
+        int accountid
+        varchar username
+        varchar support_reason
+        timestamp created_at
+        varchar status
+        int assigned_to
+        varchar employeeusername
+        varchar employee_roles
+        timestamp closed_at
+    }
+
+    HOLDINGS_INFO {
+        int accountid PK
+        int userid
+        varchar username
+        int instrumentid PK
+        varchar ticker
+        varchar instrumentname
+        int quantity
+        date as_of_date
+        timestamp last_synced_at
+    }
