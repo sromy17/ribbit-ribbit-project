@@ -225,6 +225,10 @@
                   <span class="label">Quantity:</span>
                   <span class="value">{{ o.quantity }} @ ${{ o.price | number: '1.2-2' }}</span>
                 </div>
+                <div class="detail-row">
+                  <span class="label">Total order price:</span>
+                  <span class="value">${{ getOrderTotalPrice(o) | number: '1.2-2' }}</span>
+                </div>
                 <div class="detail-row" *ngIf="o.createdAt">
                   <span class="label">Date:</span>
                   <span class="value">{{ o.createdAt | date: 'short' }}</span>

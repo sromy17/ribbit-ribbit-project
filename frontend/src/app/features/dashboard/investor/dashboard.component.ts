@@ -74,18 +74,24 @@ export class DashboardComponent implements OnInit {
   }
 
   ngOnInit() {
-    const accountId = this.route.snapshot.paramMap.get('accountId');
     if (!this.currentUser) {
       return;
     }
-    if (!accountId) {
-      this.router.navigate(['/accounts']);
-      return;
-    }
-    this.accountId = accountId;
-    this.loadAccountDetails();
-    this.loadAccounts();
-    this.loadDashboardData();
+
+    this.route.paramMap.subscribe((params) => {
+      const accountId = params.get('accountId');
+      if (!accountId) {
+        this.router.navigate(['/accounts']);
+        return;
+      }
+
+      this.accountId = accountId;
+      this.activeView = 'portfolio';
+      this.resetDashboardData();
+      this.loadAccountDetails();
+      this.loadAccounts();
+      this.loadDashboardData();
+    });
   }
 
   backToAccounts(): void {
@@ -398,6 +404,10 @@ export class DashboardComponent implements OnInit {
 
   canCancelOrder(order: Order): boolean {
     return order.status === 'PENDING';
+  }
+
+  getOrderTotalPrice(order: Order): number {
+    return order.quantity * (order.price ?? 0);
   }
 
   logout() {
