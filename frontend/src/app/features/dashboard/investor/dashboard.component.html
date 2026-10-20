@@ -69,11 +69,12 @@
       <button type="button" class="sidebar-button" [class.active]="activeView === 'portfolio'" (click)="setView('portfolio')">Portfolio</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'trade'" (click)="setView('trade')">Trade</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'history'" (click)="setView('history')">History</button>
+      <button type="button" class="sidebar-button" [class.active]="activeView === 'wallet'" (click)="setView('wallet')">Wallet</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'help'" (click)="setView('help')">Help</button>
     </nav>
 
     <div class="account-main">
-      <div class="account-toolbar">
+      <div *ngIf="activeView !== 'wallet'" class="account-toolbar">
         <div class="account-title">
           <h1>{{ accountTypeLabel }}</h1>
           <p class="description">Account #{{ accountId }}</p>
@@ -215,9 +216,114 @@
         </details>
       </div>
 
+      <div *ngIf="activeView === 'wallet'" class="wallet-view">
+        <div class="wallet-header">
+          <div>
+            <h2>My Wallet</h2>
+            <div class="wallet-funds">
+              <div class="wallet-balance-card">
+                <span>Available cash</span>
+                <strong *ngIf="!loadingBalance">${{ portfolio.cash | number: '1.2-2' }}</strong>
+                <strong *ngIf="loadingBalance">Loading...</strong>
+              </div>
+              <div class="wallet-actions">
+                <button type="button" class="wallet-action-button" [disabled]="bankAccounts.length === 0" (click)="openWalletTransaction('Deposit')">
+                  <span aria-hidden="true">↓</span>
+                  <span><strong>Deposit</strong><small>Move cash in</small></span>
+                </button>
+                <button type="button" class="wallet-action-button" [disabled]="bankAccounts.length === 0 || portfolio.cash <= 0" (click)="openWalletTransaction('Withdrawal')">
+                  <span aria-hidden="true">↑</span>
+                  <span><strong>Withdraw</strong><small>Move cash out</small></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wallet-grid">
+          <section class="section wallet-bank-section">
+            <div class="wallet-section-heading">
+              <div>
+                <h2>Connected bank accounts</h2>
+              </div>
+              <button type="button" class="wallet-add-button" (click)="openBankAccountModal()" aria-label="Add bank account">＋</button>
+            </div>
+            <div *ngIf="bankAccounts.length === 0" class="wallet-empty-state">
+              <strong>No bank accounts connected</strong>
+            </div>
+            <div *ngIf="bankAccounts.length > 0" class="wallet-bank-list">
+              <div *ngFor="let account of bankAccounts" class="wallet-bank-card">
+                <span class="wallet-bank-icon" aria-hidden="true">⌂</span>
+                <span class="wallet-bank-copy">
+                  <strong>{{ account.nickname }}</strong>
+                  <small>Routing {{ maskRoutingNumber(account.routingNumber) }}</small>
+                  <small>Account {{ maskBankAccount(account.accountNumber) }}</small>
+                </span>
+                <span class="wallet-connected">Connected</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="section wallet-activity-section">
+            <div class="wallet-section-heading">
+              <div>
+                <h2>Recent Activity</h2>
+              </div>
+            </div>
+            <div *ngIf="walletActivity.length === 0" class="wallet-empty-state compact">
+              <strong>No wallet activity yet</strong>
+            </div>
+            <div *ngIf="walletActivity.length > 0" class="wallet-activity-list">
+              <div *ngFor="let activity of walletActivity" class="wallet-activity-item">
+                <span class="wallet-activity-icon" [class.withdrawal]="activity.type === 'Withdrawal'" aria-hidden="true">
+                  {{ activity.type === 'Deposit' ? '↓' : '↑' }}
+                </span>
+                <span class="wallet-activity-copy">
+                  <strong>{{ activity.type }}</strong>
+                  <small>{{ activity.bankNickname }} · {{ activity.date | date: 'mediumDate' }}</small>
+                </span>
+                <strong [class.wallet-negative]="activity.type === 'Withdrawal'">
+                  {{ activity.type === 'Deposit' ? '+' : '-' }}${{ activity.amount | number: '1.2-2' }}
+                </strong>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
       <div *ngIf="activeView === 'help'" class="placeholder">
         <h2>Help</h2>
         <p>Coming soon.</p>
+      </div>
+
+      <div *ngIf="showBankAccountModal || showWalletTransactionModal" class="modal-overlay" (click)="closeWalletModal()">
+        <div class="modal-box wallet-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>{{ showBankAccountModal ? 'Add bank account' : walletTransactionType }}</h2>
+            <button type="button" class="btn-small" (click)="closeWalletModal()" aria-label="Close">✕</button>
+          </div>
+
+          <form *ngIf="showBankAccountModal" class="wallet-form" (ngSubmit)="addBankAccount()">
+            <p class="description">Your details are stored locally for this frontend preview.</p>
+            <label>Account nickname<input name="nickname" [(ngModel)]="bankAccountForm.nickname" placeholder="e.g. Main checking" required /></label>
+            <label>Routing number<input name="routingNumber" [(ngModel)]="bankAccountForm.routingNumber" inputmode="numeric" maxlength="9" placeholder="9 digits" required /></label>
+            <label>Account number<input name="accountNumber" [(ngModel)]="bankAccountForm.accountNumber" inputmode="numeric" maxlength="17" placeholder="Account number" required /></label>
+            <span class="error-text" *ngIf="walletFormError">{{ walletFormError }}</span>
+            <button type="submit" class="btn-primary btn-full-width">Connect bank account</button>
+          </form>
+
+          <form *ngIf="showWalletTransactionModal" class="wallet-form" (ngSubmit)="submitWalletTransaction()">
+            <p class="description">This frontend-only action updates the displayed balance and activity.</p>
+            <label>Bank account
+              <select name="bankAccountId" [(ngModel)]="walletTransactionForm.bankAccountId">
+                <option *ngFor="let account of bankAccounts" [ngValue]="account.id">{{ account.nickname }} · {{ maskBankAccount(account.accountNumber) }}</option>
+              </select>
+            </label>
+            <label>Amount<input name="amount" type="number" [(ngModel)]="walletTransactionForm.amount" min="0.01" step="0.01" placeholder="0.00" required /></label>
+            <span class="error-text" *ngIf="walletFormError">{{ walletFormError }}</span>
+            <button type="submit" class="btn-primary btn-full-width">{{ walletTransactionType }} {{ walletTransactionType === 'Deposit' ? 'cash' : 'funds' }}</button>
+          </form>
+        </div>
       </div>
 
       <div *ngIf="activeView === 'portfolio'" class="investor-dashboard">
@@ -229,6 +335,7 @@
           <p class="value" *ngIf="!loadingBalance">${{ portfolio.cash | number: '1.2-2' }}</p>
           <p class="value loading" *ngIf="loadingBalance">Loading...</p>
         </div>
+
         <div class="card">
           <h3>Portfolio Value</h3>
           <p class="value" *ngIf="!loadingBalance">${{ getTotalValue() | number: '1.2-2' }}</p>

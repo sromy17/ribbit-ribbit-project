@@ -5,6 +5,21 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService, User } from '../../../core/services/auth.service';
 import { ApiService, Holding, Order, Trade, SymbolTrend, TradingAccount } from '../../../core/services/api.service';
 
+interface WalletBankAccount {
+  id: number;
+  nickname: string;
+  routingNumber: string;
+  accountNumber: string;
+}
+
+interface WalletActivity {
+  id: number;
+  type: 'Deposit' | 'Withdrawal';
+  amount: number;
+  bankNickname: string;
+  date: Date;
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -13,7 +28,7 @@ import { ApiService, Holding, Order, Trade, SymbolTrend, TradingAccount } from '
   styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit {
-  activeView: 'portfolio' | 'trade' | 'history' | 'help' = 'portfolio';
+  activeView: 'portfolio' | 'trade' | 'history' | 'wallet' | 'help' = 'portfolio';
   accountTypeLabel = 'Trading Account';
   currentUser: User | null = null;
   currentRole: string = '';
@@ -37,6 +52,15 @@ export class DashboardComponent implements OnInit {
 
   orders: Order[] = [];
   symbolTrends: SymbolTrend[] = [];
+  bankAccounts: WalletBankAccount[] = [];
+  walletActivity: WalletActivity[] = [];
+  showBankAccountModal = false;
+  showWalletTransactionModal = false;
+  walletTransactionType: 'Deposit' | 'Withdrawal' = 'Deposit';
+  bankAccountForm = { nickname: '', routingNumber: '', accountNumber: '' };
+  walletTransactionForm = { amount: 0, bankAccountId: 0 };
+  walletFormError = '';
+  private nextWalletItemId = 1;
 
   orderForm = { symbol: '', side: 'BUY', quantity: 0 };
   orderFormErrors: { [key: string]: string } = {};
@@ -206,8 +230,81 @@ export class DashboardComponent implements OnInit {
     this.setView('portfolio');
   }
 
-  setView(view: 'portfolio' | 'trade' | 'history' | 'help'): void {
+  setView(view: 'portfolio' | 'trade' | 'history' | 'wallet' | 'help'): void {
     this.activeView = view;
+  }
+
+  openBankAccountModal(): void {
+    this.bankAccountForm = { nickname: '', routingNumber: '', accountNumber: '' };
+    this.walletFormError = '';
+    this.showBankAccountModal = true;
+  }
+
+  closeWalletModal(): void {
+    this.showBankAccountModal = false;
+    this.showWalletTransactionModal = false;
+    this.walletFormError = '';
+  }
+
+  addBankAccount(): void {
+    const { nickname, routingNumber, accountNumber } = this.bankAccountForm;
+    if (!nickname.trim() || !/^\d{9}$/.test(routingNumber) || !/^\d{4,17}$/.test(accountNumber)) {
+      this.walletFormError = 'Enter a nickname, a 9-digit routing number, and an account number up to 17 digits.';
+      return;
+    }
+
+    this.bankAccounts = [
+      ...this.bankAccounts,
+      {
+        id: this.nextWalletItemId++,
+        nickname: nickname.trim(),
+        routingNumber,
+        accountNumber
+      }
+    ];
+    this.closeWalletModal();
+  }
+
+  openWalletTransaction(type: 'Deposit' | 'Withdrawal'): void {
+    this.walletTransactionType = type;
+    this.walletTransactionForm = {
+      amount: 0,
+      bankAccountId: this.bankAccounts[0]?.id ?? 0
+    };
+    this.walletFormError = '';
+    this.showWalletTransactionModal = true;
+  }
+
+  submitWalletTransaction(): void {
+    const amount = Number(this.walletTransactionForm.amount);
+    const bankAccount = this.bankAccounts.find((account) => account.id === this.walletTransactionForm.bankAccountId);
+    if (!bankAccount || amount <= 0) {
+      this.walletFormError = 'Select a bank account and enter an amount greater than zero.';
+      return;
+    }
+    if (this.walletTransactionType === 'Withdrawal' && amount > this.portfolio.cash) {
+      this.walletFormError = 'The withdrawal amount cannot exceed the available cash balance.';
+      return;
+    }
+
+    this.portfolio.cash += this.walletTransactionType === 'Deposit' ? amount : -amount;
+    this.walletActivity = [{
+      id: this.nextWalletItemId++,
+      type: this.walletTransactionType,
+      amount,
+      bankNickname: bankAccount.nickname,
+      date: new Date()
+    }, ...this.walletActivity];
+    this.updateTotalValue();
+    this.closeWalletModal();
+  }
+
+  maskBankAccount(accountNumber: string): string {
+    return `•••• ${accountNumber.slice(-4)}`;
+  }
+
+  maskRoutingNumber(routingNumber: string): string {
+    return `••••••${routingNumber.slice(-3)}`;
   }
 
   loadAccountDetails(): void {
@@ -228,6 +325,9 @@ export class DashboardComponent implements OnInit {
   resetDashboardData(): void {
     this.portfolio = { cash: 0, holdings: [], totalValue: 0 };
     this.orders = [];
+    this.bankAccounts = [];
+    this.walletActivity = [];
+    this.closeWalletModal();
   }
 
   loadDashboardData() {
