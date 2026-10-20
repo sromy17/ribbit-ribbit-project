@@ -25,7 +25,6 @@
           <div class="account-menu-content">
             <div class="account-menu-heading">
               <strong>Switch account</strong>
-              <button type="button" class="view-all-accounts" (click)="backToAccounts()">View all</button>
             </div>
             <div *ngIf="loadingAccounts" class="account-menu-status">Loading accounts...</div>
             <div *ngIf="!loadingAccounts && accounts.length === 0" class="account-menu-status">No accounts yet.</div>
@@ -74,7 +73,6 @@
 
     <div class="account-main">
       <div class="account-toolbar">
-        <button type="button" class="btn-small" (click)="backToAccounts()">← All accounts</button>
         <div class="account-title">
           <h1>{{ accountTypeLabel }}</h1>
           <p class="description">Account #{{ accountId }}</p>

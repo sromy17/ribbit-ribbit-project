@@ -88,10 +88,6 @@ export class DashboardComponent implements OnInit {
     this.loadDashboardData();
   }
 
-  backToAccounts(): void {
-    this.router.navigate(['/accounts']);
-  }
-
   loadAccounts(): void {
     if (!this.currentUser) {
       return;
