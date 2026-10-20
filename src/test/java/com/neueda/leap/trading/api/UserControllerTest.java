@@ -6,20 +6,22 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Objects;
+
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.http.MediaType;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.neueda.leap.trading.api.dto.CreateUserRequest;
 import com.neueda.leap.trading.domain.User;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
 import com.neueda.leap.trading.repository.jpa.SessionRepository;
+import com.neueda.leap.trading.security.AccountAccessService;
 
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -40,7 +42,12 @@ class UserControllerTest {
     @MockitoBean
     private PasswordEncoder passwordEncoder;
 
+    @MockitoBean
+    private AccountAccessService accountAccessService;
+
     @Test
+    // Mockito matchers return null placeholders; the repository is mocked.
+    @SuppressWarnings("null")
     void createUser_returnsCreatedUser() throws Exception {
         User saved = new User();
         saved.setUserId(77);
@@ -54,8 +61,8 @@ class UserControllerTest {
         CreateUserRequest request = new CreateUserRequest("alice", "secret");
 
         mockMvc.perform(post("/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .contentType("application/json")
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.userId").value(77))
             .andExpect(jsonPath("$.username").value("alice"));

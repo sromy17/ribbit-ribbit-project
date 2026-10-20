@@ -7,7 +7,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.neueda.leap.trading.domain.Session;
 
 public interface SessionRepository extends JpaRepository<Session, Integer> {
-    Optional<Session> findByRefreshToken(Integer refreshToken);
+    Optional<Session> findByAccessToken(String accessToken);
 
-    void deleteByUserId(Integer userId);
+    void deleteByAccessToken(String accessToken);
+
+    void deleteByUserUserId(Integer userId);
 }

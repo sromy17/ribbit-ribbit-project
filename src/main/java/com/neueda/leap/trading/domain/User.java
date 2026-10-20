@@ -28,8 +28,8 @@ public class User {
     @JsonIgnore
     private String salt;
 
-    @Column(name = "userhashedsaltedpassword", nullable = false, length = 64)
     @JsonIgnore
+    @Column(name = "userHashedSaltedPassword", nullable = false, length = 64)
     private String userHashedSaltedPassword;
 
     @JsonIgnore

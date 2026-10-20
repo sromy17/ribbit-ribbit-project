@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.neueda.leap.trading.security.AccountAccessService;
 
 import com.neueda.leap.trading.api.dto.CreateUserRequest;
 import com.neueda.leap.trading.api.dto.UpdateUserRequest;
@@ -23,29 +24,36 @@ import jakarta.validation.Valid;
 public class UserController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AccountAccessService accountAccessService;
 
-    public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserController(
+        UserRepository userRepository,
+        PasswordEncoder passwordEncoder,
+        AccountAccessService accountAccessService
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.accountAccessService = accountAccessService;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public User createUser(@Valid @RequestBody CreateUserRequest request) {
+    public UserResponse createUser(@Valid @RequestBody CreateUserRequest request) {
         User user = new User();
         user.setUserId((int) System.currentTimeMillis() % 1000000); // Simple ID generation
         user.setUsername(request.username());
         user.setSalt("contract-salt");
         user.setUserHashedSaltedPassword(passwordEncoder.encode(request.password()));
-        return userRepository.save(user);
+        return UserResponse.from(userRepository.save(user));
     }
 
     @PutMapping("/{userId}")
-    public User updateUser(@PathVariable("userId") int userId, @Valid @RequestBody UpdateUserRequest request) {
+    public UserResponse updateUser(@PathVariable("userId") int userId, @Valid @RequestBody UpdateUserRequest request) {
+        accountAccessService.requireUserAccess(userId, "PERM_ACCOUNT_DETAILS");
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
 
         user.updateProfile(request.username());
-        return userRepository.save(user);
+        return UserResponse.from(userRepository.save(user));
     }
 }

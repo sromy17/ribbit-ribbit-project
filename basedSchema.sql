@@ -1,4 +1,8 @@
 DROP TABLE IF EXISTS users cascade;
+DROP TABLE IF EXISTS audit_records cascade;
+DROP TABLE IF EXISTS sessions cascade;
+DROP TABLE IF EXISTS user_roles cascade;
+DROP TABLE IF EXISTS roles cascade;
 DROP TABLE IF EXISTS accounts cascade;
 DROP TABLE IF EXISTS instruments cascade;
 DROP TABLE IF EXISTS employees cascade;
@@ -17,6 +21,39 @@ CREATE TABLE users
     username varchar(50) UNIQUE NOT NULL,
     salt varchar(25) NOT NULL,
     userHashedSaltedPassword varchar(64) NOT NULL
+);
+
+CREATE TABLE roles
+(
+	roleid SERIAL PRIMARY KEY,
+	rolename VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE user_roles
+(
+	roleid INT NOT NULL REFERENCES roles(roleid),
+	userid INT NOT NULL REFERENCES users(userid),
+	PRIMARY KEY (roleid, userid)
+);
+
+CREATE TABLE sessions
+(
+	sessionid SERIAL PRIMARY KEY,
+	userid INT NOT NULL REFERENCES users(userid),
+	accesstoken VARCHAR(256) UNIQUE NOT NULL,
+	expiresat TIMESTAMP NOT NULL
+);
+
+CREATE TABLE audit_records
+(
+	auditid BIGSERIAL PRIMARY KEY,
+	actor_user_id INT REFERENCES users(userid),
+	actor_username VARCHAR(50) NOT NULL,
+	action VARCHAR(80) NOT NULL,
+	target_type VARCHAR(80) NOT NULL,
+	target_id VARCHAR(100),
+	outcome VARCHAR(30) NOT NULL,
+	occurred_at TIMESTAMP NOT NULL
 );
 
 CREATE TABLE accounts
@@ -113,6 +150,7 @@ CREATE TABLE holdings
     accountid INT NOT NULL REFERENCES accounts(accountid),
     instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
     quantity INT NOT NULL CHECK (quantity >= 0),
+    average_cost NUMERIC NOT NULL DEFAULT 0,
     as_of_date DATE NOT NULL,
     UNIQUE (accountid, instrumentid)
 );

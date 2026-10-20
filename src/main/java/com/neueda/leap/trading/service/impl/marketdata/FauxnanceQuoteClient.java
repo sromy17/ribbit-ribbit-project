@@ -1,11 +1,13 @@
 package com.neueda.leap.trading.service.impl.marketdata;
 
-import java.io.IOException;
+import tools.jackson.core.JacksonException;
+import org.jspecify.annotations.Nullable;
 import java.math.BigDecimal;
 import java.util.Locale;
+import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -32,15 +34,14 @@ public class FauxnanceQuoteClient {
         String normalized = normalizeSymbol(symbol);
 
         try {
-            QuoteApiResponse response = restClient.get()
-                .uri("/quotes/{symbol}", normalized)
-                .headers(headers -> {
-                    if (apiKey != null && !apiKey.isBlank()) {
-                        headers.set("X-Api-Key", apiKey);
-                    }
-                })
-                .retrieve()
-                .body(QuoteApiResponse.class);
+            RestClient.RequestHeadersUriSpec<?> request = restClient.get();
+            request.uri("/quotes/{symbol}", normalized);
+            request.headers(headers -> {
+                if (apiKey != null && !apiKey.isBlank()) {
+                    headers.set("X-Api-Key", apiKey);
+                }
+            });
+            QuoteApiResponse response = request.retrieve().body(QuoteApiResponse.class);
 
             if (response == null) {
                 throw new IllegalArgumentException("Market data API returned an empty response for symbol " + normalized);
@@ -79,16 +80,16 @@ public class FauxnanceQuoteClient {
 
     private String extractErrorMessage(RestClientResponseException ex) {
         String body = ex.getResponseBodyAsString();
-        if (body == null || body.isBlank()) {
+        if (body.isBlank()) {
             return "Market data API request failed with status " + ex.getStatusCode();
         }
 
         try {
-            ErrorEnvelope envelope = objectMapper.readValue(body, ErrorEnvelope.class);
-            if (envelope != null && envelope.error() != null && envelope.error().message() != null) {
+            @Nullable ErrorEnvelope envelope = objectMapper.readValue(body, ErrorEnvelope.class);
+            if (Objects.nonNull(envelope) && envelope.error() != null && envelope.error().message() != null) {
                 return envelope.error().message();
             }
-        } catch (IOException ignored) {
+        } catch (JacksonException ignored) {
             // Fall through to generic message.
         }
 

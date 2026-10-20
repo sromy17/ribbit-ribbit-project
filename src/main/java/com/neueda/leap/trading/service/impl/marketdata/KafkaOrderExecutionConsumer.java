@@ -1,10 +1,12 @@
 package com.neueda.leap.trading.service.impl.marketdata;
 
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import org.jspecify.annotations.Nullable;
+import tools.jackson.databind.ObjectMapper;
 import com.neueda.leap.trading.service.impl.TradingOrderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,13 +33,13 @@ public class KafkaOrderExecutionConsumer {
     )
     public void onMessage(String payload) {
         try {
-            OrderExecutionCommand command = objectMapper.readValue(payload, OrderExecutionCommand.class);
-            if (command.orderId() == null) {
+            @Nullable OrderExecutionCommand command = objectMapper.readValue(payload, OrderExecutionCommand.class);
+            if (Objects.isNull(command) || command.orderId() == null) {
                 log.warn("Ignoring order execution command without an order ID");
                 return;
             }
 
-            Object lock = orderLocks.computeIfAbsent(command.orderId(), ignored -> new Object());
+            Object lock = orderLocks.computeIfAbsent(command.orderId(), _ -> new Object());
             synchronized (lock) {
                 try {
                     tradingOrderService.executeOrder(command.orderId());
@@ -46,7 +48,7 @@ public class KafkaOrderExecutionConsumer {
                 }
             }
             orderLocks.remove(command.orderId(), lock);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             log.error("Could not parse order execution command; sending message to container error handling", ex);
             throw new IllegalArgumentException("Invalid order execution command", ex);
         }

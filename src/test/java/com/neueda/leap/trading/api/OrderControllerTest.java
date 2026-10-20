@@ -14,14 +14,14 @@ import java.util.List;
 import java.util.Objects;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.neueda.leap.trading.api.dto.CreateAccountOrderRequest;
 import com.neueda.leap.trading.api.dto.ProcessOrderRequest;
 import com.neueda.leap.trading.api.dto.ProcessOrderResponse;
@@ -30,6 +30,7 @@ import com.neueda.leap.trading.domain.OrderSide;
 import com.neueda.leap.trading.domain.OrderStatus;
 import com.neueda.leap.trading.repository.jpa.SessionRepository;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderSummary;
+import com.neueda.leap.trading.security.AccountAccessService;
 import com.neueda.leap.trading.service.contract.OrderService;
 
 @WebMvcTest(OrderController.class)
@@ -47,6 +48,9 @@ class OrderControllerTest {
 
     @MockitoBean
     private SessionRepository sessionRepository;
+
+    @MockitoBean
+    private AccountAccessService accountAccessService;
 
     @Test
     void createOrder_returnsCreated() throws Exception {
@@ -68,9 +72,9 @@ class OrderControllerTest {
             new BigDecimal("25.00")
         );
 
-        mockMvc.perform(post("/accounts/1/orders")
+        mockMvc.perform(Objects.requireNonNull(post("/accounts/1/orders")
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
-                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request))))
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(request)))))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.orderId").value(501))
             .andExpect(jsonPath("$.tradeId").value(701))
