@@ -191,7 +191,7 @@
                 <td><strong>{{ order.symbol }}</strong></td>
                 <td>${{ order.price | number: '1.2-2' }}</td>
                 <td>{{ order.quantity }}</td>
-                <td>{{ order.createdAt | date: 'short' }}</td>
+                <td>{{ order.dateRequested | date: 'short' }}</td>
               </tr>
             </tbody>
           </table>
@@ -218,7 +218,10 @@
               </div>
               <div class="order-details">
                 <div class="detail-row">
-                  <span class="label">Order ID:</span>
+                  <span class="label order-id-label">
+                    <span>Order ID:</span>
+                    <small *ngIf="o.dateRequested">{{ o.dateRequested | date: 'short' }}</small>
+                  </span>
                   <span class="value">{{ o.orderId }}</span>
                 </div>
                 <div class="detail-row">
@@ -228,10 +231,6 @@
                 <div class="detail-row">
                   <span class="label">Total order price:</span>
                   <span class="value">${{ getOrderTotalPrice(o) | number: '1.2-2' }}</span>
-                </div>
-                <div class="detail-row" *ngIf="o.createdAt">
-                  <span class="label">Date:</span>
-                  <span class="value">{{ o.createdAt | date: 'short' }}</span>
                 </div>
               </div>
               <div class="order-actions">

@@ -280,7 +280,9 @@ export class DashboardComponent implements OnInit {
         this.successfulOrders = orders.filter((order) => {
           const status = order.status as string;
           return status === 'FILLED' || status === 'EXECUTED';
-        });
+        }).sort((first, second) =>
+          (second.dateRequested ?? '').localeCompare(first.dateRequested ?? '')
+        );
         this.loadingOrders = false;
         this.cdr.detectChanges();
       },
