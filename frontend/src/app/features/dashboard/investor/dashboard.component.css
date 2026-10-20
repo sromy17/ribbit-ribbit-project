@@ -2,10 +2,14 @@
   display: block;
 }
 
+.header {
+  border-bottom: 1px solid var(--md-outline-variant);
+  background: color-mix(in srgb, var(--md-surface) 94%, var(--md-primary));
+}
+
 .header-content {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 14px 24px;
+  width: 100%;
+  padding: 14px 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -16,6 +20,10 @@
   display: flex;
   align-items: center;
   gap: 9px;
+  width: 220px;
+  flex: 0 0 220px;
+  padding-right: 24px;
+  border-right: 1px solid var(--md-outline-variant);
   color: var(--md-on-surface);
 }
 
@@ -213,7 +221,7 @@
   padding: 7px 12px;
   cursor: pointer;
   font-weight: 500;
-  background: var(--md-surface-container-high);
+  background: var(--md-surface);
   color: var(--md-on-surface);
   transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
@@ -226,9 +234,9 @@
 }
 
 .container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 28px 24px 40px;
+  width: 100%;
+  margin: 0;
+  padding: 24px 28px 40px;
 }
 
 .error-banner {
@@ -242,9 +250,11 @@
 
 .account-page {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 28px;
+  align-items: stretch;
+  min-height: calc(100vh - 75px);
+  padding-top: 4px;
   animation: content-slide 220ms ease-out;
 }
 
@@ -492,7 +502,7 @@
   border: 1px solid var(--md-outline);
   border-radius: 12px;
   padding: 11px 12px;
-  background: var(--md-surface-container-high);
+  background: var(--md-surface);
   color: var(--md-on-surface);
 }
 
@@ -741,20 +751,25 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  min-width: 160px;
+  gap: 6px;
+  padding: 10px 8px 10px 0;
+  min-width: 0;
+  min-height: calc(100vh - 75px);
   background: var(--md-surface-container);
   border: 1px solid var(--md-outline-variant);
-  border-radius: 16px;
-  align-self: flex-start;
+  border-left: 0;
+  border-radius: 0 20px 20px 0;
+  box-shadow: 4px 0 14px var(--md-shadow);
+  margin-left: -28px;
+  align-self: stretch;
 }
 
 .sidebar-button {
-  padding: 10px 14px;
-  text-align: left;
-  border: 0;
-  border-radius: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  text-align: center;
+  border: 1px solid transparent;
+  border-radius: 0 12px 12px 0;
   background: transparent;
   color: var(--md-on-surface);
   font-weight: 500;
@@ -762,12 +777,15 @@
 }
 
 .sidebar-button:hover {
-  background: var(--md-row-hover);
+  border-color: var(--md-outline-variant);
+  background: var(--md-surface-container-high);
 }
 
 .sidebar-button.active {
+  border-color: var(--md-primary);
   background: var(--md-primary);
   color: var(--md-on-primary);
+  font-weight: 700;
 }
 
 .account-title h1 {
@@ -1020,6 +1038,22 @@
 
   .account-sidebar {
     position: static;
+  }
+
+  .sidebar {
+    min-height: auto;
+    border: 1px solid var(--md-outline-variant);
+    border-radius: 14px;
+    margin-left: 0;
+    padding: 8px;
+    box-shadow: 0 2px 8px var(--md-shadow);
+  }
+
+  .brand-lockup {
+    width: auto;
+    flex: 0 1 auto;
+    padding-right: 0;
+    border-right: 0;
   }
 
   .investor-dashboard {
