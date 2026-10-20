@@ -19,7 +19,7 @@ public class EtlController {
 
     @PostMapping("/run")
     public ResponseEntity<Map<String, String>> run() {
-        etlService.runFullLoad();
-        return ResponseEntity.ok(Map.of("status", "completed"));
+        String runId = etlService.runFullLoad();
+        return ResponseEntity.ok(Map.of("status", "completed", "runId", runId));
     }
 }

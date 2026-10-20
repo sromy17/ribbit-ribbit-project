@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.jspecify.annotations.NonNull;
 
 @Configuration
@@ -45,5 +46,12 @@ public class OlapDataSourceConfig {
     @Bean(name = "oltpJdbcTemplate")
     public JdbcTemplate oltpJdbcTemplate(@Qualifier("dataSource") @NonNull DataSource oltpDataSource) {
         return new JdbcTemplate(oltpDataSource);
+    }
+
+    @Bean(name = "olapTransactionManager")
+    public DataSourceTransactionManager olapTransactionManager(
+        @Qualifier("olapDataSource") @NonNull DataSource olapDataSource
+    ) {
+        return new DataSourceTransactionManager(olapDataSource);
     }
 }

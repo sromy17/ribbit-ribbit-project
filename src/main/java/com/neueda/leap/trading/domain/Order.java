@@ -2,8 +2,10 @@ package com.neueda.leap.trading.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -51,6 +53,12 @@ public class Order {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private OrderStatus status;
+
+    @Column(name = "created_at_utc", nullable = false)
+    private Instant createdAtUtc;
+
+    @Column(name = "correlation_id", nullable = false, length = 36)
+    private String correlationId = UUID.randomUUID().toString();
 
     @JsonIgnore
     @OneToMany(mappedBy = "order")
@@ -123,6 +131,11 @@ public class Order {
     public void setStatus(OrderStatus status) {
         this.status = status;
     }
+
+    public Instant getCreatedAtUtc() { return createdAtUtc; }
+    public void setCreatedAtUtc(Instant createdAtUtc) { this.createdAtUtc = createdAtUtc; }
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
 
     public List<Trade> getTrades() {
         return trades;

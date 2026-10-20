@@ -3,11 +3,14 @@ package com.neueda.leap.trading.service.impl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.jspecify.annotations.NonNull;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -18,31 +21,120 @@ public class OltpToOlapEtlService {
 
     private final JdbcTemplate oltpJdbcTemplate;
     private final JdbcTemplate olapJdbcTemplate;
+    private final TransactionTemplate olapTransactionTemplate;
+    private final AtomicBoolean refreshRunning = new AtomicBoolean();
 
     public OltpToOlapEtlService(
         @Qualifier("oltpJdbcTemplate") JdbcTemplate oltpJdbcTemplate,
-        @Qualifier("olapJdbcTemplate") JdbcTemplate olapJdbcTemplate
+        @Qualifier("olapJdbcTemplate") JdbcTemplate olapJdbcTemplate,
+        @Qualifier("olapTransactionManager") org.springframework.transaction.PlatformTransactionManager olapTransactionManager
     ) {
         this.oltpJdbcTemplate = oltpJdbcTemplate;
         this.olapJdbcTemplate = olapJdbcTemplate;
+        this.olapTransactionTemplate = new TransactionTemplate(olapTransactionManager);
     }
 
-    public void runFullLoad() {
+    public String runFullLoad() {
+        if (!refreshRunning.compareAndSet(false, true)) {
+            throw new IllegalStateException("An ETL refresh is already running");
+        }
+
+        String runId = UUID.randomUUID().toString();
+        ensureRefreshRunsTable();
+        InstantHolder sourceWatermark = sourceWatermark();
+        startRun(runId, sourceWatermark.value());
         logConnection("OLTP", oltpJdbcTemplate);
         logConnection("OLAP", olapJdbcTemplate);
-        olapJdbcTemplate.update(
-            "TRUNCATE TABLE public.trade_facts, public.accounts_info, " +
-            "public.employees_info, public.holdings_info"
-        );
-        loadAccounts();
-        loadTradeFacts();
-        loadEmployees();
-        loadHoldings();
+        try {
+            olapTransactionTemplate.executeWithoutResult(status -> {
+                olapJdbcTemplate.update(
+                    "TRUNCATE TABLE public.trade_facts, public.accounts_info, " +
+                    "public.employees_info, public.holdings_info, public.order_facts, " +
+                    "public.fill_facts, public.lifecycle_event_facts, public.cash_movement_facts, " +
+                    "public.holding_movement_facts"
+                );
+                loadAccounts();
+                loadTradeFacts();
+                loadEmployees();
+                loadHoldings();
+                loadEvidence(runId);
+                validatePublishedDataset();
+            });
+            completeRun(runId);
+            return runId;
+        } catch (RuntimeException ex) {
+            failRun(runId, ex);
+            throw ex;
+        } finally {
+            refreshRunning.set(false);
+        }
     }
 
     @Scheduled(cron = "${etl.schedule.cron:-}")
     public void runScheduledLoad() {
         runFullLoad();
+    }
+
+    private void ensureRefreshRunsTable() {
+        olapJdbcTemplate.execute("""
+            CREATE TABLE IF NOT EXISTS etl_refresh_runs (
+                run_id VARCHAR(36) PRIMARY KEY,
+                status VARCHAR(20) NOT NULL,
+                source_watermark TIMESTAMP NOT NULL,
+                started_at TIMESTAMP NOT NULL,
+                published_at TIMESTAMP,
+                error_message VARCHAR(1000)
+            )
+            """);
+    }
+
+    private InstantHolder sourceWatermark() {
+        java.sql.Timestamp timestamp = oltpJdbcTemplate.queryForObject(
+            "SELECT CURRENT_TIMESTAMP", java.sql.Timestamp.class);
+        return new InstantHolder(timestamp == null ? java.time.Instant.now() : timestamp.toInstant());
+    }
+
+    private void startRun(String runId, java.time.Instant watermark) {
+        olapJdbcTemplate.update(
+            "INSERT INTO etl_refresh_runs (run_id, status, source_watermark, started_at) VALUES (?, 'RUNNING', ?, CURRENT_TIMESTAMP)",
+            runId, java.sql.Timestamp.from(watermark));
+    }
+
+    private void completeRun(String runId) {
+        olapJdbcTemplate.update(
+            "UPDATE etl_refresh_runs SET status = 'SUCCEEDED', published_at = CURRENT_TIMESTAMP WHERE run_id = ?",
+            runId);
+    }
+
+    private void failRun(String runId, RuntimeException exception) {
+        olapJdbcTemplate.update(
+            "UPDATE etl_refresh_runs SET status = 'FAILED', error_message = ? WHERE run_id = ?",
+            truncate(exception.getMessage()), runId);
+    }
+
+    private String truncate(String message) {
+        if (message == null) {
+            return "ETL refresh failed";
+        }
+        return message.length() <= 1000 ? message : message.substring(0, 1000);
+    }
+
+    private void validatePublishedDataset() {
+        Integer sourceAccounts = oltpJdbcTemplate.queryForObject("SELECT COUNT(*) FROM accounts", Integer.class);
+        Integer publishedAccounts = olapJdbcTemplate.queryForObject("SELECT COUNT(*) FROM accounts_info", Integer.class);
+        if (!java.util.Objects.equals(sourceAccounts, publishedAccounts)) {
+            throw new IllegalStateException("Account count reconciliation failed");
+        }
+
+        Integer duplicateFacts = olapJdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM (SELECT requestid FROM trade_facts GROUP BY requestid HAVING COUNT(*) > 1) duplicates",
+            Integer.class);
+        if (duplicateFacts != null && duplicateFacts > 0) {
+            throw new IllegalStateException("Trade fact uniqueness validation failed");
+        }
+    }
+
+    private record InstantHolder(java.time.Instant value) {
     }
 
     private void loadAccounts() {
@@ -174,6 +266,60 @@ public class OltpToOlapEtlService {
             "accountid", "userid", "username", "instrumentid", "ticker",
             "instrumentname", "quantity", "as_of_date"
         );
+    }
+
+    private void loadEvidence(String runId) {
+        batchInsertWithRunId("""
+            INSERT INTO public.order_facts
+                (requestid, accountid, userid, instrumentid, side, quantity_requested,
+                 bidprice, order_status, created_at_utc, correlation_id, dataset_run_id)
+            SELECT tr.requestid, tr.accountid, a.userid, tr.instrumentid, tr.side,
+                   tr.quantity, tr.bidprice, tr.status, tr.created_at_utc,
+                   tr.correlation_id, ?
+            FROM public.trade_request tr JOIN public.accounts a ON a.accountid = tr.accountid
+            """, runId);
+
+        batchInsertWithRunId("""
+            INSERT INTO public.fill_facts
+                (executeid, requestid, accountid, instrumentid, executed_quantity,
+                 execution_price, fee, executed_at_utc, dataset_run_id)
+            SELECT te.executeid, te.requestid, tr.accountid, tr.instrumentid,
+                   te.quantity_executed, te.askprice, te.fee, te.executed_at_utc, ?
+            FROM public.trades_executed te JOIN public.trade_request tr ON tr.requestid = te.requestid
+            """, runId);
+
+        batchInsertWithRunId("""
+            INSERT INTO public.lifecycle_event_facts
+                (event_id, requestid, accountid, instrumentid, event_type, event_sequence,
+                 occurred_at_utc, correlation_id, quote_source, quote_at_utc, quote_price,
+                 decision_price, quantity, fee, reason, dataset_run_id)
+            SELECT event_id, order_id, account_id, instrument_id, event_type, event_sequence,
+                   occurred_at_utc, correlation_id, quote_source, quote_at_utc, quote_price,
+                   decision_price, quantity, fee, reason, ?
+            FROM public.order_lifecycle_events
+            """, runId);
+
+        batchInsertWithRunId("""
+            INSERT INTO public.cash_movement_facts
+                (movement_id, requestid, accountid, amount, currency, movement_type,
+                 occurred_at_utc, correlation_id, dataset_run_id)
+            SELECT movement_id, order_id, account_id, amount, currency, movement_type,
+                   occurred_at_utc, correlation_id, ?
+            FROM public.cash_movements
+            """, runId);
+
+        batchInsertWithRunId("""
+            INSERT INTO public.holding_movement_facts
+                (movement_id, requestid, accountid, instrumentid, quantity_delta,
+                 quantity_after, occurred_at_utc, correlation_id, dataset_run_id)
+            SELECT movement_id, order_id, account_id, instrument_id, quantity_delta,
+                   quantity_after, occurred_at_utc, correlation_id, ?
+            FROM public.holding_movements
+            """, runId);
+    }
+
+    private void batchInsertWithRunId(String sql, String runId) {
+        olapJdbcTemplate.update(sql, runId);
     }
 
     private void batchInsert(@NonNull String sql, List<Map<String, Object>> rows, String... columns) {

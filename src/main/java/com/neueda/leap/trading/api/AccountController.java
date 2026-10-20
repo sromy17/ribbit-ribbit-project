@@ -146,9 +146,7 @@ public class AccountController {
 
     @GetMapping("/{accountId}/trades")
     public List<Trade> getTrades(@PathVariable("accountId") int accountId) {
-        if (!accountRepository.existsById(accountId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
-        }
+        accountAccessService.requireAccountAccess(accountId, "PERM_ORDER_INVESTIGATION");
 
         return tradeRepository.findByOrderAccountAccountId(accountId);
     }

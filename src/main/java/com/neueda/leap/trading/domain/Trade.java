@@ -36,6 +36,12 @@ public class Trade {
     @Column(name = "quantity_executed", nullable = false)
     private Integer executedQuantity;
 
+    @Column(name = "fee", nullable = false, precision = 30, scale = 10)
+    private BigDecimal fee = BigDecimal.ZERO;
+
+    @Column(name = "executed_at_utc", nullable = false)
+    private java.time.Instant executedAtUtc;
+
     public Integer getTradeId() {
         return tradeId;
     }
@@ -87,4 +93,9 @@ public class Trade {
     public void setExecutedQuantity(Integer executedQuantity) {
         this.executedQuantity = executedQuantity;
     }
+
+    public BigDecimal getFee() { return fee; }
+    public void setFee(BigDecimal fee) { this.fee = fee; }
+    public java.time.Instant getExecutedAtUtc() { return executedAtUtc; }
+    public void setExecutedAtUtc(java.time.Instant executedAtUtc) { this.executedAtUtc = executedAtUtc; }
 }

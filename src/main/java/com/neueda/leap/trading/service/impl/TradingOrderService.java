@@ -2,6 +2,7 @@ package com.neueda.leap.trading.service.impl;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -47,6 +48,7 @@ public class TradingOrderService implements OrderService {
     private final TradingRulesService tradingRulesService;
     private final AccountOrderReadMapper readMapper;
     private final KafkaOrderExecutionProducer executionProducer;
+    private final OrderEvidenceService evidenceService;
 
     public TradingOrderService(
         OrderRepository orderRepository,
@@ -71,6 +73,7 @@ public class TradingOrderService implements OrderService {
             orderValidator,
             tradingRulesService,
             readMapper,
+            null,
             null
         );
     }
@@ -87,7 +90,8 @@ public class TradingOrderService implements OrderService {
         OrderValidator orderValidator,
         TradingRulesService tradingRulesService,
         AccountOrderReadMapper readMapper,
-        KafkaOrderExecutionProducer executionProducer
+        KafkaOrderExecutionProducer executionProducer,
+        OrderEvidenceService evidenceService
     ) {
         this.orderRepository = orderRepository;
         this.tradeRepository = tradeRepository;
@@ -100,6 +104,7 @@ public class TradingOrderService implements OrderService {
         this.tradingRulesService = tradingRulesService;
         this.readMapper = readMapper;
         this.executionProducer = executionProducer;
+        this.evidenceService = evidenceService;
     }
 
     @Override
@@ -115,10 +120,13 @@ public class TradingOrderService implements OrderService {
             throw new IllegalArgumentException("Only PENDING orders can be executed");
         }
 
+        if (evidenceService != null) evidenceService.event(order, "EXECUTION_ATTEMPTED", null);
+
         TradingAccount account = order.getAccount();
         Instrument instrument = order.getInstrument();
         BigDecimal executionPrice = marketDataVerificationService.verifyExecutionPrice(order);
         BigDecimal fee = feeCalculator.calculate(order.getSide(), order.getQuantity(), executionPrice);
+        if (evidenceService != null) evidenceService.quote(order, executionPrice, fee);
 
         ValidationResult validation = orderValidator.validate(
             order.getSide(),
@@ -140,12 +148,26 @@ public class TradingOrderService implements OrderService {
         trade.setExecutionPrice(executionPrice);
         trade.setExecutedQuantity(order.getQuantity());
         trade.setExecutedAt(LocalDate.now());
+        trade.setExecutedAtUtc(Instant.now());
+        trade.setFee(fee);
         trade = tradeRepository.save(trade);
 
         order.setStatus(OrderStatus.EXECUTED);
         order = orderRepository.save(order);
 
-        updateHolding(account, instrument, order.getSide(), trade.getExecutedQuantity());
+        BigDecimal notional = executionPrice.multiply(BigDecimal.valueOf(order.getQuantity()));
+        if (evidenceService != null) {
+            evidenceService.cashMovement(order,
+                order.getSide() == OrderSide.BUY ? notional.add(fee).negate() : notional.subtract(fee),
+                order.getSide() == OrderSide.BUY ? "BUY_SETTLEMENT" : "SELL_SETTLEMENT");
+        }
+        int quantityAfter = updateHolding(account, instrument, order.getSide(), trade.getExecutedQuantity());
+        if (evidenceService != null) {
+            evidenceService.holdingMovement(order,
+                order.getSide() == OrderSide.BUY ? trade.getExecutedQuantity() : -trade.getExecutedQuantity(),
+                quantityAfter);
+            evidenceService.fill(order, trade);
+        }
 
         AccountOrderSummary summary = readMapper.getAccountOrderSummary(account.getAccountId());
 
@@ -161,7 +183,7 @@ public class TradingOrderService implements OrderService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = IllegalArgumentException.class)
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
         if (request == null || request.accountId() == null) {
             throw new IllegalArgumentException("Request and account ID cannot be null");
@@ -189,16 +211,19 @@ public class TradingOrderService implements OrderService {
         order.setQuantity(request.quantity());
         order.setPrice(request.price());
         order.setDateRequested(LocalDate.now());
+        order.setCreatedAtUtc(Instant.now());
+        order = orderRepository.save(order);
+        if (evidenceService != null) evidenceService.event(order, "ORDER_SUBMITTED", null);
 
         // Set order status based on validation result
         if (!validation.isValid()) {
             order.setStatus(OrderStatus.REJECTED);
-            order = orderRepository.save(order);
+            if (evidenceService != null) evidenceService.rejected(order, validation.getReason());
             throw new IllegalArgumentException("Order rejected: " + validation.getReason());
         }
 
         order.setStatus(OrderStatus.PENDING);
-        order = orderRepository.save(order);
+        if (evidenceService != null) evidenceService.event(order, "ORDER_ACCEPTED", null);
 
         return new CreateOrderResponse(
             order.getOrderId(),
@@ -265,7 +290,7 @@ public class TradingOrderService implements OrderService {
         account.depositFunds(notional.subtract(fee));
     }
 
-    private void updateHolding(
+    private int updateHolding(
         TradingAccount account,
         Instrument instrument,
         OrderSide side,
@@ -285,11 +310,12 @@ public class TradingOrderService implements OrderService {
         holding.updatePosition(isBuy, quantity);
         if (holding.getQuantity() == 0) {
             holdingRepository.delete(holding);
-            return;
+            return 0;
         }
 
         holding.setAsOfDate(LocalDate.now());
         holdingRepository.save(holding);
+        return holding.getQuantity();
     }
 
     private Integer nextOrderId() {

@@ -12,14 +12,15 @@ requirements attributed to the PDF.
 Give operations staff enough evidence to explain any trade, and give internal
 analysts historical reporting that does not compete with live trading.
 
-Proposed initial release: a desktop, read-only internal portal with order search,
-trade investigation, restricted account views, reporting, and data freshness
-indicators. Staff access crosses client boundaries only through explicit staff
+Initial release scope updated by user direction: a desktop internal portal with
+order search, trade investigation, user-ID lookup, current account views,
+reporting, and dispute ticket claim/accept/work/resolution. Financial records
+remain read-only; ticket ownership, notes, and case status are writable. Staff access crosses client boundaries only through explicit staff
 permissions. Client APIs must continue to enforce client ownership.
 
 Financial adjustments, placing trades for clients, editing completed trades,
 cash deposits/withdrawals, account suspension, employee management screens,
-exports, and dispute case management are outside this initial release. Their
+and exports are outside this initial release. Their
 exclusion is a proposed scope choice; it is not a statement that the PDF bans
 all of these capabilities. Advised dealing and real banking integration are
 explicitly outside the PDF's phase scope (§4.2).
@@ -45,7 +46,8 @@ Unchecked items are planned outcomes, not claims about existing implementation.
 - [ ] Agree metric, time, segment, and currency definitions.
 - [ ] Agree reporting freshness and performance targets.
 - [ ] Agree retention and audit access policy with the relevant stakeholders.
-- [ ] Select or defer a separate BR-18 capability.
+- [x] Include dispute case handling per user direction.
+- [ ] Confirm whether this fulfils the programme's BR-18 extension and document its justification.
 
 ## Proposed screens
 
@@ -60,9 +62,14 @@ Unchecked items are planned outcomes, not claims about existing implementation.
 4. Reporting/dashboard: agreed metrics by period, instrument, and client segment,
    plus freshness and incomplete-data indicators.
 
-Dispute handling is optional. The ability to investigate a dispute is required;
-assignment queues, case notes, and case resolution are not explicitly required
-by the BRS. Existing dispute/support tables do not establish approved scope.
+5. Dispute queue and ticket detail: unassigned tickets, my tickets, status filters,
+   claim/accept controls, investigation notes, and resolution. Link directly to
+   the affected user, account, and disputed transaction.
+6. User lookup: exact user-ID search, minimal profile, all authorised accounts,
+   and per-account current holdings, balance, orders, and trade history.
+
+Dispute case handling is now explicitly requested by the user. It extends the
+BRS investigation requirement; the PDF itself does not prescribe this workflow.
 
 ## Proposed access matrix
 
@@ -77,6 +84,8 @@ imply access to client financial data.
 | Order lifecycle and evidence | Yes | Yes | No | No by default |
 | Identifiable account/holdings/cash | Necessary for investigation | Necessary for review | No | No by default |
 | Client-level activity analysis | No by default | No by default | Pseudonymous identifiers only, subject to approval | No |
+| Claim/accept/work/resolve dispute tickets | Yes | Read-only by default | No | No by default |
+| Look up any user ID for investigation | Yes | Yes | No | No by default |
 | Change trades, holdings, cash | No | No | No | No |
 | Trigger reporting refresh | No | No | No | Separate explicit operational permission |
 | Provision/revoke staff permissions | No | No | No | Controlled process; UI deferred |
@@ -159,9 +168,12 @@ remain open decisions rather than assumed acceptance thresholds.
 
 Observed in the current repository; these observations are not a full code audit:
 
-- `SecurityConfig.java` converts JWT roles but globally requires authentication
-  without an admin permission matrix. `EtlController.java` has no explicit role
-  restriction. Add backend permission enforcement before exposing staff routes.
+- Security observations from the initial draft require revalidation against current
+  code. The repository now includes `AccountAccessService` and staff provisioning
+  routes. Account details permission is used on both GET and some mutation
+  routes; split read/write permissions before granting investigation access.
+  The inspected `getTrades` method checks existence but not account access; add
+  owner/staff read authorisation before reusing it for investigation.
 - `OltpToOlapEtlService.java` truncates published tables before sequential loads.
   Introduce consistent extraction and atomic publication with failure recovery.
 - `olap.sql` puts an aggregate at order grain. Preserve individual fills and
@@ -181,20 +193,22 @@ Observed in the current repository; these observations are not a full code audit
 
 ## Decision register
 
-All entries are OPEN. Suggested owners identify who should resolve them, not
+Remaining policy choices are OPEN. User direction has established dispute case
+handling and current user investigation as in scope; D-02 and D-09 record the
+remaining detail rather than reopening that scope decision. Suggested owners identify who should resolve them, not
 people who have already accepted responsibility. Defaults are proposals only.
 
 | ID | Decision | Proposed starting point | Suggested owner | Needed before |
 | --- | --- | --- | --- | --- |
 | D-01 | Staff roles, identity source, permission provisioning and revocation | Capability-based matrix above; controlled provisioning; enforce revocation server-side | Security + Operations | Staff access implementation |
-| D-02 | Initial scope and meaning of account overview | Read-only portal; operational current view clearly separated from OLAP snapshots | Sponsor + Operations | API/UI contracts |
+| D-02 | Current account view consistency | User requests current holdings and trade history, plus writable dispute cases; operational reads separate from OLAP snapshots | Sponsor + Operations | API/UI contracts |
 | D-03 | Client segmentation and historical classification | Effective-dated business classification; Unknown bucket; account type stays separate | Commercial analyst + Sponsor | BR-16 segment reporting |
 | D-04 | Reporting day and timezone | UTC default with explicit timezone labels | Operations + Finance | Date filters and aggregation |
 | D-05 | Metric and fee conventions | Metric contract above; notional excludes fees with fees reported separately | Finance + Operations | Dashboard calculations |
 | D-06 | Currency conversion and precision | Currency-separated totals; no consolidated monetary total | Finance + Trading Desk | Monetary reporting |
 | D-07 | Freshness, stale threshold, query limits, performance and volume targets | Separate OLAP, atomic publication, visible freshness; numbers TBD | Operations + Analyst + Engineering | Performance acceptance |
 | D-08 | Retention, immutable storage controls, personal-data minimisation and audit access | No ordinary update/delete of evidence; numerical retention period TBD | Risk/Compliance + Security | Production readiness |
-| D-09 | Additional BR-18 capability | Consider disputes, compare value with alternatives; defer case workflow until selected | Sponsor + Delivery team | Extension work |
+| D-09 | BR-18 justification | Dispute workflow requested and in scope; document value compared with alternatives for programme review | Sponsor + Delivery team | Extension work |
 | D-10 | Partial-fill/cancellation support and status mapping | Display recorded facts; agree supported transitions before adding states | Trading Desk + Engineering | Lifecycle API contract |
 
 ## Initial release acceptance scenarios
@@ -220,3 +234,127 @@ Step 1 produces this reviewable scope and decision register. It does not approve
 policy choices or alter application behaviour. Resolve D-01/D-02 first to begin
 staff access and endpoint design; metric and pipeline design can proceed against
 the explicitly provisional contracts while their owners review remaining items.
+
+
+## Dispute workflow and user investigation: user-directed scope
+
+The user explicitly requested staff to claim a disputed ticket, accept it, work
+on it, and look up any user ID to investigate trade history/current holdings.
+“Accept” is defined provisionally as accepting responsibility for investigation,
+not approving the customer's allegation or issuing a refund.
+
+### Functional requirements
+
+| ID | Requirement | Acceptance evidence |
+| --- | --- | --- |
+| ADM-10 | Staff see unassigned disputes and their own assigned tickets | Queue supports status/assignee filters and server-side pagination |
+| ADM-11 | An authorised staff member claims a ticket | Exactly one assignee wins concurrent claims; the loser sees a conflict and current owner |
+| ADM-12 | The assignee accepts and works the ticket | Acceptance changes case state; staff can append notes and inspect linked evidence |
+| ADM-13 | Staff search any user by exact user ID | Minimal profile and account list returned only with investigation permission; unknown ID has a clear not-found state |
+| ADM-14 | Staff inspect current holdings and trade/order history | Account selector supports multiple accounts; paginated history and operational holdings carry as-of timestamps |
+| ADM-15 | Staff record a dispute outcome | Assignee records upheld/not-upheld/withdrawn outcome and required reason; evidence and original trades remain unchanged |
+| ADM-16 | Customers can dispute a recorded charge/transaction | Authenticated customer can submit a reason against their own eligible recorded transaction; case appears in the staff queue |
+
+“Charge” currently means an in-platform recorded trade, fee, or cash movement.
+Real card/bank chargebacks remain outside the original banking scope. Confirm
+which transaction types are eligible and the submission window before building
+ADM-16; the current model may not have separately identifiable fees/movements.
+Never invent a transaction link from a supplied amount alone.
+
+### Proposed case lifecycle
+
+`OPEN -> CLAIMED -> IN_PROGRESS -> RESOLVED`
+
+- Claim atomically assigns the authenticated staff identity and records claim time.
+- Accept moves CLAIMED to IN_PROGRESS. Label the button “Accept investigation”
+  to distinguish it from deciding the dispute outcome.
+- Assigned staff append timestamped notes and a resolution reason/outcome.
+- Release before resolution returns a case to OPEN with an audit reason.
+- Reassignment requires a separate supervisor permission and an audit reason.
+- Reopening requires a reason and preserves earlier resolutions; the exact
+  supervisor/reopen policy remains to be agreed.
+- Invalid transitions and edits against a stale version return a conflict.
+- Repeat requests must not duplicate cases, notes, or transition audit entries;
+  use request idempotency keys and case version checks.
+
+The status vocabulary is proposed. Existing disputed_orders states DISPUTED,
+UNDER-REVIEW, COMPLETED and support_ticket states OPEN, IN_PROGRESS, RESOLVED
+need an explicit migration/mapping. Do not silently create two independent case
+owners or competing sources of status. Choose one authoritative case aggregate.
+
+Minimum case fields: case ID, customer/account reference, transaction/order
+reference, category, reason, state, assignee, created/claimed/accepted/resolved
+UTC timestamps, version, outcome, resolution reason, and append-only case events.
+Separate internal notes from any customer-visible messages. Sending messages to
+customers is a separate feature, not implied by internal case notes.
+
+### API reuse and access contract
+
+Reuse the same account read services and DTO contracts as the client wherever
+practical. Either use existing GET routes with owner-or-staff-read checks or
+thin staff wrappers calling those services. Do not impersonate the customer,
+reuse their token, or grant account mutation permission for investigation.
+
+Proposed missing lookup routes:
+
+- `GET /admin/users/{userId}`: restricted profile DTO.
+- `GET /admin/users/{userId}/accounts`: account choices for the selected user.
+
+Existing account read routes to reuse after verifying permissions and pagination:
+
+- `GET /accounts/{accountId}`
+- `GET /accounts/{accountId}/balance`
+- `GET /accounts/{accountId}/holdings`
+- `GET /accounts/{accountId}/orders`
+- `GET /accounts/{accountId}/trades`
+
+Proposed case routes: `GET /admin/disputes`, `GET /admin/disputes/{id}`,
+`POST /admin/disputes/{id}/claim`, `/accept`, `/notes`, `/resolve`, and `/release`.
+A customer submission route such as `POST /disputes` must verify ownership of
+both the transaction and account. All staff case mutations verify permission,
+assignee, expected version, and transition inside the transaction. Staff identity
+comes from authentication, never a trusted employee ID in the request body.
+
+Operational user lookup and bounded history reads use the live account services;
+aggregate reporting remains on OLAP. Display read timestamps and refresh after
+new fills. Separate endpoint reads are not an atomic snapshot: do not imply
+cross-panel consistency unless the backend supplies a consistent snapshot.
+Audit staff lookups and case mutations without logging credentials or unnecessary
+personal data. Lookup of unrelated users is permitted only to authorised
+investigation roles and must be attributable to the staff actor and purpose.
+
+### Additional acceptance and edge cases
+
+- Two staff claim simultaneously: one owner, one conflict, no overwritten owner.
+- Another staff member attempts acceptance, notes, or resolution: rejected unless
+  explicit supervisory override applies; no client can call staff case routes.
+- Staff permission revoked during work: subsequent requests fail; preserve case
+  history and allow authorised reassignment if the owner becomes unavailable.
+- Ticket already resolved or stale after a browser tab was left open: conflict
+  and reload rather than silently reopening or overwriting it.
+- Customer submits the same request twice: one case for an idempotent retry;
+  distinct allegations against the same transaction follow an agreed duplicate policy.
+- Customer supplies another user's transaction, an unknown transaction, or an
+  account/transaction mismatch: reject without exposing another user's details.
+- User has no accounts, no holdings, multiple accounts, or a closed account:
+  clear empty/account-state labels; preserve authorised historical investigation.
+- Trades execute while the case is open: current holdings refresh independently;
+  investigation retains the disputed transaction's historical evidence.
+- Missing or legacy transaction evidence: flag incomplete evidence; do not treat
+  absence as proof that the charge was correct or incorrect.
+- Notes contain markup or long text: validate length and render as safe text.
+- Resolving as upheld does not automatically refund money or edit a trade.
+  Financial redress requires a separately defined adjustment workflow.
+
+### Implementation order for this scope
+
+1. Define eligible disputed transactions, duplicate policy, case state mapping,
+   and supervisor permissions; retain the agreed claim/accept distinction.
+2. Split account read permissions from writes and close any missing ownership
+   checks; add restricted user/account lookup and history pagination.
+3. Implement the authoritative case model, transactional claim/accept transitions,
+   append-only case events, versioning, and idempotency.
+4. Add customer dispute submission against owned eligible transactions.
+5. Build admin queue, ticket detail, user lookup, and linked investigation panels.
+6. Verify concurrent claims, permission boundaries, retry behaviour, current-data
+   labels, and resolution without financial mutation.

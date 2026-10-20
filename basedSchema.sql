@@ -83,6 +83,8 @@ CREATE TABLE trade_request
     quantity INT NOT NULL CHECK (quantity > 0),
     bidprice NUMERIC NOT NULL CHECK (bidprice >= 0),
     date_request DATE NOT NULL,
+    created_at_utc TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correlation_id VARCHAR(36) NOT NULL DEFAULT '',
     status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'EXECUTED', 'CANCELLED', 'REJECTED'))
 );
 
@@ -92,7 +94,45 @@ CREATE TABLE trades_executed
     requestid INT NOT NULL REFERENCES trade_request(requestid),
     askprice NUMERIC NOT NULL CHECK (askprice >= 0),
     date_execution DATE NOT NULL,
+    executed_at_utc TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fee NUMERIC NOT NULL DEFAULT 0,
     quantity_executed INT NOT NULL CHECK (quantity_executed > 0)
+);
+
+CREATE TABLE order_lifecycle_events
+(
+    event_id BIGSERIAL PRIMARY KEY,
+    order_id INT NOT NULL REFERENCES trade_request(requestid),
+    account_id INT NOT NULL REFERENCES accounts(accountid),
+    instrument_id INT REFERENCES instruments(instrumentid),
+    event_type VARCHAR(60) NOT NULL,
+    event_sequence BIGINT NOT NULL,
+    event_version INT NOT NULL DEFAULT 1,
+    occurred_at_utc TIMESTAMP NOT NULL,
+    correlation_id VARCHAR(36) NOT NULL,
+    quote_source VARCHAR(80), quote_at_utc TIMESTAMP, quote_price NUMERIC,
+    decision_price NUMERIC, quantity INT, fee NUMERIC, reason VARCHAR(500),
+    UNIQUE (order_id, event_sequence)
+);
+
+CREATE TABLE cash_movements
+(
+    movement_id BIGSERIAL PRIMARY KEY,
+    order_id INT NOT NULL REFERENCES trade_request(requestid),
+    account_id INT NOT NULL REFERENCES accounts(accountid),
+    amount NUMERIC NOT NULL, currency CHAR(3) NOT NULL,
+    movement_type VARCHAR(40) NOT NULL, occurred_at_utc TIMESTAMP NOT NULL,
+    correlation_id VARCHAR(36) NOT NULL
+);
+
+CREATE TABLE holding_movements
+(
+    movement_id BIGSERIAL PRIMARY KEY,
+    order_id INT NOT NULL REFERENCES trade_request(requestid),
+    account_id INT NOT NULL REFERENCES accounts(accountid),
+    instrument_id INT NOT NULL REFERENCES instruments(instrumentid),
+    quantity_delta INT NOT NULL, quantity_after INT NOT NULL,
+    occurred_at_utc TIMESTAMP NOT NULL, correlation_id VARCHAR(36) NOT NULL
 );
 
 CREATE TABLE employees
