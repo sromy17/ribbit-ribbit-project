@@ -741,7 +741,8 @@
 
 .modal-header h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 2.2rem;
+  font-weight: 600;
 }
 
 .order-placed {
@@ -756,29 +757,69 @@
   margin: 0;
 }
 
-.quote-price {
-  margin: 0 0 14px;
-  color: var(--md-on-surface-variant);
-  font-size: 0.9rem;
+.quote-card {
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--md-outline);
 }
 
-.quote-price span {
-  font-weight: 700;
+.quote-price-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quote-price-value {
+  font-size: 2rem;
+  font-weight: 500;
   color: var(--md-on-surface);
 }
 
-.quote-change {
-  margin: -6px 0 14px;
+.quote-currency {
+  align-self: flex-end;
+  margin-bottom: 6px;
+  font-size: 1rem;
+  color: var(--md-on-surface-variant);
+}
+
+.quote-change-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--md-surface-container-high);
   font-size: 0.95rem;
   font-weight: 600;
 }
 
-.quote-change.positive {
+.quote-percent-pill {
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.quote-change-box.positive {
   color: var(--md-success-fg);
 }
 
-.quote-change.negative {
+.quote-change-box.positive .quote-percent-pill {
+  background: var(--md-success-bg);
+}
+
+.quote-change-box.negative {
   color: var(--md-danger-fg);
+}
+
+.quote-change-box.negative .quote-percent-pill {
+  background: var(--md-danger-bg);
+}
+
+.quote-status {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  color: var(--md-on-surface-variant);
 }
 
 .order-summary {

@@ -52,23 +52,33 @@
         <div class="modal-box" (click)="$event.stopPropagation()">
           <ng-container *ngIf="!orderPlaced; else orderPlacedBox">
             <div class="modal-header">
-              <h2>Place Order: {{ selectedTicker }}</h2>
+              <h2>{{ selectedTicker }}</h2>
               <button type="button" class="btn-small" (click)="closeOrderModal()" aria-label="Close">✕</button>
             </div>
             
-            <p class="quote-price">
-              Current price:
-              <span *ngIf="loadingQuote">Loading...</span>
-              <span *ngIf="!loadingQuote && currentPrice !== null">${{ currentPrice | number: '1.2-2' }}</span>
-              <span class="error-text" *ngIf="!loadingQuote && quoteError">{{ quoteError }}</span>
-            </p>
-            <p class="quote-change"
-               *ngIf="!loadingQuote && currentChange !== null && currentChangePercent !== null"
-               [class.positive]="currentChange >= 0"
-               [class.negative]="currentChange < 0">
-               Change: {{ currentChange >= 0 ? '+' : '' }}{{ currentChange | number: '1.2-2' }}
-              ({{ currentChangePercent >= 0 ? '+' : '' }}{{ currentChangePercent | number: '1.2-2' }}%)
-            </p>
+            <div class="quote-card" *ngIf="!loadingQuote && currentPrice !== null; else quoteStatus">
+              <div class="quote-price-row">
+                <span class="quote-price-value">{{ currentPrice | number: '1.2-2' }}</span>
+                <span class="quote-currency">USD</span>
+                <div class="quote-change-box"
+                     *ngIf="currentChange !== null && currentChangePercent !== null"
+                     [class.positive]="currentChange >= 0"
+                     [class.negative]="currentChange < 0">
+                  <span class="quote-percent-pill">
+                    {{ currentChange >= 0 ? '↑' : '↓' }} {{ currentChangePercent >= 0 ? '+' : '' }}{{ currentChangePercent | number: '1.2-2' }}%
+                  </span>
+                  <span class="quote-change-amount">
+                    {{ currentChange >= 0 ? '+' : '' }}{{ currentChange | number: '1.2-2' }} today
+                  </span>
+                </div>
+              </div>
+            </div>
+            <ng-template #quoteStatus>
+              <p class="quote-status">
+                <span *ngIf="loadingQuote">Loading price...</span>
+                <span class="error-text" *ngIf="!loadingQuote && quoteError">{{ quoteError }}</span>
+              </p>
+            </ng-template>
             <div class="form-group">
               <div class="form-field">
                 <label>Side</label>
