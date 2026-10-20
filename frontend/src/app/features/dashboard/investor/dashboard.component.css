@@ -289,6 +289,12 @@
   min-width: 0;
 }
 
+.trade-view,
+.history-view,
+.account-main > .placeholder {
+  animation: content-slide 220ms ease-out;
+}
+
 .account-page-full {
   grid-template-columns: minmax(0, 1fr);
 }
