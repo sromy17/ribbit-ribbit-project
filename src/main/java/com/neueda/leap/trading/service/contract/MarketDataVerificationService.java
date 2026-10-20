@@ -8,4 +8,8 @@ public interface MarketDataVerificationService {
     BigDecimal verifyExecutionPrice(Order order);
 
     boolean isTickerValid(String ticker);
+
+    BigDecimal getCurrentPrice(String ticker);
+
+    MarketQuote getQuote(String ticker);
 }

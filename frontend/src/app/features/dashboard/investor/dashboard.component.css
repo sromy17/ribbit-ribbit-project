@@ -227,7 +227,7 @@
     margin-top: 4px;
   }
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.95fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   animation: content-slide 220ms ease-out;
 }
@@ -240,7 +240,7 @@
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -621,6 +621,204 @@
   width: 16px;
   height: 16px;
   border-radius: 4px;
+}
+
+/* Trading platform sidebar */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  min-width: 160px;
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 16px;
+  align-self: flex-start;
+}
+
+.sidebar-button {
+  padding: 10px 14px;
+  text-align: left;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--md-on-surface);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sidebar-button:hover {
+  background: var(--md-row-hover);
+}
+
+.sidebar-button.active {
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+}
+
+.account-title h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.account-title .description {
+  margin: 4px 0 0;
+}
+
+.chart-placeholder {
+  display: grid;
+  place-items: center;
+  height: 220px;
+  margin-top: 12px;
+  border: 1px dashed var(--md-outline-variant);
+  border-radius: 12px;
+  color: var(--md-on-surface-variant);
+}
+
+.placeholder {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--md-on-surface-variant);
+}
+
+/* Trade view: search + order popup */
+.search-form {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.search-form .search-input {
+  flex: 1;
+  border: 1px solid var(--md-outline);
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: var(--md-surface-container-high);
+  color: var(--md-on-surface);
+}
+
+.search-form .search-input:focus {
+  outline: none;
+  border-color: var(--md-primary);
+  box-shadow: 0 0 0 3px var(--md-focus-ring);
+}
+
+.trade-search {
+  max-width: 560px;
+}
+
+.trade-search h2 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  animation: modal-fade-in 250ms ease-out;
+}
+
+.modal-box {
+  width: min(420px, 90vw);
+  padding: 24px;
+  background: var(--md-surface);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px var(--md-shadow);
+  animation: modal-pop-in 250ms ease-out;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.order-placed {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  text-align: center;
+}
+
+.order-placed h2,
+.order-placed p {
+  margin: 0;
+}
+
+.quote-price {
+  margin: 0 0 14px;
+  color: var(--md-on-surface-variant);
+  font-size: 0.9rem;
+}
+
+.quote-price span {
+  font-weight: 700;
+  color: var(--md-on-surface);
+}
+
+.quote-change {
+  margin: -6px 0 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.quote-change.positive {
+  color: var(--md-success-fg);
+}
+
+.quote-change.negative {
+  color: var(--md-danger-fg);
+}
+
+.order-summary {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 12px;
+  background: var(--md-surface-container);
+  font-size: 0.86rem;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--md-on-surface-variant);
+}
+
+.summary-row.total {
+  padding-top: 6px;
+  border-top: 1px solid var(--md-outline-variant);
+  font-weight: 700;
+  color: var(--md-on-surface);
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes content-slide {

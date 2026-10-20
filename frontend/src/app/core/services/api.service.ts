@@ -214,6 +214,12 @@ export class ApiService {
     return this.http.delete(`${this.apiUrl}/accounts/${accountId}/orders/${orderId}/status`);
   }
 
+  // Market data
+
+  getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number }> {
+    return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number }>(`/api/market/quotes/${encodeURIComponent(symbol)}`);
+  }
+
   // Trades
 
   getTrades(accountId: string): Observable<Trade[]> {

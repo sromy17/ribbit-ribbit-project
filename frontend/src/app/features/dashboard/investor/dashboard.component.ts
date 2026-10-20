@@ -13,6 +13,8 @@ import { ApiService, Holding, Order, Trade, SymbolTrend, TradingAccount } from '
   styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit {
+  activeView: 'portfolio' | 'trade' | 'history' | 'help' = 'portfolio';
+  accountTypeLabel = 'Trading Account';
   currentUser: User | null = null;
   currentRole: string = '';
   accountId: string = ''; // Store account ID for API calls
@@ -41,6 +43,20 @@ export class DashboardComponent implements OnInit {
   orderFormErrors: { [key: string]: string } = {};
   cancelingOrderId: string | null = null;
 
+  // Trade view state
+  tradeSearch = '';
+  tradeSearchError = '';
+  selectedTicker = '';
+  showOrderModal = false;
+  orderPlaced = false;
+  currentPrice: number | null = null;
+  loadingQuote = false;
+  quoteError = '';
+  currentChange: number | null = null;
+  currentChangePercent: number | null = null;
+  private readonly feeRate = 0.001;
+  private readonly minFee = 1;
+
   constructor(
     private auth: AuthService,
     private router: Router,
@@ -66,11 +82,98 @@ export class DashboardComponent implements OnInit {
       return;
     }
     this.accountId = accountId;
+    this.loadAccountDetails();
     this.loadDashboardData();
   }
 
   backToAccounts(): void {
     this.router.navigate(['/accounts']);
+  }
+
+  selectTicker(): void {
+    const symbol = this.tradeSearch.trim().toUpperCase();
+    if (!/^[A-Z]{1,5}$/.test(symbol)) {
+      this.tradeSearchError = 'Enter a valid ticker (e.g., AAPL, MSFT)';
+      return;
+    }
+    this.tradeSearchError = '';
+    this.selectedTicker = symbol;
+    this.orderForm = { symbol, side: 'BUY', quantity: 0 };
+    this.orderFormErrors = {};
+    this.orderPlaced = false;
+    this.showOrderModal = true;
+    this.loadQuote(symbol);
+  }
+
+  loadQuote(symbol: string): void {
+    this.loadingQuote = true;
+    this.quoteError = '';
+    this.currentPrice = null;
+    this.currentChange = null;
+    this.currentChangePercent = null;
+    this.api.getQuote(symbol).subscribe({
+      next: (quote) => {
+        this.currentPrice = quote.price;
+        this.currentChange = quote.change ?? null;
+        this.currentChangePercent = quote.changePercent ?? null;
+        this.loadingQuote = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading quote:', err);
+        this.quoteError = 'Price unavailable';
+        this.loadingQuote = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  getEstimatedNotional(): number {
+    return (this.currentPrice ?? 0) * (this.orderForm.quantity || 0);
+  }
+
+  getEstimatedFee(): number {
+    const notional = this.getEstimatedNotional();
+    if (!notional) {
+      return 0;
+    }
+    return Math.max(notional * this.feeRate, this.minFee);
+  }
+
+  getEstimatedTotal(): number {
+    const notional = this.getEstimatedNotional();
+    const fee = this.getEstimatedFee();
+    return this.orderForm.side === 'BUY' ? notional + fee : notional - fee;
+  }
+
+  closeOrderModal(): void {
+    this.showOrderModal = false;
+    this.orderPlaced = false;
+    this.orderFormErrors = {};
+  }
+
+  backToPortfolio(): void {
+    this.closeOrderModal();
+    this.tradeSearch = '';
+    this.setView('portfolio');
+  }
+
+  setView(view: 'portfolio' | 'trade' | 'history' | 'help'): void {
+    this.activeView = view;
+  }
+
+  loadAccountDetails(): void {
+    this.api.getAccountDetails(this.accountId).subscribe({
+      next: (account) => {
+        const normalizedType = (account.type ?? '').toLowerCase();
+        this.accountTypeLabel = normalizedType
+          ? `${normalizedType.charAt(0).toUpperCase()}${normalizedType.slice(1)} Account`
+          : 'Trading Account';
+      },
+      error: () => {
+        this.accountTypeLabel = 'Trading Account';
+      }
+    });
   }
 
   resetDashboardData(): void {
@@ -190,6 +293,7 @@ export class DashboardComponent implements OnInit {
           return;
         }
         this.orderFormErrors = {};
+        this.orderPlaced = true;
         this.loadDashboardData(); // Refresh orders list
       },
       error: (err) => {
