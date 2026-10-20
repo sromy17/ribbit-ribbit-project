@@ -26,7 +26,6 @@ export class DashboardComponent implements OnInit {
   loadingBalance = false;
   loadingHoldings = false;
   loadingOrders = false;
-  loadingTrades = false;
   error = '';
 
   // Investor Dashboard Data
@@ -37,12 +36,10 @@ export class DashboardComponent implements OnInit {
   };
 
   orders: Order[] = [];
-  successfulOrders: Order[] = [];
   symbolTrends: SymbolTrend[] = [];
 
   orderForm = { symbol: '', side: 'BUY', quantity: 0 };
   orderFormErrors: { [key: string]: string } = {};
-  cancelingOrderId: string | null = null;
 
   // Trade view state
   tradeSearch = '';
@@ -231,14 +228,12 @@ export class DashboardComponent implements OnInit {
   resetDashboardData(): void {
     this.portfolio = { cash: 0, holdings: [], totalValue: 0 };
     this.orders = [];
-    this.successfulOrders = [];
   }
 
   loadDashboardData() {
     this.loadingBalance = true;
     this.loadingHoldings = true;
     this.loadingOrders = true;
-    this.loadingTrades = true;
     this.error = '';
 
     // Load balance
@@ -277,12 +272,6 @@ export class DashboardComponent implements OnInit {
     this.api.getOrders(this.accountId).subscribe({
       next: (orders) => {
         this.orders = orders;
-        this.successfulOrders = orders.filter((order) => {
-          const status = order.status as string;
-          return status === 'FILLED' || status === 'EXECUTED';
-        }).sort((first, second) =>
-          (second.dateRequested ?? '').localeCompare(first.dateRequested ?? '')
-        );
         this.loadingOrders = false;
         this.cdr.detectChanges();
       },
@@ -293,9 +282,6 @@ export class DashboardComponent implements OnInit {
         this.cdr.detectChanges();
       }
     });
-
-    // Successful orders represent the trades that changed the cash balance.
-    this.loadingTrades = false;
 
     // Market trend data is not exposed by the current backend contract.
     this.symbolTrends = [];
@@ -363,26 +349,6 @@ export class DashboardComponent implements OnInit {
     this.orderForm = { symbol: '', side: 'BUY', quantity: 0 };
   }
 
-  // Cancel Order
-  cancelOrder(orderId: string) {
-    if (!confirm('Are you sure you want to cancel this order?')) {
-      return;
-    }
-
-    this.cancelingOrderId = orderId;
-    this.api.cancelOrder(this.accountId, orderId).subscribe({
-      next: () => {
-        this.cancelingOrderId = null;
-        this.loadDashboardData(); // Refresh orders list
-      },
-      error: (err) => {
-        console.error('Error canceling order:', err);
-        alert('Failed to cancel order');
-        this.cancelingOrderId = null;
-      }
-    });
-  }
-
   // Refresh Data
   refreshData() {
     this.loadDashboardData();
@@ -402,10 +368,6 @@ export class DashboardComponent implements OnInit {
       default:
         return '';
     }
-  }
-
-  canCancelOrder(order: Order): boolean {
-    return order.status === 'PENDING';
   }
 
   getOrderTotalPrice(order: Order): number {
