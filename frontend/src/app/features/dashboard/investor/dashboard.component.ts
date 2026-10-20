@@ -21,6 +21,7 @@ export class DashboardComponent implements OnInit {
   accounts: TradingAccount[] = [];
   selectedAccount: TradingAccount | null = null;
   loadingAccounts = false;
+  accountMenuOpen = false;
   loading = false;
   loadingBalance = false;
   loadingHoldings = false;
@@ -83,11 +84,55 @@ export class DashboardComponent implements OnInit {
     }
     this.accountId = accountId;
     this.loadAccountDetails();
+    this.loadAccounts();
     this.loadDashboardData();
   }
 
   backToAccounts(): void {
     this.router.navigate(['/accounts']);
+  }
+
+  loadAccounts(): void {
+    if (!this.currentUser) {
+      return;
+    }
+
+    this.loadingAccounts = true;
+    this.api.getAccountsForUser(this.currentUser.id).subscribe({
+      next: (accounts) => {
+        this.accounts = accounts;
+        this.selectedAccount = accounts.find((account) => account.accountId === this.accountId) ?? null;
+        this.loadingAccounts = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loadingAccounts = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  toggleAccountMenu(): void {
+    this.accountMenuOpen = !this.accountMenuOpen;
+  }
+
+  selectAccount(account: TradingAccount): void {
+    this.accountMenuOpen = false;
+    if (account.accountId !== this.accountId) {
+      this.router.navigate(['/investor-dashboard', account.accountId]);
+    }
+  }
+
+  createAccount(): void {
+    this.accountMenuOpen = false;
+    this.router.navigate(['/accounts/create']);
+  }
+
+  formatAccountType(type: string): string {
+    const normalizedType = (type ?? '').toLowerCase();
+    return normalizedType
+      ? `${normalizedType.charAt(0).toUpperCase()}${normalizedType.slice(1)} Account`
+      : 'Trading Account';
   }
 
   selectTicker(): void {
@@ -165,6 +210,7 @@ export class DashboardComponent implements OnInit {
   loadAccountDetails(): void {
     this.api.getAccountDetails(this.accountId).subscribe({
       next: (account) => {
+        this.selectedAccount = account;
         const normalizedType = (account.type ?? '').toLowerCase();
         this.accountTypeLabel = normalizedType
           ? `${normalizedType.charAt(0).toUpperCase()}${normalizedType.slice(1)} Account`

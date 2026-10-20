@@ -5,7 +5,52 @@
       <span class="brand-name">Leap Trader <strong>Pro</strong></span>
     </div>
     <div class="header-actions">
-      <span class="user-badge">{{ currentUser?.role | uppercase }} • {{ currentUser?.username }}</span>
+      <div class="account-switcher">
+        <button
+          type="button"
+          class="account-switcher-button"
+          [class.open]="accountMenuOpen"
+          (click)="toggleAccountMenu()"
+          [attr.aria-expanded]="accountMenuOpen"
+          aria-haspopup="true"
+          aria-controls="account-switcher-menu">
+          <span class="account-switcher-copy">
+            <strong>{{ accountTypeLabel }}</strong>
+            <span>{{ currentUser?.username }}</span>
+          </span>
+          <span class="account-switcher-chevron" aria-hidden="true">{{ accountMenuOpen ? '⌃' : '⌄' }}</span>
+        </button>
+
+        <div *ngIf="accountMenuOpen" id="account-switcher-menu" class="account-switcher-menu">
+          <div class="account-menu-content">
+            <div class="account-menu-heading">
+              <strong>Switch account</strong>
+              <button type="button" class="view-all-accounts" (click)="backToAccounts()">View all</button>
+            </div>
+            <div *ngIf="loadingAccounts" class="account-menu-status">Loading accounts...</div>
+            <div *ngIf="!loadingAccounts && accounts.length === 0" class="account-menu-status">No accounts yet.</div>
+            <button
+              *ngFor="let account of accounts"
+              type="button"
+              class="account-menu-item"
+              [class.selected]="account.accountId === accountId"
+              (click)="selectAccount(account)">
+              <span>
+                <strong>{{ formatAccountType(account.type) }}</strong>
+                <small>Account #{{ account.accountId }}</small>
+              </span>
+              <span *ngIf="account.accountId === accountId" class="selected-mark" aria-label="Current account">✓</span>
+            </button>
+          </div>
+
+          <div class="account-menu-footer">
+            <button type="button" class="create-profile-button" (click)="createAccount()">
+              <span aria-hidden="true">＋</span>
+              Create account
+            </button>
+          </div>
+        </div>
+      </div>
       <button (click)="refreshData()" class="btn-refresh" title="Refresh data" [disabled]="loadingBalance || loadingHoldings || loadingOrders || loadingTrades">↻</button>
       <button (click)="logout()" class="btn-logout">Logout</button>
     </div>
