@@ -248,7 +248,9 @@ app.post("/login", async (req, res) => {
       token,
       tokenType: "Bearer",
       expiresInSeconds: JWT_EXPIRATION_SECONDS,
-      refreshToken
+      refreshToken,
+      userId: Number(user.userid),
+      username: user.username
     });
   } catch (error) {
     console.error("Login error", error);

@@ -45,7 +45,7 @@ public class OrderController {
             request.ticker(),
             request.side(),
             request.quantity(),
-            request.price()
+            null
         ));
     }
 

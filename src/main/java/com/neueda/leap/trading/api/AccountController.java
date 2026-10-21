@@ -1,5 +1,6 @@
 package com.neueda.leap.trading.api;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +69,7 @@ public class AccountController {
         account.setAccountId(nextAccountId);
         account.setUser(user);
         account.setType(request.accountType());
-        account.setAvailableFunds(request.initialCashBalance());
+        account.setAvailableFunds(BigDecimal.ZERO);
         account.setCreationDate(LocalDate.now());
         return accountRepository.save(account);
     }
@@ -86,8 +87,16 @@ public class AccountController {
 
     @GetMapping("/{accountId}")
     public TradingAccount getAccount(@PathVariable("accountId") int accountId) {
-        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
+        if (!accountRepository.existsById(accountId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
+        }
+
         return accountRepository.findById(accountId).get();
+    }
+
+    @GetMapping("/user/{userId}")
+    public List<TradingAccount> getAccountsForUser(@PathVariable("userId") Integer userId) {
+        return accountRepository.findAllByUserUserIdOrderByAccountIdAsc(userId);
     }
 
     @PutMapping("/{accountId}")
