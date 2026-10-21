@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+:root {
+	/* Everforest light palette */
+	--md-primary: #8da101;
+	--md-on-primary: #fdf6e3;
+	--md-primary-container: #e3ebcf;
+	--md-on-primary-container: #5c6a00;
+	--md-secondary: #35a77c;
+	--md-surface: #fdf6e3;
+	--md-surface-container: #f4f0d9;
+	--md-surface-container-high: #efebd4;
+	--md-outline: #a6b0a0;
+	--md-outline-variant: #d3c6aa;
+	--md-on-surface: #5c6a72;
+	--md-on-surface-variant: #829181;
+	--md-error: #f85552;
+	--md-shadow: rgba(92, 106, 114, 0.18);
+	--md-focus-ring: rgba(53, 167, 124, 0.28);
+	--md-primary-shadow: rgba(141, 161, 1, 0.3);
+	--md-primary-hover: #748900;
+	--md-border-soft: #e0dcc7;
+	--md-row-hover: #f4f0d9;
+	--md-success-bg: #e3ebcf;
+	--md-success-fg: #5c6a00;
+	--md-danger-bg: #f8dcd6;
+	--md-danger-fg: #c14a4a;
+	--md-warning-bg: #f5ebc6;
+	--md-warning-fg: #a96b2c;
+}
+
+body.theme-dark {
+	/* Everforest dark palette */
+	--md-primary: #a7c080;
+	--md-on-primary: #2d353b;
+	--md-primary-container: #425047;
+	--md-on-primary-container: #e3e9d4;
+	--md-secondary: #83c092;
+	--md-surface: #2d353b;
+	--md-surface-container: #343f44;
+	--md-surface-container-high: #3d484d;
+	--md-outline: #859289;
+	--md-outline-variant: #4f585e;
+	--md-on-surface: #d3c6aa;
+	--md-on-surface-variant: #9da9a0;
+	--md-error: #e67e80;
+	--md-shadow: rgba(0, 0, 0, 0.4);
+	--md-focus-ring: rgba(127, 187, 179, 0.34);
+	--md-primary-shadow: rgba(167, 192, 128, 0.3);
+	--md-primary-hover: #b5cc92;
+	--md-border-soft: #4f585e;
+	--md-row-hover: #3d484d;
+	--md-success-bg: #425047;
+	--md-success-fg: #a7c080;
+	--md-danger-bg: #543a3f;
+	--md-danger-fg: #e67e80;
+	--md-warning-bg: #5a4d33;
+	--md-warning-fg: #dbbc7f;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	min-height: 100%;
+}
+
+body {
+	font-family: 'Roboto', 'Segoe UI', sans-serif;
+	color: var(--md-on-surface);
+	background: var(--md-surface);
+	transition: background 0.3s ease, color 0.2s ease;
+}
+
+body.theme-dark {
+	background: var(--md-surface);
+}
+
+button,
+input,
+select {
+	font: inherit;
+}

@@ -84,7 +84,13 @@ public class AccountController {
         if (!accountRepository.existsById(accountId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found: " + accountId);
         }
+
         return accountRepository.findById(accountId).get();
+    }
+
+    @GetMapping("/user/{userId}")
+    public List<TradingAccount> getAccountsForUser(@PathVariable("userId") Integer userId) {
+        return accountRepository.findAllByUserUserIdOrderByAccountIdAsc(userId);
     }
 
     @PutMapping("/{accountId}")
