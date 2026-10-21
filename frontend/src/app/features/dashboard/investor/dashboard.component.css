@@ -1051,6 +1051,17 @@
   font: inherit;
 }
 
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
 /* Trade view: search + order popup */
 .trade-search-box .search-input {
   border: 1px solid var(--md-outline);

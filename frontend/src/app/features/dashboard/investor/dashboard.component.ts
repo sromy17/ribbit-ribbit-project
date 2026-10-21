@@ -62,11 +62,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showWalletTransactionModal = false;
   walletTransactionType: 'Deposit' | 'Withdrawal' = 'Deposit';
   bankAccountForm = { nickname: '', routingNumber: '', accountNumber: '' };
-  walletTransactionForm = { amount: 0, bankAccountId: 0 };
+  walletTransactionForm = { amount: 1, bankAccountId: 0 };
   walletFormError = '';
   private nextWalletItemId = 1;
 
-  orderForm = { symbol: '', side: 'BUY', quantity: 0 };
+  orderForm = { symbol: '', side: 'BUY', quantity: 1 };
   orderFormErrors: { [key: string]: string } = {};
 
   // Trade view state
@@ -216,6 +216,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.tradeSearchError = '';
   }
 
+  blockInvalidNumberKey(event: KeyboardEvent, allowDecimal: boolean): void {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) {
+      return;
+    }
+
+    const isDigit = event.key >= '0' && event.key <= '9';
+    const isDecimal = allowDecimal && event.key === '.' &&
+      !(event.target as HTMLInputElement).value.includes('.');
+
+    if (!isDigit && !isDecimal) {
+      event.preventDefault();
+    }
+  }
+
+  sanitizeNumberPaste(event: ClipboardEvent, allowDecimal: boolean): void {
+    const pastedText = event.clipboardData?.getData('text') ?? '';
+    const pattern = allowDecimal ? /[^0-9.]/g : /[^0-9]/g;
+    const sanitizedText = pastedText.replace(pattern, '');
+
+    if (sanitizedText !== pastedText) {
+      event.preventDefault();
+      const input = event.target as HTMLInputElement;
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      input.setRangeText(sanitizedText, start, end, 'end');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
   selectTicker(symbolOverride?: string): void {
     const symbol = (symbolOverride ?? this.tradeSearch).trim().toUpperCase();
     if (!/^[A-Z]{1,5}$/.test(symbol)) {
@@ -224,7 +253,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     this.tradeSearchError = '';
     this.selectedTicker = symbol;
-    this.orderForm = { symbol, side: 'BUY', quantity: 0 };
+    this.orderForm = { symbol, side: 'BUY', quantity: 1 };
     this.orderFormErrors = {};
     this.orderPlaced = false;
     this.showOrderModal = true;
@@ -322,7 +351,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   openWalletTransaction(type: 'Deposit' | 'Withdrawal'): void {
     this.walletTransactionType = type;
     this.walletTransactionForm = {
-      amount: 0,
+      amount: 1,
       bankAccountId: this.bankAccounts[0]?.id ?? 0
     };
     this.walletFormError = '';
@@ -500,7 +529,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   resetOrderForm(): void {
-    this.orderForm = { symbol: '', side: 'BUY', quantity: 0 };
+    this.orderForm = { symbol: '', side: 'BUY', quantity: 1 };
   }
 
   // Refresh Data
