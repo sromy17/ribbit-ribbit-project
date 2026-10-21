@@ -1,5 +1,6 @@
 package com.neueda.leap.trading.api;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +64,7 @@ public class AccountController {
         account.setAccountId(nextAccountId);
         account.setUser(user);
         account.setType(request.accountType());
-        account.setAvailableFunds(request.initialCashBalance());
+        account.setAvailableFunds(BigDecimal.ZERO);
         account.setCreationDate(LocalDate.now());
         return accountRepository.save(account);
     }

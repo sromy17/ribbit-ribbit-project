@@ -14,7 +14,6 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class CreateAccountComponent {
   accountType = 'TRADING';
-  initialCashBalance: number | null = null;
   error = '';
   loading = false;
   readonly accountTypes = ['TRADING', 'INVESTMENT', 'DAYTRADING', 'PORTFOLIO', 'HEDGE', 'CASH', 'MARGIN'];
@@ -27,11 +26,6 @@ export class CreateAccountComponent {
 
   createAccount(): void {
     this.error = '';
-    if (this.initialCashBalance === null || this.initialCashBalance <= 0) {
-      this.error = 'Initial balance must be greater than 0';
-      return;
-    }
-
     const user = this.auth.getUser();
     if (!user) {
       this.router.navigate(['/login']);
@@ -41,10 +35,9 @@ export class CreateAccountComponent {
     this.loading = true;
     this.api.createAccount({
       userId: Number(user.id),
-      accountType: this.accountType,
-      initialCashBalance: this.initialCashBalance
+      accountType: this.accountType
     }).subscribe({
-      next: () => this.router.navigate(['/investor-dashboard']),
+      next: (account) => this.router.navigate(['/investor-dashboard', account.accountId]),
       error: () => {
         this.error = 'Unable to create the account';
         this.loading = false;

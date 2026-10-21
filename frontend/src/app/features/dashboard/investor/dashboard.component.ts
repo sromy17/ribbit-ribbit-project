@@ -1,9 +1,25 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subject } from 'rxjs';
 import { AuthService, User } from '../../../core/services/auth.service';
-import { ApiService, Holding, Order, Trade, SymbolTrend, TradingAccount } from '../../../core/services/api.service';
+import { ApiService, Holding, MarketInstrument, Order, Trade, SymbolTrend, TradingAccount } from '../../../core/services/api.service';
+
+interface WalletBankAccount {
+  id: number;
+  nickname: string;
+  routingNumber: string;
+  accountNumber: string;
+}
+
+interface WalletActivity {
+  id: number;
+  type: 'Deposit' | 'Withdrawal';
+  amount: number;
+  bankNickname: string;
+  date: Date;
+}
 
 @Component({
   selector: 'app-dashboard',
@@ -12,18 +28,20 @@ import { ApiService, Holding, Order, Trade, SymbolTrend, TradingAccount } from '
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
+  activeView: 'portfolio' | 'trade' | 'history' | 'wallet' | 'help' = 'portfolio';
+  accountTypeLabel = 'Trading Account';
   currentUser: User | null = null;
   currentRole: string = '';
   accountId: string = ''; // Store account ID for API calls
   accounts: TradingAccount[] = [];
   selectedAccount: TradingAccount | null = null;
   loadingAccounts = false;
+  accountMenuOpen = false;
   loading = false;
   loadingBalance = false;
   loadingHoldings = false;
   loadingOrders = false;
-  loadingTrades = false;
   error = '';
 
   // Investor Dashboard Data
@@ -34,12 +52,37 @@ export class DashboardComponent implements OnInit {
   };
 
   orders: Order[] = [];
-  successfulOrders: Order[] = [];
   symbolTrends: SymbolTrend[] = [];
+  marketInstruments: MarketInstrument[] = [];
+  loadingInstrumentCatalog = false;
+  instrumentCatalogError = '';
+  bankAccounts: WalletBankAccount[] = [];
+  walletActivity: WalletActivity[] = [];
+  showBankAccountModal = false;
+  showWalletTransactionModal = false;
+  walletTransactionType: 'Deposit' | 'Withdrawal' = 'Deposit';
+  bankAccountForm = { nickname: '', routingNumber: '', accountNumber: '' };
+  walletTransactionForm = { amount: 1, bankAccountId: 0 };
+  walletFormError = '';
+  private nextWalletItemId = 1;
 
-  orderForm = { symbol: '', side: 'BUY', quantity: 0 };
+  orderForm = { symbol: '', side: 'BUY', quantity: 1 };
   orderFormErrors: { [key: string]: string } = {};
-  cancelingOrderId: string | null = null;
+
+  // Trade view state
+  tradeSearch = '';
+  tradeSearchError = '';
+  selectedTicker = '';
+  showOrderModal = false;
+  orderPlaced = false;
+  currentPrice: number | null = null;
+  loadingQuote = false;
+  quoteError = '';
+  currentChange: number | null = null;
+  currentChangePercent: number | null = null;
+  private readonly feeRate = 0.001;
+  private readonly minFee = 1;
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private auth: AuthService,
@@ -57,9 +100,29 @@ export class DashboardComponent implements OnInit {
   }
 
   ngOnInit() {
-    if (this.currentUser) {
-      this.loadAccounts();
+    if (!this.currentUser) {
+      return;
     }
+
+    this.route.paramMap.subscribe((params) => {
+      const accountId = params.get('accountId');
+      if (!accountId) {
+        this.router.navigate(['/accounts']);
+        return;
+      }
+
+      this.accountId = accountId;
+      this.activeView = 'portfolio';
+      this.resetDashboardData();
+      this.loadInstrumentCatalog();
+      this.loadAccountDetails();
+      this.loadAccounts();
+      this.loadDashboardData();
+    });
+  }
+
+  backToAccounts(): void {
+    this.router.navigate(['/accounts']);
   }
 
   loadAccounts(): void {
@@ -71,56 +134,290 @@ export class DashboardComponent implements OnInit {
     this.api.getAccountsForUser(this.currentUser.id).subscribe({
       next: (accounts) => {
         this.accounts = accounts;
+        this.selectedAccount = accounts.find((account) => account.accountId === this.accountId) ?? null;
         this.loadingAccounts = false;
-        if (accounts.length > 0) {
-          this.selectAccount(accounts[0]);
-        } else {
-          this.selectedAccount = null;
-          this.accountId = '';
-        }
         this.cdr.detectChanges();
       },
       error: () => {
-        this.error = 'Failed to load your accounts';
         this.loadingAccounts = false;
         this.cdr.detectChanges();
       }
     });
   }
 
+  toggleAccountMenu(): void {
+    this.accountMenuOpen = !this.accountMenuOpen;
+  }
+
   selectAccount(account: TradingAccount): void {
-    this.selectedAccount = account;
-    this.accountId = String(account.accountId);
-    this.resetDashboardData();
-    this.loadDashboardData();
+    this.accountMenuOpen = false;
+    if (account.accountId !== this.accountId) {
+      this.router.navigate(['/investor-dashboard', account.accountId]);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  createAccount(): void {
+    this.accountMenuOpen = false;
+    this.router.navigate(['/accounts/create']);
+  }
+
+  formatAccountType(type: string): string {
+    const normalizedType = (type ?? '').toLowerCase();
+    return normalizedType
+      ? `${normalizedType.charAt(0).toUpperCase()}${normalizedType.slice(1)} Account`
+      : 'Trading Account';
+  }
+
+  get filteredTradeTickers(): MarketInstrument[] {
+    const search = this.tradeSearch.trim().toUpperCase();
+    if (!search) {
+      return [];
+    }
+    return this.marketInstruments
+      .filter((instrument) =>
+        instrument.symbol.startsWith(search) ||
+        instrument.name.toUpperCase().startsWith(search) ||
+        instrument.name.toUpperCase().includes(` ${search}`)
+      )
+      .sort((left, right) =>
+        Number(right.symbol.startsWith(search)) - Number(left.symbol.startsWith(search)) ||
+        left.symbol.localeCompare(right.symbol)
+      )
+      .slice(0, 10);
+  }
+
+  loadInstrumentCatalog(): void {
+    if (this.marketInstruments.length > 0 || this.loadingInstrumentCatalog) {
+      return;
+    }
+    this.loadingInstrumentCatalog = true;
+    this.instrumentCatalogError = '';
+    this.api.getMarketInstruments().subscribe({
+      next: (response) => {
+        this.marketInstruments = response.symbols ?? [];
+        this.loadingInstrumentCatalog = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading local instrument catalog:', err);
+        this.instrumentCatalogError = 'Ticker search is currently unavailable.';
+        this.loadingInstrumentCatalog = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onTradeSearchChange(): void {
+    this.tradeSearchError = '';
+  }
+
+  blockInvalidNumberKey(event: KeyboardEvent, allowDecimal: boolean): void {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) {
+      return;
+    }
+
+    const isDigit = event.key >= '0' && event.key <= '9';
+    const isDecimal = allowDecimal && event.key === '.' &&
+      !(event.target as HTMLInputElement).value.includes('.');
+
+    if (!isDigit && !isDecimal) {
+      event.preventDefault();
+    }
+  }
+
+  sanitizeNumberPaste(event: ClipboardEvent, allowDecimal: boolean): void {
+    const pastedText = event.clipboardData?.getData('text') ?? '';
+    const pattern = allowDecimal ? /[^0-9.]/g : /[^0-9]/g;
+    const sanitizedText = pastedText.replace(pattern, '');
+
+    if (sanitizedText !== pastedText) {
+      event.preventDefault();
+      const input = event.target as HTMLInputElement;
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      input.setRangeText(sanitizedText, start, end, 'end');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  selectTicker(symbolOverride?: string): void {
+    const symbol = (symbolOverride ?? this.tradeSearch).trim().toUpperCase();
+    if (!/^[A-Z]{1,5}$/.test(symbol)) {
+      this.tradeSearchError = 'Enter a valid ticker (e.g., AAPL, MSFT)';
+      return;
+    }
+    this.tradeSearchError = '';
+    this.selectedTicker = symbol;
+    this.orderForm = { symbol, side: 'BUY', quantity: 1 };
+    this.orderFormErrors = {};
+    this.orderPlaced = false;
+    this.showOrderModal = true;
+    this.loadQuote(symbol);
+  }
+
+  loadQuote(symbol: string): void {
+    this.loadingQuote = true;
+    this.quoteError = '';
+    this.currentPrice = null;
+    this.currentChange = null;
+    this.currentChangePercent = null;
+    this.api.getQuote(symbol).subscribe({
+      next: (quote) => {
+        this.currentPrice = quote.price;
+        this.currentChange = quote.change ?? null;
+        this.currentChangePercent = quote.changePercent ?? null;
+        this.loadingQuote = false;
+        this.onOrderFormChange();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading quote:', err);
+        this.quoteError = 'Price unavailable';
+        this.loadingQuote = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  getEstimatedNotional(): number {
+    return (this.currentPrice ?? 0) * (this.orderForm.quantity || 0);
+  }
+
+  getEstimatedFee(): number {
+    const notional = this.getEstimatedNotional();
+    if (!notional) {
+      return 0;
+    }
+    return Math.max(notional * this.feeRate, this.minFee);
+  }
+
+  getEstimatedTotal(): number {
+    const notional = this.getEstimatedNotional();
+    const fee = this.getEstimatedFee();
+    return this.orderForm.side === 'BUY' ? notional + fee : notional - fee;
+  }
+
+  closeOrderModal(): void {
+    this.showOrderModal = false;
+    this.orderPlaced = false;
+    this.orderFormErrors = {};
+  }
+
+  backToPortfolio(): void {
+    this.closeOrderModal();
+    this.tradeSearch = '';
+    this.setView('portfolio');
+  }
+
+  setView(view: 'portfolio' | 'trade' | 'history' | 'wallet' | 'help'): void {
+    this.activeView = view;
+  }
+
+  openBankAccountModal(): void {
+    this.bankAccountForm = { nickname: '', routingNumber: '', accountNumber: '' };
+    this.walletFormError = '';
+    this.showBankAccountModal = true;
+  }
+
+  closeWalletModal(): void {
+    this.showBankAccountModal = false;
+    this.showWalletTransactionModal = false;
+    this.walletFormError = '';
+  }
+
+  addBankAccount(): void {
+    const { nickname, routingNumber, accountNumber } = this.bankAccountForm;
+    if (!nickname.trim() || !/^\d{9}$/.test(routingNumber) || !/^\d{4,17}$/.test(accountNumber)) {
+      this.walletFormError = 'Enter a nickname, a 9-digit routing number, and an account number up to 17 digits.';
+      return;
+    }
+
+    this.bankAccounts = [
+      ...this.bankAccounts,
+      {
+        id: this.nextWalletItemId++,
+        nickname: nickname.trim(),
+        routingNumber,
+        accountNumber
+      }
+    ];
+    this.closeWalletModal();
+  }
+
+  openWalletTransaction(type: 'Deposit' | 'Withdrawal'): void {
+    this.walletTransactionType = type;
+    this.walletTransactionForm = {
+      amount: 1,
+      bankAccountId: this.bankAccounts[0]?.id ?? 0
+    };
+    this.walletFormError = '';
+    this.showWalletTransactionModal = true;
+  }
+
+  submitWalletTransaction(): void {
+    const amount = Number(this.walletTransactionForm.amount);
+    const bankAccount = this.bankAccounts.find((account) => account.id === this.walletTransactionForm.bankAccountId);
+    if (!bankAccount || amount <= 0) {
+      this.walletFormError = 'Select a bank account and enter an amount greater than zero.';
+      return;
+    }
+    if (this.walletTransactionType === 'Withdrawal' && amount > this.portfolio.cash) {
+      this.walletFormError = 'The withdrawal amount cannot exceed the available cash balance.';
+      return;
+    }
+
+    this.portfolio.cash += this.walletTransactionType === 'Deposit' ? amount : -amount;
+    this.walletActivity = [{
+      id: this.nextWalletItemId++,
+      type: this.walletTransactionType,
+      amount,
+      bankNickname: bankAccount.nickname,
+      date: new Date()
+    }, ...this.walletActivity];
+    this.updateTotalValue();
+    this.closeWalletModal();
+  }
+
+  maskBankAccount(accountNumber: string): string {
+    return `•••• ${accountNumber.slice(-4)}`;
+  }
+
+  maskRoutingNumber(routingNumber: string): string {
+    return `••••••${routingNumber.slice(-3)}`;
+  }
+
+  loadAccountDetails(): void {
+    this.api.getAccountDetails(this.accountId).subscribe({
+      next: (account) => {
+        this.selectedAccount = account;
+        const normalizedType = (account.type ?? '').toLowerCase();
+        this.accountTypeLabel = normalizedType
+          ? `${normalizedType.charAt(0).toUpperCase()}${normalizedType.slice(1)} Account`
+          : 'Trading Account';
+      },
+      error: () => {
+        this.accountTypeLabel = 'Trading Account';
+      }
+    });
   }
 
   resetDashboardData(): void {
     this.portfolio = { cash: 0, holdings: [], totalValue: 0 };
     this.orders = [];
-    this.successfulOrders = [];
-  }
-
-  createAccount(): void {
-    this.router.navigate(['/accounts/create']);
-  }
-
-  formatAccountType(type: string): string {
-    const normalizedType = type.toLowerCase();
-    return `${normalizedType.charAt(0).toUpperCase()}${normalizedType.slice(1)} Account`;
-  }
-
-  getAccountPanelTitle(): string {
-    return this.selectedAccount
-      ? `Your ${this.formatAccountType(this.selectedAccount.type)}`
-      : 'Your Accounts';
+    this.bankAccounts = [];
+    this.walletActivity = [];
+    this.closeWalletModal();
   }
 
   loadDashboardData() {
     this.loadingBalance = true;
     this.loadingHoldings = true;
     this.loadingOrders = true;
-    this.loadingTrades = true;
     this.error = '';
 
     // Load balance
@@ -129,6 +426,7 @@ export class DashboardComponent implements OnInit {
         this.portfolio.cash = balance.cashBalance;
         this.updateTotalValue();
         this.loadingBalance = false;
+        this.onOrderFormChange();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -145,6 +443,7 @@ export class DashboardComponent implements OnInit {
         this.portfolio.holdings = holdings.filter((holding) => holding.quantity > 0);
         this.updateTotalValue();
         this.loadingHoldings = false;
+        this.onOrderFormChange();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -159,10 +458,6 @@ export class DashboardComponent implements OnInit {
     this.api.getOrders(this.accountId).subscribe({
       next: (orders) => {
         this.orders = orders;
-        this.successfulOrders = orders.filter((order) => {
-          const status = order.status as string;
-          return status === 'FILLED' || status === 'EXECUTED';
-        });
         this.loadingOrders = false;
         this.cdr.detectChanges();
       },
@@ -174,14 +469,17 @@ export class DashboardComponent implements OnInit {
       }
     });
 
-    // Successful orders represent the trades that changed the cash balance.
-    this.loadingTrades = false;
-
     // Market trend data is not exposed by the current backend contract.
     this.symbolTrends = [];
   }
 
   // Form Validation Methods
+  onOrderFormChange(): void {
+    if (this.showOrderModal) {
+      this.validateOrderForm();
+    }
+  }
+
   validateOrderForm(): boolean {
     this.orderFormErrors = {};
 
@@ -195,6 +493,27 @@ export class DashboardComponent implements OnInit {
       this.orderFormErrors['quantity'] = 'Quantity must be greater than 0';
     } else if (!Number.isInteger(this.orderForm.quantity)) {
       this.orderFormErrors['quantity'] = 'Quantity must be a whole number';
+    }
+
+    if (!this.orderFormErrors['quantity']) {
+      if (this.orderForm.side === 'BUY' && this.currentPrice !== null) {
+        const totalCost = this.getEstimatedTotal();
+        if (totalCost > this.portfolio.cash) {
+          this.orderFormErrors['quantity'] =
+            `This order costs $${totalCost.toFixed(2)}, but only $${this.portfolio.cash.toFixed(2)} is available.`;
+        }
+      }
+
+      if (this.orderForm.side === 'SELL') {
+        const holding = this.portfolio.holdings.find(
+          (item) => item.symbol.toUpperCase() === this.orderForm.symbol.toUpperCase()
+        );
+        const availableQuantity = holding?.quantity ?? 0;
+        if (this.orderForm.quantity > availableQuantity) {
+          this.orderFormErrors['quantity'] =
+            `You can only sell ${availableQuantity} share${availableQuantity === 1 ? '' : 's'} of ${this.orderForm.symbol.toUpperCase()}.`;
+        }
+      }
     }
 
     return Object.keys(this.orderFormErrors).length === 0;
@@ -227,6 +546,7 @@ export class DashboardComponent implements OnInit {
           return;
         }
         this.orderFormErrors = {};
+        this.orderPlaced = true;
         this.loadDashboardData(); // Refresh orders list
       },
       error: (err) => {
@@ -239,27 +559,7 @@ export class DashboardComponent implements OnInit {
   }
 
   resetOrderForm(): void {
-    this.orderForm = { symbol: '', side: 'BUY', quantity: 0 };
-  }
-
-  // Cancel Order
-  cancelOrder(orderId: string) {
-    if (!confirm('Are you sure you want to cancel this order?')) {
-      return;
-    }
-
-    this.cancelingOrderId = orderId;
-    this.api.cancelOrder(this.accountId, orderId).subscribe({
-      next: () => {
-        this.cancelingOrderId = null;
-        this.loadDashboardData(); // Refresh orders list
-      },
-      error: (err) => {
-        console.error('Error canceling order:', err);
-        alert('Failed to cancel order');
-        this.cancelingOrderId = null;
-      }
-    });
+    this.orderForm = { symbol: '', side: 'BUY', quantity: 1 };
   }
 
   // Refresh Data
@@ -283,8 +583,8 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  canCancelOrder(order: Order): boolean {
-    return order.status === 'PENDING';
+  getOrderTotalPrice(order: Order): number {
+    return order.quantity * (order.price ?? 0);
   }
 
   logout() {

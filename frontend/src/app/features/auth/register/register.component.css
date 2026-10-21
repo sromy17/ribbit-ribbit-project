@@ -115,3 +115,15 @@
   background: transparent;
   color: var(--md-primary);
 }
+
+.password-requirement-slot {
+  height: 1.2rem;
+  margin: 18px 0 12px;
+}
+
+.password-requirement {
+  margin: 0;
+  color: var(--md-on-surface-variant);
+  font-size: 0.85rem;
+  text-align: center;
+}

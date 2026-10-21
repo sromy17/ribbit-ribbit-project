@@ -39,7 +39,7 @@ export interface Order {
   quantity: number;
   price?: number;
   status: 'PENDING' | 'FILLED' | 'CANCELLED';
-  createdAt?: string;
+  dateRequested?: string;
 }
 
 export interface ProcessOrderResponse {
@@ -88,7 +88,6 @@ export interface RegisterRequest {
 export interface CreateAccountRequest {
   userId: number;
   accountType: string;
-  initialCashBalance: number;
 }
 
 export interface LoginResponse {
@@ -137,6 +136,14 @@ export interface MarketTrend {
   topSymbol: string;
   tradeCount: number;
   totalVolume: number;
+}
+
+export interface MarketInstrument {
+  symbol: string;
+  name: string;
+  type: string;
+  exchange: string;
+  currency: string;
 }
 
 // API Service
@@ -202,7 +209,7 @@ export class ApiService {
     return this.http.get<Order[]>(`${this.apiUrl}/accounts/${accountId}/orders`);
   }
 
-  createOrder(accountId: string, order: Omit<Order, 'orderId' | 'accountId' | 'createdAt'>): Observable<ProcessOrderResponse> {
+  createOrder(accountId: string, order: Omit<Order, 'orderId' | 'accountId' | 'dateRequested'>): Observable<ProcessOrderResponse> {
     return this.http.post<ProcessOrderResponse>(`${this.apiUrl}/accounts/${accountId}/orders`, {
       ticker: order.symbol,
       side: order.side,
@@ -212,6 +219,16 @@ export class ApiService {
 
   cancelOrder(accountId: string, orderId: string): Observable<any> {
     return this.http.delete(`${this.apiUrl}/accounts/${accountId}/orders/${orderId}/status`);
+  }
+
+  // Market data
+
+  getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number }> {
+    return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number }>(`/api/market/quotes/${encodeURIComponent(symbol)}`);
+  }
+
+  getMarketInstruments(): Observable<{ symbols: MarketInstrument[] }> {
+    return this.http.get<{ symbols: MarketInstrument[] }>('/data/us-v1.json');
   }
 
   // Trades
@@ -336,7 +353,7 @@ export class ApiService {
         quantity: 10, 
         price: 250, 
         status: 'FILLED',
-        createdAt: '2025-10-01T10:30:00Z'
+        dateRequested: '2025-10-01'
       },
       { 
         orderId: 'ORD-002', 
@@ -346,18 +363,18 @@ export class ApiService {
         quantity: 5, 
         price: 875, 
         status: 'PENDING',
-        createdAt: '2025-10-02T14:15:00Z'
+        dateRequested: '2025-10-02'
       }
     ];
   }
 
-  private mockCreateOrder(accountId: string, order: Omit<Order, 'orderId' | 'accountId' | 'createdAt'>): Order {
+  private mockCreateOrder(accountId: string, order: Omit<Order, 'orderId' | 'accountId' | 'dateRequested'>): Order {
     return {
       ...order,
       orderId: 'ORD-' + Math.floor(Math.random() * 10000).toString().padStart(3, '0'),
       accountId,
       status: 'PENDING',
-      createdAt: new Date().toISOString()
+      dateRequested: new Date().toISOString().slice(0, 10)
     };
   }
 
@@ -480,7 +497,7 @@ export class ApiService {
         quantity: 10,
         price: 250,
         status: 'FILLED',
-        createdAt: '2025-10-01T10:30:00Z'
+        dateRequested: '2025-10-01'
       },
       {
         orderId: 'ORD-002',
@@ -490,7 +507,7 @@ export class ApiService {
         quantity: 5,
         price: 875,
         status: 'PENDING',
-        createdAt: '2025-10-02T14:15:00Z'
+        dateRequested: '2025-10-02'
       },
       {
         orderId: 'ORD-003',
@@ -500,7 +517,7 @@ export class ApiService {
         quantity: 20,
         price: 120,
         status: 'FILLED',
-        createdAt: '2025-09-28T09:10:00Z'
+        dateRequested: '2025-09-28'
       },
       {
         orderId: 'ORD-005',
@@ -510,7 +527,7 @@ export class ApiService {
         quantity: 5,
         price: 875,
         status: 'FILLED',
-        createdAt: '2025-10-02T14:18:00Z'
+        dateRequested: '2025-10-02'
       },
       {
         orderId: 'ORD-007',
@@ -520,7 +537,7 @@ export class ApiService {
         quantity: 50,
         price: 150,
         status: 'FILLED',
-        createdAt: '2025-10-03T09:40:00Z'
+        dateRequested: '2025-10-03'
       }
     ];
   }

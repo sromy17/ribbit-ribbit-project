@@ -6,18 +6,26 @@ import { AnalystDashboardComponent } from './features/dashboard/analyst/analyst-
 import { DashboardComponent } from './features/dashboard/investor/dashboard.component';
 import { RegisterComponent } from './features/auth/register/register.component';
 import { CreateAccountComponent } from './features/accounts/create-account/create-account.component';
+import { AccountDashboardComponent } from './features/accounts/account-dashboard/account-dashboard.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
+  {
+    path: 'accounts',
+    component: AccountDashboardComponent,
+    canActivate: [AuthGuard],
+    data: { role: 'investor' }
+  },
   {
     path: 'accounts/create',
     component: CreateAccountComponent,
     canActivate: [AuthGuard],
     data: { role: 'investor' }
   },
+  { path: 'investor-dashboard', redirectTo: 'accounts', pathMatch: 'full' },
   {
-    path: 'investor-dashboard',
+    path: 'investor-dashboard/:accountId',
     component: DashboardComponent,
     canActivate: [AuthGuard],
     data: { role: 'investor' }
