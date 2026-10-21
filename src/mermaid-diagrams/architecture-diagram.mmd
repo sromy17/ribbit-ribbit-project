@@ -1,0 +1,143 @@
+graph TB
+    subgraph API["API Layer - REST Controllers & DTOs"]
+        AC["AccountController"]
+        OC["OrderController"]
+        UC["UserController"]
+        AuthC["AuthController"]
+        
+        REQ["Requests<br/>CreateOrderRequest<br/>CreateAccountRequest<br/>CreateUserRequest<br/>LoginRequest<br/>UpdateBalanceRequest"]
+        RESP["Responses<br/>CreateOrderResponse<br/>ProcessOrderResponse"]
+    end
+
+    subgraph DOMAIN["Domain Layer - Entities & Enums"]
+        User["User<br/>├─ username<br/>├─ password<br/>└─ role"]
+        Account["TradingAccount<br/>├─ accountId<br/>├─ type: AccountType<br/>├─ balance<br/>└─ funds"]
+        Order["Order<br/>├─ orderId<br/>├─ side: OrderSide<br/>├─ quantity<br/>├─ price<br/>└─ status: OrderStatus"]
+        Instrument["Instrument<br/>├─ instrumentId<br/>├─ ticker<br/>└─ status: InstrumentStatus"]
+        Holding["Holding<br/>├─ quantity<br/>└─ averageCost"]
+        Trade["Trade<br/>├─ tradeId<br/>├─ executionPrice<br/>└─ executedAt"]
+        Transaction["TransactionRecord<br/>├─ type: TransactionType<br/>├─ amount<br/>└─ timestamp"]
+        
+        AccountType["AccountType<br/>RETAIL<br/>INSTITUTIONAL"]
+        OrderStatus["OrderStatus<br/>PENDING<br/>EXECUTED<br/>CANCELLED<br/>REJECTED"]
+        OrderSide["OrderSide<br/>BUY<br/>SELL"]
+        InstrumentStatus["InstrumentStatus<br/>ACTIVE<br/>SUSPENDED<br/>DELISTED<br/>HALTED"]
+        TransactionType["TransactionType<br/>DEPOSIT<br/>WITHDRAWAL<br/>FEE"]
+    end
+
+    subgraph SERVICES["Service Layer - Business Logic"]
+        subgraph CONTRACTS["Contracts (Interfaces)"]
+            OS["OrderService"]
+            AS["AccountService"]
+            FeeC["FeeCalculator"]
+            MV["MarketDataVerificationService"]
+            TRS["TradingRulesService"]
+        end
+        
+        subgraph IMPL["Implementations"]
+            TOS["TradingOrderService<br/>├─ createOrder()<br/>├─ executeOrder()<br/>└─ submitOrder()"]
+            TAS["TradingAccountService<br/>├─ deposit()<br/>└─ withdraw()"]
+            IFC["InstrumentFeeCalculator<br/>└─ calculate()"]
+            SMVS["StaticMarketDataVerificationService<br/>└─ verifyExecutionPrice()"]
+            DTRS["DefaultTradingRulesService<br/>├─ validateOrderSubmission()<br/>├─ validateAccountStatus()<br/>├─ validateOrderSize()<br/>└─ validatePriceRange()"]
+            OV["OrderValidator<br/>├─ validate()<br/>├─ validateSellOrder()<br/>└─ validateInstrumentTradability()"]
+            VR["ValidationResult<br/>├─ isValid()<br/>└─ getReason()"]
+            OPE["OrderProcessingEngine<br/>└─ processSingleOrder()"]
+        end
+    end
+
+    subgraph REPOSITORIES["Repository Layer"]
+        subgraph JPA["JPA Repositories"]
+            OrderRepo["OrderRepository"]
+            AccountRepo["TradingAccountRepository"]
+            InstrumentRepo["InstrumentRepository"]
+            HoldingRepo["HoldingRepository"]
+            TradeRepo["TradeRepository"]
+            UserRepo["UserRepository"]
+        end
+        
+        subgraph MYBATIS["MyBatis Mappers"]
+            AccountOrderMapper["AccountOrderReadMapper"]
+            AccountOrderSummary["AccountOrderSummary"]
+        end
+    end
+
+    subgraph DATABASE["Database Layer"]
+        DB["PostgreSQL<br/>├─ users<br/>├─ trading_accounts<br/>├─ instruments<br/>├─ orders<br/>├─ holdings<br/>├─ trades<br/>└─ transactions"]
+    end
+
+    %% API to Domain
+    AC -->|manages| Account
+    OC -->|manages| Order
+    UC -->|manages| User
+    REQ -->|creates/updates| Order
+    REQ -->|creates/updates| Account
+    RESP -->|returns| Order
+    RESP -->|returns| Trade
+
+    %% Domain relationships
+    User -->|has| Account
+    Account -->|places| Order
+    Order -->|references| Instrument
+    Order -->|links to| Trade
+    Account -->|owns| Holding
+    Holding -->|tracks| Instrument
+    Account -->|has| Transaction
+    
+    %% Enums
+    Account -->|type| AccountType
+    Order -->|side| OrderSide
+    Order -->|status| OrderStatus
+    Instrument -->|status| InstrumentStatus
+    Transaction -->|type| TransactionType
+
+    %% API to Services
+    AC -->|calls| TAS
+    OC -->|calls| TOS
+    UC -->|calls| TAS
+    AuthC -->|calls| UserRepo
+
+    %% Service contracts to implementations
+    OS -->|implemented by| TOS
+    AS -->|implemented by| TAS
+    FeeC -->|implemented by| IFC
+    MV -->|implemented by| SMVS
+    TRS -->|implemented by| DTRS
+    
+    %% Service interactions
+    TOS -->|uses| TRS
+    TOS -->|uses| OV
+    TOS -->|uses| IFC
+    TOS -->|uses| SMVS
+    DTRS -->|uses| OV
+    DTRS -->|uses| IFC
+    TOS -->|uses| OPE
+    OPE -->|uses| OV
+
+    %% Services to Repositories
+    TOS -->|queries/saves| OrderRepo
+    TOS -->|queries/saves| AccountRepo
+    TOS -->|queries/saves| InstrumentRepo
+    TOS -->|queries/saves| HoldingRepo
+    TOS -->|queries/saves| TradeRepo
+    TOS -->|queries| AccountOrderMapper
+    TAS -->|queries/saves| AccountRepo
+    DTRS -->|queries| HoldingRepo
+    DTRS -->|queries| InstrumentRepo
+
+    %% Repositories to Database
+    OrderRepo -->|persists| DB
+    AccountRepo -->|persists| DB
+    InstrumentRepo -->|persists| DB
+    HoldingRepo -->|persists| DB
+    TradeRepo -->|persists| DB
+    UserRepo -->|persists| DB
+    AccountOrderMapper -->|reads| DB
+
+    style API fill:#e1f5ff
+    style DOMAIN fill:#fff3e0
+    style CONTRACTS fill:#f3e5f5
+    style IMPL fill:#e8f5e9
+    style JPA fill:#fce4ec
+    style MYBATIS fill:#fce4ec
+    style DATABASE fill:#eceff1
