@@ -28,6 +28,7 @@ import com.neueda.leap.trading.domain.TradingAccount;
 import com.neueda.leap.trading.repository.jpa.HoldingRepository;
 import com.neueda.leap.trading.repository.jpa.InstrumentRepository;
 import com.neueda.leap.trading.repository.jpa.OrderRepository;
+import com.neueda.leap.trading.repository.jpa.RejectedOrderRepository;
 import com.neueda.leap.trading.repository.jpa.TradeRepository;
 import com.neueda.leap.trading.repository.jpa.TradingAccountRepository;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderReadMapper;
@@ -40,6 +41,9 @@ class TradingOrderServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Mock
+    private RejectedOrderRepository rejectedOrderRepository;
 
     @Mock
     private TradeRepository tradeRepository;
@@ -71,6 +75,7 @@ class TradingOrderServiceTest {
     void setUp() {
         tradingOrderService = new TradingOrderService(
             orderRepository,
+            rejectedOrderRepository,
             tradeRepository,
             accountRepository,
             instrumentRepository,

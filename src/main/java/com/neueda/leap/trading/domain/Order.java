@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -90,6 +91,11 @@ public class Order {
 
     public void setInstrument(Instrument instrument) {
         this.instrument = instrument;
+    }
+
+    @JsonProperty("symbol")
+    public String getSymbol() {
+        return instrument == null ? null : instrument.getTicker();
     }
 
     public OrderSide getSide() {

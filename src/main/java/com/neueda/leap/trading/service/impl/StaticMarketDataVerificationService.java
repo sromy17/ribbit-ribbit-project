@@ -66,6 +66,39 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
         return fauxnanceQuoteClient.isTickerValid(ticker.trim().toUpperCase(Locale.ROOT));
     }
 
+    @Override
+    public BigDecimal getCurrentPrice(String ticker) {
+        return getQuote(ticker).price();
+    }
+
+    @Override
+    public MarketQuote getQuote(String ticker) {
+        if (ticker == null || ticker.isBlank()) {
+            throw new IllegalArgumentException("Ticker is required");
+        }
+        String symbol = ticker.trim().toUpperCase(Locale.ROOT);
+
+        try {
+            QuoteApiResponse response = restClient.get()
+                .uri("/quotes/{symbol}", symbol)
+                .headers(headers -> {
+                    if (apiKey != null && !apiKey.isBlank()) {
+                        headers.set("x-api-key", apiKey);
+                    }
+                })
+                .retrieve()
+                .body(QuoteApiResponse.class);
+
+            if (response == null || response.data() == null || response.data().price() == null) {
+                throw new IllegalStateException("No price returned for " + symbol);
+            }
+            QuoteData data = response.data();
+            return new MarketQuote(symbol, data.price(), data.change(), data.changePercent());
+        } catch (RestClientResponseException ex) {
+            throw new IllegalStateException(extractErrorMessage(ex), ex);
+        }
+    }
+
     private String extractSymbol(Order order) {
         if (order == null || order.getInstrument() == null || order.getInstrument().getTicker() == null) {
             throw new IllegalArgumentException("Order does not contain an instrument ticker");

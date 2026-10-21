@@ -118,6 +118,7 @@ public class Instrument {
      * @return true if the instrument can accept new orders
      */
     public boolean isTradable() {
-        return status != null && status.isTradable();
+        // Existing database rows may predate the nullable status column; treat those as active.
+        return status == null || status.isTradable();
     }
 }

@@ -90,6 +90,11 @@ public class AccountController {
         return accountRepository.findById(accountId).get();
     }
 
+    @GetMapping("/user/{userId}")
+    public List<TradingAccount> getAccountsForUser(@PathVariable("userId") Integer userId) {
+        return accountRepository.findAllByUserUserIdOrderByAccountIdAsc(userId);
+    }
+
     @PutMapping("/{accountId}")
     public TradingAccount updateAccount(
         @PathVariable("accountId") int accountId,

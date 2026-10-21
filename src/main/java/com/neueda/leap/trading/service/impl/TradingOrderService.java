@@ -23,11 +23,13 @@ import com.neueda.leap.trading.domain.Holding;
 import com.neueda.leap.trading.domain.Order;
 import com.neueda.leap.trading.domain.OrderSide;
 import com.neueda.leap.trading.domain.OrderStatus;
+import com.neueda.leap.trading.domain.RejectedOrder;
 import com.neueda.leap.trading.domain.Trade;
 import com.neueda.leap.trading.domain.TradingAccount;
 import com.neueda.leap.trading.repository.jpa.HoldingRepository;
 import com.neueda.leap.trading.repository.jpa.InstrumentRepository;
 import com.neueda.leap.trading.repository.jpa.OrderRepository;
+import com.neueda.leap.trading.repository.jpa.RejectedOrderRepository;
 import com.neueda.leap.trading.repository.jpa.TradeRepository;
 import com.neueda.leap.trading.repository.jpa.TradingAccountRepository;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderReadMapper;
@@ -38,6 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Service
 public class TradingOrderService implements OrderService {
     private final OrderRepository orderRepository;
+    private final RejectedOrderRepository rejectedOrderRepository;
     private final TradeRepository tradeRepository;
     private final TradingAccountRepository accountRepository;
     private final InstrumentRepository instrumentRepository;
@@ -52,6 +55,7 @@ public class TradingOrderService implements OrderService {
 
     public TradingOrderService(
         OrderRepository orderRepository,
+        RejectedOrderRepository rejectedOrderRepository,
         TradeRepository tradeRepository,
         TradingAccountRepository accountRepository,
         InstrumentRepository instrumentRepository,
@@ -94,6 +98,7 @@ public class TradingOrderService implements OrderService {
         OrderEvidenceService evidenceService
     ) {
         this.orderRepository = orderRepository;
+        this.rejectedOrderRepository = rejectedOrderRepository;
         this.tradeRepository = tradeRepository;
         this.accountRepository = accountRepository;
         this.instrumentRepository = instrumentRepository;
@@ -194,22 +199,25 @@ public class TradingOrderService implements OrderService {
 
         Instrument instrument = resolveInstrument(request.ticker());
 
+        Order order = new Order();
+        order.setAccount(account);
+        order.setInstrument(instrument);
+        order.setSide(request.side());
+        order.setQuantity(request.quantity());
+
+        BigDecimal marketPrice = marketDataVerificationService.verifyExecutionPrice(order);
+
         // BR-05: Validate trading rules BEFORE accepting the order
         ValidationResult validation = tradingRulesService.validateOrderSubmission(
             account,
             instrument,
             request.side(),
             request.quantity(),
-            request.price()
+            marketPrice
         );
 
-        Order order = new Order();
         order.setOrderId(nextOrderId());
-        order.setAccount(account);
-        order.setInstrument(instrument);
-        order.setSide(request.side());
-        order.setQuantity(request.quantity());
-        order.setPrice(request.price());
+        order.setPrice(marketPrice);
         order.setDateRequested(LocalDate.now());
         order.setCreatedAtUtc(Instant.now());
         order = orderRepository.save(order);
@@ -220,6 +228,14 @@ public class TradingOrderService implements OrderService {
             order.setStatus(OrderStatus.REJECTED);
             if (evidenceService != null) evidenceService.rejected(order, validation.getReason());
             throw new IllegalArgumentException("Order rejected: " + validation.getReason());
+            order = orderRepository.save(order);
+            saveRejection(order.getOrderId(), validation.getReason());
+            return new CreateOrderResponse(
+                order.getOrderId(),
+                account.getAccountId(),
+                instrument.getInstrumentId(),
+                order.getStatus()
+            );
         }
 
         order.setStatus(OrderStatus.PENDING);
@@ -243,7 +259,27 @@ public class TradingOrderService implements OrderService {
             request.quantity(),
             request.price()
         ));
+        if (created.status() == OrderStatus.REJECTED) {
+            return new ProcessOrderResponse(
+                created.orderId(),
+                null,
+                OrderStatus.REJECTED,
+                null,
+                null,
+                null,
+                null
+            );
+        }
         return executeOrder(created.orderId());
+    }
+
+    private void saveRejection(Integer orderId, String reason) {
+        RejectedOrder rejection = new RejectedOrder();
+        rejection.setRejectId(rejectedOrderRepository.findMaxRejectId() + 1);
+        rejection.setRequestId(orderId);
+        rejection.setReason(reason == null ? "Order rejected" : reason.substring(0, Math.min(reason.length(), 50)));
+        rejection.setRejectDate(LocalDate.now());
+        rejectedOrderRepository.save(rejection);
     }
 
     @Override

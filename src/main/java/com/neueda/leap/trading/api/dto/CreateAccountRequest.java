@@ -10,6 +10,6 @@ import jakarta.validation.constraints.NotNull;
 public record CreateAccountRequest(
     @NotNull Integer userId,
     @NotNull AccountType accountType,
-    @NotNull @DecimalMin("0.00") BigDecimal initialCashBalance
+    @NotNull @DecimalMin("0.01") BigDecimal initialCashBalance
 ) {
 }
