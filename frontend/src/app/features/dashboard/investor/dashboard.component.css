@@ -1074,12 +1074,125 @@
 }
 
 .trade-search {
-  max-width: 560px;
+  width: 100%;
+  padding: 20px;
 }
 
-.trade-search h2 {
+.trade-search-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.trade-search-heading h2 {
   margin: 0;
   font-size: 1.08rem;
+}
+
+.trade-search-hint {
+  color: var(--md-on-surface-variant);
+  font-size: 0.8rem;
+}
+
+.search-form {
+  width: 100%;
+}
+
+.search-form .search-input {
+  min-width: 0;
+}
+
+.market-table-wrapper {
+  overflow-x: auto;
+  margin-top: 18px;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 14px;
+  background: var(--md-surface);
+}
+
+.market-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 680px;
+}
+
+.market-table th,
+.market-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--md-outline-variant);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.market-table th {
+  color: var(--md-on-surface-variant);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.market-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.market-row {
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.18s ease;
+}
+
+.market-row:hover,
+.market-row:focus-visible {
+  background: var(--md-surface-container);
+}
+
+.sector-pill {
+  display: inline-block;
+  padding: 4px 8px;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 999px;
+  color: var(--md-on-surface-variant);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.market-sparkline {
+  display: block;
+  width: 108px;
+  height: 40px;
+}
+
+.market-sparkline polyline {
+  fill: none;
+  stroke: var(--md-primary);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+}
+
+.market-sparkline polyline.negative {
+  stroke: var(--md-error);
+}
+
+.market-positive {
+  color: var(--md-success-fg);
+  font-weight: 700;
+}
+
+.market-negative {
+  color: var(--md-danger-fg);
+  font-weight: 700;
+}
+
+.market-price-column {
+  text-align: right !important;
+  font-weight: 700;
+}
+
+.ticker-empty-state {
+  margin-top: 18px;
 }
 
 .modal-overlay {
@@ -1300,6 +1413,7 @@
   .wallet-grid {
     grid-template-columns: 1fr;
   }
+
 }
 
 @media (max-width: 768px) {
@@ -1354,4 +1468,10 @@
     grid-column: auto;
     width: 100%;
   }
+
+  .trade-search-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
 }
