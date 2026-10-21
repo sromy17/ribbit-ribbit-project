@@ -2,7 +2,6 @@ package com.neueda.leap.trading.security;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneOffset;
 
 import org.springframework.http.MediaType;
@@ -11,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import org.jspecify.annotations.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.neueda.leap.trading.domain.Session;
@@ -30,13 +30,17 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
         return "/actuator/health".equals(path) || "/actuator/info".equals(path);
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(
+        @NonNull HttpServletRequest request,
+        @NonNull HttpServletResponse response,
+        @NonNull FilterChain filterChain
+    )
         throws ServletException, IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -50,21 +54,19 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
         Integer userId = userIdClaim == null ? null : userIdClaim.intValue();
         Instant issuedAt = jwt.getIssuedAt();
 
-        if (userId == null || issuedAt == null) {
+        if (accessToken == null || userId == null || issuedAt == null) {
             reject(response, "Session is invalid");
             return;
         }
 
-        Session session = sessionRepository.findById(userId).orElse(null);
-        if (session == null || session.getDateIssued() == null) {
+        Session session = sessionRepository.findByAccessToken(accessToken).orElse(null);
+        if (session == null || !session.isValid()
+            || session.getUser() == null || !userId.equals(session.getUser().getUserId())) {
             reject(response, "Session is invalid");
             return;
         }
 
-        LocalDate minIssueDate = session.getDateIssued();
-        Instant minIssueInstant = minIssueDate.atStartOfDay().toInstant(ZoneOffset.UTC);
-
-        if (issuedAt.isBefore(minIssueInstant)) {
+        if (issuedAt.isAfter(session.getExpiresAt().toInstant(ZoneOffset.UTC))) {
             reject(response, "Session is invalid");
             return;
         }
@@ -76,5 +78,13 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write("{\"message\":\"" + message + "\"}");
+    }
+
+    private String extractBearerToken(String authorization) {
+        if (authorization == null || !authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return null;
+        }
+        String token = authorization.substring(7).trim();
+        return token.isEmpty() ? null : token;
     }
 }

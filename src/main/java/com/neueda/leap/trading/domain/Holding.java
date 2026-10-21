@@ -1,7 +1,7 @@
 package com.neueda.leap.trading.domain;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -37,23 +37,18 @@ public class Holding {
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
-    @Column(name = "averagecost", nullable = false)
+    @Column(name = "average_cost", nullable = false)
     private BigDecimal averageCost;
 
     @Column(name = "as_of_date", nullable = false)
     private LocalDate asOfDate;
 
-    public void updatePosition(boolean isBuy, int deltaQty, BigDecimal executionPrice) {
+    public void updatePosition(boolean isBuy, int deltaQty) {
         if (deltaQty <= 0) {
             throw new IllegalArgumentException("Quantity delta must be positive");
         }
         if (isBuy) {
-            BigDecimal currentValue = averageCost.multiply(BigDecimal.valueOf(quantity));
-            BigDecimal purchasedValue = executionPrice.multiply(BigDecimal.valueOf(deltaQty));
-            int newQuantity = quantity + deltaQty;
-            this.averageCost = currentValue.add(purchasedValue)
-                .divide(BigDecimal.valueOf(newQuantity), 6, java.math.RoundingMode.HALF_UP);
-            this.quantity = newQuantity;
+            this.quantity += deltaQty;
             return;
         }
 
@@ -62,9 +57,6 @@ public class Holding {
         }
 
         this.quantity -= deltaQty;
-        if (this.quantity == 0) {
-            this.averageCost = BigDecimal.ZERO;
-        }
     }
 
     public Integer getQuantity() {
@@ -81,6 +73,14 @@ public class Holding {
 
     public void setAverageCost(BigDecimal averageCost) {
         this.averageCost = averageCost;
+    }
+
+    public LocalDate getAsOfDate() {
+        return asOfDate;
+    }
+
+    public void setAsOfDate(LocalDate asOfDate) {
+        this.asOfDate = asOfDate;
     }
 
     public Integer getHoldingId() {

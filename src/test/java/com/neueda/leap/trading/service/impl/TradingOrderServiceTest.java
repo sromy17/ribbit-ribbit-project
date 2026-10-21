@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -88,6 +89,8 @@ class TradingOrderServiceTest {
     }
 
     @Test
+    // Mockito matchers return null placeholders; the repository is mocked.
+    @SuppressWarnings("null")
     void createOrder_createsPendingOrder() {
         TradingAccount account = new TradingAccount();
         account.setAccountId(10);
@@ -127,7 +130,7 @@ class TradingOrderServiceTest {
         order.setOrderId(44);
         order.setStatus(OrderStatus.PENDING);
 
-        when(orderRepository.findById(44)).thenReturn(Optional.of(order));
+        when(orderRepository.findById(44)).thenReturn(Objects.requireNonNull(Optional.of(order)));
 
         tradingOrderService.cancelOrder(44);
 
@@ -150,7 +153,7 @@ class TradingOrderServiceTest {
 
     @Test
     void createOrder_throwsWhenAccountMissing() {
-        when(accountRepository.findById(10)).thenReturn(Optional.empty());
+        when(accountRepository.findById(10)).thenReturn(Objects.requireNonNull(Optional.empty()));
 
         CreateOrderRequest request = new CreateOrderRequest(
             10,
