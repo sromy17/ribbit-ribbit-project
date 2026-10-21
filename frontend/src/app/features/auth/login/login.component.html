@@ -6,7 +6,7 @@
     </div>
     <p class="subtitle">Institutional trading workspace</p>
 
-    <form (ngSubmit)="login()">
+    <form (ngSubmit)="login()" novalidate>
       <div class="form-group">
         <label>Username</label>
         <input 
@@ -29,7 +29,7 @@
         />
       </div>
 
-      <div *ngIf="error" class="error">{{ error }}</div>
+      <div *ngIf="error" class="error" aria-live="assertive">{{ error }}</div>
 
       <button type="submit" [disabled]="loading" class="btn-login">
         {{ loading ? 'Signing in...' : 'Sign In' }}

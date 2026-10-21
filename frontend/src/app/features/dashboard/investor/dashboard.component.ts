@@ -272,6 +272,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.currentChange = quote.change ?? null;
         this.currentChangePercent = quote.changePercent ?? null;
         this.loadingQuote = false;
+        this.onOrderFormChange();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -425,6 +426,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.portfolio.cash = balance.cashBalance;
         this.updateTotalValue();
         this.loadingBalance = false;
+        this.onOrderFormChange();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -441,6 +443,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.portfolio.holdings = holdings.filter((holding) => holding.quantity > 0);
         this.updateTotalValue();
         this.loadingHoldings = false;
+        this.onOrderFormChange();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -471,6 +474,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // Form Validation Methods
+  onOrderFormChange(): void {
+    if (this.showOrderModal) {
+      this.validateOrderForm();
+    }
+  }
+
   validateOrderForm(): boolean {
     this.orderFormErrors = {};
 
@@ -484,6 +493,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.orderFormErrors['quantity'] = 'Quantity must be greater than 0';
     } else if (!Number.isInteger(this.orderForm.quantity)) {
       this.orderFormErrors['quantity'] = 'Quantity must be a whole number';
+    }
+
+    if (!this.orderFormErrors['quantity']) {
+      if (this.orderForm.side === 'BUY' && this.currentPrice !== null) {
+        const totalCost = this.getEstimatedTotal();
+        if (totalCost > this.portfolio.cash) {
+          this.orderFormErrors['quantity'] =
+            `This order costs $${totalCost.toFixed(2)}, but only $${this.portfolio.cash.toFixed(2)} is available.`;
+        }
+      }
+
+      if (this.orderForm.side === 'SELL') {
+        const holding = this.portfolio.holdings.find(
+          (item) => item.symbol.toUpperCase() === this.orderForm.symbol.toUpperCase()
+        );
+        const availableQuantity = holding?.quantity ?? 0;
+        if (this.orderForm.quantity > availableQuantity) {
+          this.orderFormErrors['quantity'] =
+            `You can only sell ${availableQuantity} share${availableQuantity === 1 ? '' : 's'} of ${this.orderForm.symbol.toUpperCase()}.`;
+        }
+      }
     }
 
     return Object.keys(this.orderFormErrors).length === 0;
