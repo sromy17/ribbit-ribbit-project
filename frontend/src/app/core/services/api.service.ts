@@ -139,6 +139,14 @@ export interface MarketTrend {
   totalVolume: number;
 }
 
+export interface MarketInstrument {
+  symbol: string;
+  name: string;
+  type: string;
+  exchange: string;
+  currency: string;
+}
+
 // API Service
 
 @Injectable({
@@ -218,6 +226,10 @@ export class ApiService {
 
   getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number }> {
     return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number }>(`/api/market/quotes/${encodeURIComponent(symbol)}`);
+  }
+
+  getMarketInstruments(): Observable<{ symbols: MarketInstrument[] }> {
+    return this.http.get<{ symbols: MarketInstrument[] }>('/data/us-v1.json');
   }
 
   // Trades

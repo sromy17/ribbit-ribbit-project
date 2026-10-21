@@ -1052,14 +1052,7 @@
 }
 
 /* Trade view: search + order popup */
-.search-form {
-  display: flex;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.search-form .search-input {
-  flex: 1;
+.trade-search-box .search-input {
   border: 1px solid var(--md-outline);
   border-radius: 12px;
   padding: 11px 12px;
@@ -1067,7 +1060,7 @@
   color: var(--md-on-surface);
 }
 
-.search-form .search-input:focus {
+.trade-search-box .search-input:focus {
   outline: none;
   border-color: var(--md-primary);
   box-shadow: 0 0 0 3px var(--md-focus-ring);
@@ -1095,104 +1088,78 @@
   font-size: 0.8rem;
 }
 
-.search-form {
+.trade-search-box {
+  position: relative;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.trade-search-box .search-input {
+  min-width: 0;
   width: 100%;
 }
 
-.search-form .search-input {
-  min-width: 0;
-}
-
-.market-table-wrapper {
-  overflow-x: auto;
-  margin-top: 18px;
+.ticker-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  display: grid;
+  overflow: hidden;
   border: 1px solid var(--md-outline-variant);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--md-surface);
 }
 
-.market-table {
+.ticker-suggestion {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  border-collapse: collapse;
-  min-width: 680px;
-}
-
-.market-table th,
-.market-table td {
-  padding: 14px 16px;
+  padding: 12px 14px;
+  border: 0;
   border-bottom: 1px solid var(--md-outline-variant);
+  background: transparent;
+  color: var(--md-on-surface);
+  cursor: pointer;
   text-align: left;
-  white-space: nowrap;
 }
 
-.market-table th {
-  color: var(--md-on-surface-variant);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.market-table tbody tr:last-child td {
+.ticker-suggestion:last-child {
   border-bottom: 0;
 }
 
-.market-row {
-  cursor: pointer;
-  outline: none;
-  transition: background-color 0.18s ease;
-}
-
-.market-row:hover,
-.market-row:focus-visible {
+.ticker-suggestion:hover,
+.ticker-suggestion:focus-visible {
   background: var(--md-surface-container);
+  outline: none;
 }
 
-.sector-pill {
-  display: inline-block;
-  padding: 4px 8px;
-  border: 1px solid var(--md-outline-variant);
-  border-radius: 999px;
+.ticker-suggestion-symbol {
+  font-weight: 700;
+}
+
+.ticker-suggestion-name,
+.ticker-suggestion-exchange {
+  overflow: hidden;
   color: var(--md-on-surface-variant);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticker-suggestion-exchange {
   font-size: 0.7rem;
-  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.market-sparkline {
+.market-data-status {
   display: block;
-  width: 108px;
-  height: 40px;
-}
-
-.market-sparkline polyline {
-  fill: none;
-  stroke: var(--md-primary);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.5;
-}
-
-.market-sparkline polyline.negative {
-  stroke: var(--md-error);
-}
-
-.market-positive {
-  color: var(--md-success-fg);
-  font-weight: 700;
-}
-
-.market-negative {
-  color: var(--md-danger-fg);
-  font-weight: 700;
-}
-
-.market-price-column {
-  text-align: right !important;
-  font-weight: 700;
-}
-
-.ticker-empty-state {
-  margin-top: 18px;
+  margin-top: 8px;
+  color: var(--md-on-surface-variant);
+  font-size: 0.8rem;
 }
 
 .modal-overlay {

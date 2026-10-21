@@ -1,9 +1,10 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Subject } from 'rxjs';
 import { AuthService, User } from '../../../core/services/auth.service';
-import { ApiService, Holding, Order, Trade, SymbolTrend, TradingAccount } from '../../../core/services/api.service';
+import { ApiService, Holding, MarketInstrument, Order, Trade, SymbolTrend, TradingAccount } from '../../../core/services/api.service';
 
 interface WalletBankAccount {
   id: number;
@@ -20,15 +21,6 @@ interface WalletActivity {
   date: Date;
 }
 
-interface TradeTicker {
-  symbol: string;
-  name: string;
-  sector: string;
-  changePercent: number;
-  price: number;
-  chartPoints: string;
-}
-
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -36,7 +28,7 @@ interface TradeTicker {
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   activeView: 'portfolio' | 'trade' | 'history' | 'wallet' | 'help' = 'portfolio';
   accountTypeLabel = 'Trading Account';
   currentUser: User | null = null;
@@ -61,14 +53,9 @@ export class DashboardComponent implements OnInit {
 
   orders: Order[] = [];
   symbolTrends: SymbolTrend[] = [];
-  readonly tradeTickers: TradeTicker[] = [
-    { symbol: 'AAPL', name: 'Apple', sector: 'TECH', changePercent: 1.84, price: 227.16, chartPoints: '0,30 12,28 24,32 36,23 48,25 60,18 72,20 84,12 96,15 108,8' },
-    { symbol: 'MSFT', name: 'Microsoft', sector: 'TECH', changePercent: 0.72, price: 509.45, chartPoints: '0,28 12,24 24,26 36,20 48,22 60,18 72,20 84,14 96,16 108,10' },
-    { symbol: 'NVDA', name: 'NVIDIA', sector: 'CHIP', changePercent: 2.61, price: 183.22, chartPoints: '0,34 12,31 24,27 36,30 48,18 60,21 72,13 84,16 96,7 108,4' },
-    { symbol: 'AMZN', name: 'Amazon', sector: 'CONSUMER', changePercent: -0.38, price: 227.03, chartPoints: '0,10 12,14 24,12 36,19 48,16 60,23 72,20 84,28 96,24 108,32' },
-    { symbol: 'TSLA', name: 'Tesla', sector: 'AUTO', changePercent: -1.12, price: 438.07, chartPoints: '0,8 12,12 24,10 36,18 48,14 60,22 72,19 84,26 96,24 108,34' },
-    { symbol: 'GOOGL', name: 'Alphabet', sector: 'TECH', changePercent: 1.16, price: 251.83, chartPoints: '0,29 12,26 24,28 36,22 48,24 60,16 72,18 84,13 96,15 108,8' }
-  ];
+  marketInstruments: MarketInstrument[] = [];
+  loadingInstrumentCatalog = false;
+  instrumentCatalogError = '';
   bankAccounts: WalletBankAccount[] = [];
   walletActivity: WalletActivity[] = [];
   showBankAccountModal = false;
@@ -95,6 +82,7 @@ export class DashboardComponent implements OnInit {
   currentChangePercent: number | null = null;
   private readonly feeRate = 0.001;
   private readonly minFee = 1;
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private auth: AuthService,
@@ -126,6 +114,7 @@ export class DashboardComponent implements OnInit {
       this.accountId = accountId;
       this.activeView = 'portfolio';
       this.resetDashboardData();
+      this.loadInstrumentCatalog();
       this.loadAccountDetails();
       this.loadAccounts();
       this.loadDashboardData();
@@ -167,6 +156,11 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   createAccount(): void {
     this.accountMenuOpen = false;
     this.router.navigate(['/accounts/create']);
@@ -179,14 +173,47 @@ export class DashboardComponent implements OnInit {
       : 'Trading Account';
   }
 
-  get filteredTradeTickers(): TradeTicker[] {
+  get filteredTradeTickers(): MarketInstrument[] {
     const search = this.tradeSearch.trim().toUpperCase();
     if (!search) {
-      return this.tradeTickers;
+      return [];
     }
-    return this.tradeTickers.filter((ticker) =>
-      ticker.symbol.includes(search) || ticker.name.toUpperCase().includes(search)
-    );
+    return this.marketInstruments
+      .filter((instrument) =>
+        instrument.symbol.startsWith(search) ||
+        instrument.name.toUpperCase().startsWith(search) ||
+        instrument.name.toUpperCase().includes(` ${search}`)
+      )
+      .sort((left, right) =>
+        Number(right.symbol.startsWith(search)) - Number(left.symbol.startsWith(search)) ||
+        left.symbol.localeCompare(right.symbol)
+      )
+      .slice(0, 10);
+  }
+
+  loadInstrumentCatalog(): void {
+    if (this.marketInstruments.length > 0 || this.loadingInstrumentCatalog) {
+      return;
+    }
+    this.loadingInstrumentCatalog = true;
+    this.instrumentCatalogError = '';
+    this.api.getMarketInstruments().subscribe({
+      next: (response) => {
+        this.marketInstruments = response.symbols ?? [];
+        this.loadingInstrumentCatalog = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading local instrument catalog:', err);
+        this.instrumentCatalogError = 'Ticker search is currently unavailable.';
+        this.loadingInstrumentCatalog = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onTradeSearchChange(): void {
+    this.tradeSearchError = '';
   }
 
   selectTicker(symbolOverride?: string): void {

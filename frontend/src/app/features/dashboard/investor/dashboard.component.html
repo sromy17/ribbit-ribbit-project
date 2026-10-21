@@ -89,52 +89,40 @@
               <p class="eyebrow">Markets</p>
               <h2>Find a ticker</h2>
             </div>
-            <span class="trade-search-hint">Select a market to buy or sell</span>
+            <span class="trade-search-hint">Search the local market catalog</span>
           </div>
-          <form class="search-form" (ngSubmit)="selectTicker()">
-            <input type="text" name="tradeSearch" [(ngModel)]="tradeSearch" placeholder="Search by ticker or company (e.g., AAPL)" class="search-input" autocomplete="off" />
-            <button type="submit" class="btn-primary">Search</button>
-          </form>
+          <div class="trade-search-box">
+            <input
+              type="text"
+              name="tradeSearch"
+              [(ngModel)]="tradeSearch"
+              (input)="onTradeSearchChange()"
+              placeholder="Search by ticker or company (e.g., AAPL)"
+              class="search-input"
+              autocomplete="off"
+              role="combobox"
+              [attr.aria-expanded]="tradeSearch.trim().length > 0 && filteredTradeTickers.length > 0"
+              aria-controls="ticker-suggestions" />
+            <div
+              *ngIf="tradeSearch.trim().length > 0 && filteredTradeTickers.length > 0"
+              id="ticker-suggestions"
+              class="ticker-suggestions"
+              role="listbox">
+              <button
+                *ngFor="let instrument of filteredTradeTickers"
+                type="button"
+                class="ticker-suggestion"
+                role="option"
+                (click)="selectTicker(instrument.symbol)">
+                <span class="ticker-suggestion-symbol">{{ instrument.symbol }}</span>
+                <span class="ticker-suggestion-name">{{ instrument.name }}</span>
+                <span class="ticker-suggestion-exchange">{{ instrument.exchange }}</span>
+              </button>
+            </div>
+          </div>
           <span class="error-text" *ngIf="tradeSearchError">{{ tradeSearchError }}</span>
-        </div>
-        <div *ngIf="filteredTradeTickers.length > 0" class="market-table-wrapper">
-          <table class="market-table">
-            <thead>
-              <tr>
-                <th>Ticker</th>
-                <th>Company</th>
-                <th>Sector</th>
-                <th>Trend</th>
-                <th>Change</th>
-                <th class="market-price-column">Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                *ngFor="let ticker of filteredTradeTickers"
-                class="market-row"
-                tabindex="0"
-                (click)="selectTicker(ticker.symbol)"
-                (keydown.enter)="selectTicker(ticker.symbol)"
-                (keydown.space)="selectTicker(ticker.symbol); $event.preventDefault()">
-                <td><strong>{{ ticker.symbol }}</strong></td>
-                <td>{{ ticker.name }}</td>
-                <td><span class="sector-pill">{{ ticker.sector }}</span></td>
-                <td>
-                  <svg class="market-sparkline" viewBox="0 0 108 40" role="img" [attr.aria-label]="ticker.symbol + ' price trend'">
-                    <polyline [class.negative]="ticker.changePercent < 0" [attr.points]="ticker.chartPoints"></polyline>
-                  </svg>
-                </td>
-                <td [class.market-positive]="ticker.changePercent >= 0" [class.market-negative]="ticker.changePercent < 0">
-                  {{ ticker.changePercent >= 0 ? '+' : '' }}{{ ticker.changePercent | number: '1.2-2' }}%
-                </td>
-                <td class="market-price-column">${{ ticker.price | number: '1.2-2' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div *ngIf="filteredTradeTickers.length === 0" class="empty-state ticker-empty-state">
-          No matching tickers found.
+          <span class="market-data-status" *ngIf="loadingInstrumentCatalog">Loading ticker catalog...</span>
+          <span class="error-text" *ngIf="instrumentCatalogError">{{ instrumentCatalogError }}</span>
         </div>
       </div>
 
