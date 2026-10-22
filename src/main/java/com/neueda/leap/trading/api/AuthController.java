@@ -19,9 +19,9 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public Map<String, String> login(@Valid @RequestBody LoginRequest request) {
+    public Map<String, Object> login(@Valid @RequestBody LoginRequest request) {
         AuthenticationService.LoginResult result = authenticationService.login(request);
-        return Map.of("token", result.accessToken(), "expiresAt", result.expiresAt().toString());
+        return Map.of("token", result.accessToken(), "expiresAt", result.expiresAt().toString(), "userId", result.userId(), "username", result.username());
     }
 
     @PostMapping("/logout")

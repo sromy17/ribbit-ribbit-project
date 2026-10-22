@@ -80,7 +80,7 @@ class OrderControllerTest {
             .andExpect(jsonPath("$.status").value("EXECUTED"))
             .andExpect(jsonPath("$.executionPrice").value(25.00));
 
-        verify(orderService).submitOrder(new ProcessOrderRequest(1, "AAPL", OrderSide.BUY, 10, new BigDecimal("25.00")));
+        verify(orderService).submitOrder(new ProcessOrderRequest(1, "AAPL", OrderSide.BUY, 10, null));
     }
 
     @Test

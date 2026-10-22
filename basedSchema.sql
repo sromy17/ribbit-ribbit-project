@@ -1,5 +1,7 @@
 DROP TABLE IF EXISTS users cascade;
 DROP TABLE IF EXISTS audit_records cascade;
+DROP TABLE IF EXISTS dispute_case_events cascade;
+DROP TABLE IF EXISTS dispute_cases cascade;
 DROP TABLE IF EXISTS sessions cascade;
 DROP TABLE IF EXISTS user_roles cascade;
 DROP TABLE IF EXISTS roles cascade;
@@ -40,7 +42,7 @@ CREATE TABLE sessions
 (
 	sessionid SERIAL PRIMARY KEY,
 	userid INT NOT NULL REFERENCES users(userid),
-	accesstoken VARCHAR(256) UNIQUE NOT NULL,
+	accesstoken VARCHAR(4096) UNIQUE NOT NULL,
 	expiresat TIMESTAMP NOT NULL
 );
 
@@ -97,6 +99,40 @@ CREATE TABLE trades_executed
     executed_at_utc TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fee NUMERIC NOT NULL DEFAULT 0,
     quantity_executed INT NOT NULL CHECK (quantity_executed > 0)
+);
+
+CREATE TABLE dispute_cases
+(
+    case_id BIGSERIAL PRIMARY KEY,
+    order_id INT REFERENCES trade_request(requestid),
+    account_id INT NOT NULL REFERENCES accounts(accountid),
+    customer_user_id INT NOT NULL REFERENCES users(userid),
+    transaction_type VARCHAR(20) NOT NULL,
+    transaction_reference VARCHAR(100) NOT NULL,
+    cash_movement_id BIGINT,
+    title VARCHAR(120) NOT NULL,
+    reason VARCHAR(1000) NOT NULL,
+    fee_related BOOLEAN NOT NULL DEFAULT FALSE,
+    status VARCHAR(20) NOT NULL,
+    assigned_staff_user_id INT REFERENCES users(userid),
+    resolution_reason VARCHAR(1000),
+    idempotency_key VARCHAR(100) NOT NULL,
+    payload_hash VARCHAR(64) NOT NULL,
+    created_at_utc TIMESTAMP NOT NULL,
+    updated_at_utc TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    UNIQUE (customer_user_id, idempotency_key)
+);
+
+CREATE TABLE dispute_case_events
+(
+    event_id BIGSERIAL PRIMARY KEY,
+    case_id BIGINT NOT NULL REFERENCES dispute_cases(case_id),
+    event_type VARCHAR(40) NOT NULL,
+    actor_user_id INT NOT NULL REFERENCES users(userid),
+    note VARCHAR(2000),
+    occurred_at_utc TIMESTAMP NOT NULL,
+    case_version BIGINT NOT NULL
 );
 
 CREATE TABLE order_lifecycle_events

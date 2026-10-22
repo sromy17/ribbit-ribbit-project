@@ -8,7 +8,11 @@ import com.neueda.leap.trading.api.StaffRoleResponse;
 import com.neueda.leap.trading.domain.AuditRecord;
 import com.neueda.leap.trading.domain.Role;
 import com.neueda.leap.trading.domain.User;
+import com.neueda.leap.trading.domain.DisputeCase;
+import com.neueda.leap.trading.domain.DisputeCaseEvent;
+import com.neueda.leap.trading.domain.DisputeCaseStatus;
 import com.neueda.leap.trading.repository.jpa.AuditRecordRepository;
+import com.neueda.leap.trading.repository.jpa.DisputeCaseRepository;
 import com.neueda.leap.trading.repository.jpa.RoleRepository;
 import com.neueda.leap.trading.repository.jpa.SessionRepository;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
@@ -26,17 +30,20 @@ public class StaffProvisioningService {
     private final RoleRepository roleRepository;
     private final SessionRepository sessionRepository;
     private final AuditRecordRepository auditRecordRepository;
+    private final DisputeCaseRepository disputeCaseRepository;
 
     public StaffProvisioningService(
         UserRepository userRepository,
         RoleRepository roleRepository,
         SessionRepository sessionRepository,
-        AuditRecordRepository auditRecordRepository
+        AuditRecordRepository auditRecordRepository,
+        DisputeCaseRepository disputeCaseRepository
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.sessionRepository = sessionRepository;
         this.auditRecordRepository = auditRecordRepository;
+        this.disputeCaseRepository = disputeCaseRepository;
     }
 
     @Transactional
@@ -63,10 +70,34 @@ public class StaffProvisioningService {
         String normalizedRole = normalizeRole(roleName);
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new IllegalArgumentException("User not found: " + username));
-        user.getRoles().removeIf(role -> normalizedRole.equalsIgnoreCase(role.getRoleName()));
+        var removed = user.getRoles().stream().filter(role -> normalizedRole.equalsIgnoreCase(role.getRoleName())).toList();
+        removed.forEach(role -> { role.getUsers().removeIf(member -> member.getUserId().equals(user.getUserId())); roleRepository.save(role); });
+        user.getRoles().removeAll(removed);
         userRepository.save(user);
+        boolean stillAdmin = user.getRoles().stream().anyMatch(role ->
+            java.util.Set.of("PLATFORM_ADMIN", "PLATFORM_ADMINISTRATOR").contains(role.getRoleName().toUpperCase(Locale.ROOT)));
+        if (!stillAdmin) releaseAssignedCases(user.getUserId());
         sessionRepository.deleteByUserUserId(user.getUserId());
         audit("STAFF_ROLE_REVOKED", "USER", user.getUserId().toString(), "SUCCESS");
+    }
+
+    private void releaseAssignedCases(Integer userId) {
+        disputeCaseRepository.findByAssignedStaffUserIdOrderByUpdatedAtUtcDesc(userId).stream()
+            .filter(dispute -> dispute.getStatus() != DisputeCaseStatus.RESOLVED)
+            .forEach(dispute -> {
+                dispute.setAssignedStaffUserId(null);
+                dispute.setStatus(DisputeCaseStatus.OPEN);
+                dispute.setUpdatedAtUtc(java.time.Instant.now());
+                DisputeCaseEvent event = new DisputeCaseEvent();
+                event.setDisputeCase(dispute);
+                event.setEventType("AUTO_RELEASED_ACCESS_REVOKED");
+                event.setActorUserId(actorId());
+                event.setNote("Assigned staff access revoked");
+                event.setOccurredAtUtc(java.time.Instant.now());
+                event.setCaseVersion(dispute.getVersion());
+                dispute.getEvents().add(event);
+                disputeCaseRepository.save(dispute);
+            });
     }
 
     private String normalizeRole(String role) {
@@ -92,5 +123,14 @@ public class StaffProvisioningService {
         record.setOutcome(outcome);
         record.setOccurredAt(java.time.LocalDateTime.now());
         auditRecordRepository.save(record);
+    }
+
+    private Integer actorId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof JwtAuthenticationToken jwt) {
+            Object value = jwt.getToken().getClaim("uid");
+            if (value instanceof Number number) return number.intValue();
+        }
+        return 0;
     }
 }

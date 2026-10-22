@@ -13,6 +13,7 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class LoginComponent {
   username = '';
+  staffLogin = false;
   password = '';
   error = '';
   loading = false;
@@ -23,11 +24,10 @@ export class LoginComponent {
     this.loading = true;
     this.error = '';
 
-    this.auth.login(this.username, this.password).subscribe({
+    this.auth.login(this.username, this.password, this.staffLogin).subscribe({
       next: (user) => {
-        if (user.role === 'investor') {
-          this.router.navigate(['/accounts']);
-        }
+        const destination = user.role === 'admin' ? '/admin-dashboard' : user.role === 'analyst' ? '/analyst-dashboard' : '/accounts';
+        this.router.navigate([destination]);
       },
       error: () => {
         this.error = 'Invalid credentials';

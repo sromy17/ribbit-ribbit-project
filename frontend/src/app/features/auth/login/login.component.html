@@ -29,6 +29,7 @@
         />
       </div>
 
+      <label><input type="checkbox" name="staffLogin" [(ngModel)]="staffLogin"> Staff sign-in</label>
       <div *ngIf="error" class="error">{{ error }}</div>
 
       <button type="submit" [disabled]="loading" class="btn-login">

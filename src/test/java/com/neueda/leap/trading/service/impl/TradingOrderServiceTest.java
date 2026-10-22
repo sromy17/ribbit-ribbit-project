@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -16,14 +17,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.neueda.leap.trading.api.dto.CreateOrderRequest;
 import com.neueda.leap.trading.api.dto.CreateOrderResponse;
+import com.neueda.leap.trading.api.dto.ProcessOrderRequest;
 import com.neueda.leap.trading.domain.Instrument;
 import com.neueda.leap.trading.domain.Order;
 import com.neueda.leap.trading.domain.OrderSide;
 import com.neueda.leap.trading.domain.OrderStatus;
+import com.neueda.leap.trading.domain.RejectedOrder;
 import com.neueda.leap.trading.domain.TradingAccount;
 import com.neueda.leap.trading.repository.jpa.HoldingRepository;
 import com.neueda.leap.trading.repository.jpa.InstrumentRepository;
@@ -122,6 +126,39 @@ class TradingOrderServiceTest {
         assertEquals(20, response.instrumentId());
         assertEquals(OrderStatus.PENDING, response.status());
         verify(orderRepository).save(any(Order.class));
+    }
+
+    @Test
+    @SuppressWarnings("null") // Mockito matchers are null placeholders.
+    void rejectedSubmissionPersistsReasonAndDoesNotExecute() {
+        TradingAccount account = new TradingAccount();
+        account.setAccountId(10);
+        Instrument instrument = new Instrument();
+        instrument.setInstrumentId(20);
+        instrument.setTicker("AAPL");
+        when(accountRepository.findById(10)).thenReturn(Optional.of(account));
+        when(instrumentRepository.findByTickerIgnoreCase("AAPL")).thenReturn(Optional.of(instrument));
+        when(marketDataVerificationService.verifyExecutionPrice(any(Order.class)))
+            .thenReturn(new BigDecimal("12.50"));
+        when(tradingRulesService.validateOrderSubmission(any(), any(), any(), any(), any()))
+            .thenReturn(ValidationResult.invalid("Insufficient funds"));
+        when(orderRepository.findMaxOrderId()).thenReturn(99);
+        when(rejectedOrderRepository.findMaxRejectId()).thenReturn(4);
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            assertEquals(OrderStatus.REJECTED, order.getStatus());
+            return order;
+        });
+
+        var result = tradingOrderService.submitOrder(
+            new ProcessOrderRequest(10, "AAPL", OrderSide.BUY, 5, null));
+
+        assertEquals(OrderStatus.REJECTED, result.status());
+        ArgumentCaptor<RejectedOrder> captor = ArgumentCaptor.forClass(RejectedOrder.class);
+        verify(rejectedOrderRepository).save(captor.capture());
+        assertEquals(100, captor.getValue().getRequestId());
+        assertEquals("Insufficient funds", captor.getValue().getReason());
+        verifyNoInteractions(tradeRepository);
     }
 
     @Test

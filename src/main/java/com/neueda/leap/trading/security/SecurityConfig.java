@@ -108,13 +108,17 @@ public class SecurityConfig {
     private Collection<@NonNull String> permissionsFor(String role) {
         return switch (role) {
             case "OPERATIONS" -> java.util.List.of(
-                "PERM_ORDER_INVESTIGATION", "PERM_ACCOUNT_DETAILS", "PERM_HISTORICAL_EVIDENCE");
+                "PERM_ORDER_INVESTIGATION", "PERM_ACCOUNT_READ", "PERM_HISTORICAL_EVIDENCE",
+                "PERM_DISPUTE_READ", "PERM_USER_LOOKUP");
             case "COMPLIANCE" -> java.util.List.of(
-                "PERM_ORDER_INVESTIGATION", "PERM_ACCOUNT_DETAILS", "PERM_HISTORICAL_EVIDENCE", "PERM_AUDIT_READ");
+                "PERM_ORDER_INVESTIGATION", "PERM_ACCOUNT_READ", "PERM_HISTORICAL_EVIDENCE",
+                "PERM_AUDIT_READ", "PERM_DISPUTE_READ", "PERM_USER_LOOKUP");
             case "ANALYST" -> java.util.List.of(
                 "PERM_REPORTING", "PERM_LIMITED_CLIENT_IDENTIFIERS");
             case "PLATFORM_ADMIN", "PLATFORM_ADMINISTRATOR" -> java.util.List.of(
-                "PERM_STAFF_ADMIN", "PERM_ETL_TRIGGER", "PERM_EXPORT", "PERM_AUDIT_READ");
+                "PERM_STAFF_ADMIN", "PERM_ETL_TRIGGER", "PERM_EXPORT", "PERM_AUDIT_READ",
+                "PERM_DISPUTE_READ", "PERM_DISPUTE_WORK", "PERM_DISPUTE_SUPERVISOR", "PERM_USER_LOOKUP",
+                "PERM_ACCOUNT_READ", "PERM_ACCOUNT_MANAGE", "PERM_ORDER_INVESTIGATION", "PERM_REPORTING");
             case "USER", "CLIENT" -> java.util.List.of("PERM_ACCOUNT_SELF", "PERM_ORDER_SELF");
             default -> java.util.List.of();
         };

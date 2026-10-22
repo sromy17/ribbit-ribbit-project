@@ -1,6 +1,8 @@
 package com.neueda.leap.config;
 
 import javax.sql.DataSource;
+import jakarta.persistence.EntityManagerFactory;
+import org.springframework.orm.jpa.JpaTransactionManager;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties;
@@ -46,6 +48,12 @@ public class OlapDataSourceConfig {
     @Bean(name = "oltpJdbcTemplate")
     public JdbcTemplate oltpJdbcTemplate(@Qualifier("dataSource") @NonNull DataSource oltpDataSource) {
         return new JdbcTemplate(oltpDataSource);
+    }
+
+    @Bean(name = "transactionManager")
+    @Primary
+    public JpaTransactionManager transactionManager(EntityManagerFactory entityManagerFactory) {
+        return new JpaTransactionManager(entityManagerFactory);
     }
 
     @Bean(name = "olapTransactionManager")

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, map, tap } from 'rxjs';
+import { BehaviorSubject, Observable, map, tap, switchMap, of } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { RegisterRequest } from './api.service';
 
@@ -7,6 +7,7 @@ export interface User {
   id: string;
   username: string;
   role: 'investor' | 'admin' | 'analyst';
+  permissions?: string[];
 }
 
 interface AuthResponse {
@@ -30,22 +31,22 @@ export class AuthService {
     }
   }
 
-  login(username: string, password: string): Observable<User> {
-    return this.http.post<AuthResponse>('/auth/login', { username, password }).pipe(
+  login(username: string, password: string, staff = false): Observable<User> {
+    return this.http.post<AuthResponse>(staff ? '/api/login' : '/auth/login', { username, password }).pipe(
       tap((response) => {
+      localStorage.setItem('staffSession', String(staff));
       localStorage.setItem('accessToken', response.token);
       localStorage.setItem('refreshToken', String(response.refreshToken ?? ''));
       }),
-      // The current auth stub supplies a mission-operator role. Until backend
-      // role claims are available, authenticated users use the investor flow.
-      tap((response) => {
-      const user = {
-        id: String(response.userId),
-        username: response.username,
-        role: 'investor' as const
-      };
-      this.currentUser.next(user);
-      localStorage.setItem('currentUser', JSON.stringify(user));
+      switchMap((response) => staff ? this.http.get<{permissions: string[]}>('/api/admin/session').pipe(
+        map(session => ({response, permissions: session.permissions}))
+      ) : of({response, permissions: [] as string[]})),
+      tap(({response, permissions}) => {
+        const role: User['role'] = permissions.includes('PERM_USER_LOOKUP') ? 'admin'
+          : permissions.includes('PERM_REPORTING') ? 'analyst' : 'investor';
+        const user: User = {id: String(response.userId), username: response.username, role, permissions};
+        this.currentUser.next(user);
+        localStorage.setItem('currentUser', JSON.stringify(user));
       }),
       map(() => this.currentUser.value as User)
     );
@@ -56,6 +57,11 @@ export class AuthService {
   }
 
   logout(): void {
+    const token = localStorage.getItem('accessToken');
+    if (token && localStorage.getItem('staffSession') === 'true') {
+      this.http.post('/api/logout', {accessToken: token}, {headers: {Authorization: `Bearer ${token}`}}).subscribe({error: () => { /* Local logout still completes if the server is unavailable. */ }});
+    }
+    localStorage.removeItem('staffSession');
     this.currentUser.next(null);
     localStorage.removeItem('currentUser');
     localStorage.removeItem('accessToken');

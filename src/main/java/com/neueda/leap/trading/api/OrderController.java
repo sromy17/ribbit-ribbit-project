@@ -55,6 +55,7 @@ public class OrderController {
         @PathVariable("accountId") Integer accountId,
         @PathVariable("orderId") Integer orderId
     ) {
+        accountAccessService.requireAccountOwner(accountId);
         boolean accountOwnsOrder = orderService.getOrders(accountId).stream()
             .anyMatch(order -> orderId.equals(order.getOrderId()));
 

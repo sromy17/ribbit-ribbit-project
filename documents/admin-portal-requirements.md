@@ -2,6 +2,11 @@
 
 Status: Draft for stakeholder review. No stakeholder approval is implied.
 
+Updated stakeholder answers: [admin-stakeholder-decisions.md](admin-stakeholder-decisions.md).
+That record distinguishes user-confirmed decisions from recommendations and
+supersedes conflicting earlier proposals below (including reopen, admin-only
+case work, duplicate cases, and reporting definitions).
+
 Source: `../LEAP-Project-Business-Requirements-Specification.pdf`, version 0.9,
 reference LEAP-BRS-2026-014. References below use the PDF's requirement IDs and
 sections. Proposed choices are implementation recommendations, not additional
@@ -358,3 +363,32 @@ investigation roles and must be attributable to the staff actor and purpose.
 5. Build admin queue, ticket detail, user lookup, and linked investigation panels.
 6. Verify concurrent claims, permission boundaries, retry behaviour, current-data
    labels, and resolution without financial mutation.
+
+### Implementation status (2026-10-21)
+
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Backend permission enforcement and client ownership | Implemented | `SecurityConfig`, `AccountAccessService`, staff permissions, account/order ownership checks |
+| Order evidence and normalized reporting facts | Implemented | Lifecycle, fill, cash, holding evidence entities and separate OLAP fact grains |
+| Reliable full-load refresh | Implemented | Refresh run IDs, serialized execution, OLAP transaction, validation, failure status and freshness metadata |
+| Bounded admin order/reporting read APIs | Implemented | `/api/admin/orders`, investigation events/fills, account summary, activity and reporting status |
+| Exact user-ID lookup | Implemented | `/api/admin/users/{userId}` and `/api/admin/users/{userId}/accounts` |
+| Dispute case persistence and workflow API | Implemented | Trade/cash eligibility, title/reason/fee marker, customer-scoped payload-checked idempotency, admin-only claim/accept/note/resolve, supervisor release/reassign, optimistic version checks, append-only case events, and automatic release on access revocation |
+| Dispute eligibility/duplicate/supervisor policy | Open | Requires stakeholder decisions; current implementation rejects ownership mismatches and deduplicates idempotency retries |
+| Angular admin queue, investigation timeline, lookup and dispute screens | Partial | Admin shell now consumes bounded order/reporting APIs and displays an open dispute queue with optimistic claim; full timeline, account lookup, and case detail actions remain |
+| Concurrency/replay/reconciliation integration suite | Partial | Existing full suite and targeted controller/order tests pass; PostgreSQL concurrency/restart/replay scenarios remain to be added |
+
+The remaining unchecked stakeholder decisions are intentionally not marked as
+implemented: retention duration, final metric/currency/segment definitions,
+performance targets, and the programme's BR-18 justification require approval
+outside the codebase.
+
+### Admin completion handoff (2026-10-21)
+
+The earlier partial implementation table is superseded for UI/test status by
+[admin-release-readiness.md](admin-release-readiness.md). Investigation, case
+actions/history, operational user/account history, server pagination, and as-of
+labels are implemented. A repeatable disposable PostgreSQL verification script
+covers concurrent claims, application restart, replay and refresh rollback.
+External legal retention approval, programme BR-18 acceptance, and representative
+performance/freshness approval remain pending; implementation cannot grant them.

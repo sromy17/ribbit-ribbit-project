@@ -59,7 +59,7 @@ public class AccountController {
     @ResponseStatus(HttpStatus.CREATED)
     public TradingAccount createAccount(@Valid @RequestBody CreateAccountRequest request) {
         int userId = request.userId();
-        accountAccessService.requireUserAccess(userId, "PERM_ACCOUNT_DETAILS");
+        accountAccessService.requireUserAccess(userId, "PERM_ACCOUNT_MANAGE");
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
 
@@ -86,12 +86,13 @@ public class AccountController {
 
     @GetMapping("/{accountId}")
     public TradingAccount getAccount(@PathVariable("accountId") int accountId) {
-        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_READ");
         return accountRepository.findById(accountId).get();
     }
 
     @GetMapping("/user/{userId}")
     public List<TradingAccount> getAccountsForUser(@PathVariable("userId") Integer userId) {
+        accountAccessService.requireUserAccess(userId, "PERM_ACCOUNT_READ");
         return accountRepository.findAllByUserUserIdOrderByAccountIdAsc(userId);
     }
 
@@ -100,7 +101,7 @@ public class AccountController {
         @PathVariable("accountId") int accountId,
         @Valid @RequestBody UpdateAccountRequest request
     ) {
-        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_MANAGE");
         TradingAccount account = accountRepository.findById(accountId).get();
 
         account.setType(request.accountType());
@@ -116,7 +117,7 @@ public class AccountController {
 
     @GetMapping("/{accountId}/balance")
     public Map<String, Object> getBalance(@PathVariable("accountId") int accountId) {
-        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_READ");
         TradingAccount account = accountRepository.findById(accountId).get();
 
         return Map.of(
@@ -130,7 +131,7 @@ public class AccountController {
         @PathVariable("accountId") int accountId,
         @Valid @RequestBody UpdateBalanceRequest request
     ) {
-        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_WRITE");
         TradingAccount account = accountRepository.findById(accountId).get();
 
         account.setAvailableFunds(request.cashBalance());
@@ -144,7 +145,7 @@ public class AccountController {
 
     @GetMapping("/{accountId}/holdings")
     public List<Holding> getHoldings(@PathVariable("accountId") int accountId) {
-        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_DETAILS");
+        accountAccessService.requireAccountAccess(accountId, "PERM_ACCOUNT_READ");
 
         return holdingRepository.findByAccountAccountId(accountId);
     }

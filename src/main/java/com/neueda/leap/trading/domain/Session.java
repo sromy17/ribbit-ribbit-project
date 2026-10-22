@@ -25,7 +25,7 @@ public class Session {
     @JsonIgnore
     private User user;
 
-    @Column(name = "accesstoken", nullable = false, unique = true, length = 256)
+    @Column(name = "accesstoken", nullable = false, unique = true, length = 4096)
     private String accessToken;
 
     @Column(name = "expiresat", nullable = false)
@@ -64,6 +64,6 @@ public class Session {
     }
 
     public boolean isValid() {
-        return expiresAt != null && expiresAt.isAfter(LocalDateTime.now());
+        return expiresAt != null && expiresAt.isAfter(LocalDateTime.now(java.time.ZoneOffset.UTC));
     }
 }

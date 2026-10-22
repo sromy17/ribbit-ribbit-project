@@ -24,4 +24,7 @@ public class CashMovement {
     public void setMovementType(String v) { movementType = v; }
     public void setOccurredAtUtc(Instant v) { occurredAtUtc = v; }
     public void setCorrelationId(String v) { correlationId = v; }
+    public Long getMovementId() { return movementId; }
+    public Integer getOrderId() { return orderId; }
+    public Integer getAccountId() { return accountId; }
 }

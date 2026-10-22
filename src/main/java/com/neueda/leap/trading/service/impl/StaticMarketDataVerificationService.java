@@ -9,6 +9,7 @@ import com.neueda.leap.trading.service.impl.marketdata.KafkaQuoteProducer;
 import com.neueda.leap.trading.service.impl.marketdata.QuoteCache;
 import com.neueda.leap.trading.service.impl.marketdata.QuoteSnapshot;
 import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
+import com.neueda.leap.trading.service.contract.MarketQuote;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -76,26 +77,10 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
         if (ticker == null || ticker.isBlank()) {
             throw new IllegalArgumentException("Ticker is required");
         }
-        String symbol = ticker.trim().toUpperCase(Locale.ROOT);
-
         try {
-            QuoteApiResponse response = restClient.get()
-                .uri("/quotes/{symbol}", symbol)
-                .headers(headers -> {
-                    if (apiKey != null && !apiKey.isBlank()) {
-                        headers.set("x-api-key", apiKey);
-                    }
-                })
-                .retrieve()
-                .body(QuoteApiResponse.class);
-
-            if (response == null || response.data() == null || response.data().price() == null) {
-                throw new IllegalStateException("No price returned for " + symbol);
-            }
-            QuoteData data = response.data();
-            return new MarketQuote(symbol, data.price(), data.change(), data.changePercent());
-        } catch (RestClientResponseException ex) {
-            throw new IllegalStateException(extractErrorMessage(ex), ex);
+            return fauxnanceQuoteClient.fetchMarketQuote(ticker);
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("Price unavailable for " + ticker, ex);
         }
     }
 

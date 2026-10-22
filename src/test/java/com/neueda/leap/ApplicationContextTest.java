@@ -1,6 +1,7 @@
 package com.neueda.leap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.math.BigDecimal;
@@ -14,6 +15,7 @@ import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.Environment;
 import tools.jackson.databind.ObjectMapper;
+import com.neueda.leap.trading.repository.jpa.UserRepository;
 
 @SpringBootTest(properties = {
     "spring.config.location=file:src/main/resources/application.yml,file:src/test/resources/application.yml",
@@ -27,6 +29,14 @@ class ApplicationContextTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private UserRepository users;
+
+    @Test
+    void jpaRepositoryHasWorkingTransactionManager() {
+        assertDoesNotThrow(() -> users.count());
+    }
 
     @Test
     void configurationPreservesEscapedMapKeys() {

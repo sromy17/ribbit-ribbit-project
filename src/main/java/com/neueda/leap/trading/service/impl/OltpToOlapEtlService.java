@@ -22,16 +22,21 @@ public class OltpToOlapEtlService {
     private final JdbcTemplate oltpJdbcTemplate;
     private final JdbcTemplate olapJdbcTemplate;
     private final TransactionTemplate olapTransactionTemplate;
+    private final TransactionTemplate sourceTransactionTemplate;
     private final AtomicBoolean refreshRunning = new AtomicBoolean();
 
     public OltpToOlapEtlService(
         @Qualifier("oltpJdbcTemplate") JdbcTemplate oltpJdbcTemplate,
         @Qualifier("olapJdbcTemplate") JdbcTemplate olapJdbcTemplate,
-        @Qualifier("olapTransactionManager") org.springframework.transaction.PlatformTransactionManager olapTransactionManager
+        @Qualifier("olapTransactionManager") org.springframework.transaction.PlatformTransactionManager olapTransactionManager,
+        @Qualifier("dataSource") javax.sql.DataSource sourceDataSource
     ) {
         this.oltpJdbcTemplate = oltpJdbcTemplate;
         this.olapJdbcTemplate = olapJdbcTemplate;
         this.olapTransactionTemplate = new TransactionTemplate(olapTransactionManager);
+        this.sourceTransactionTemplate = new TransactionTemplate(new org.springframework.jdbc.datasource.DataSourceTransactionManager(sourceDataSource));
+        this.sourceTransactionTemplate.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        this.sourceTransactionTemplate.setReadOnly(true);
     }
 
     public String runFullLoad() {
@@ -40,30 +45,37 @@ public class OltpToOlapEtlService {
         }
 
         String runId = UUID.randomUUID().toString();
-        ensureRefreshRunsTable();
-        InstantHolder sourceWatermark = sourceWatermark();
-        startRun(runId, sourceWatermark.value());
-        logConnection("OLTP", oltpJdbcTemplate);
-        logConnection("OLAP", olapJdbcTemplate);
+        boolean runStarted = false;
         try {
-            olapTransactionTemplate.executeWithoutResult(status -> {
+            ensureRefreshRunsTable();
+            InstantHolder sourceWatermark = sourceWatermark();
+            startRun(runId, sourceWatermark.value());
+            runStarted = true;
+            logConnection("OLTP", oltpJdbcTemplate);
+            logConnection("OLAP", olapJdbcTemplate);
+            sourceTransactionTemplate.executeWithoutResult(source -> olapTransactionTemplate.executeWithoutResult(status -> {
+                Boolean locked = olapJdbcTemplate.queryForObject("SELECT pg_try_advisory_xact_lock(738291)", Boolean.class);
+                if (!Boolean.TRUE.equals(locked)) throw new IllegalStateException("Another process is publishing reporting data");
                 olapJdbcTemplate.update(
-                    "TRUNCATE TABLE public.trade_facts, public.accounts_info, " +
+                    "TRUNCATE TABLE public.trade_facts, public.accounts_info, public.instruments_info, " +
                     "public.employees_info, public.holdings_info, public.order_facts, " +
                     "public.fill_facts, public.lifecycle_event_facts, public.cash_movement_facts, " +
                     "public.holding_movement_facts"
                 );
                 loadAccounts();
+                loadInstruments(runId);
                 loadTradeFacts();
                 loadEmployees();
                 loadHoldings();
                 loadEvidence(runId);
                 validatePublishedDataset();
-            });
-            completeRun(runId);
+                completeRun(runId);
+            }));
             return runId;
         } catch (RuntimeException ex) {
-            failRun(runId, ex);
+            if (runStarted) {
+                failRun(runId, ex);
+            }
             throw ex;
         } finally {
             refreshRunning.set(false);
@@ -80,9 +92,9 @@ public class OltpToOlapEtlService {
             CREATE TABLE IF NOT EXISTS etl_refresh_runs (
                 run_id VARCHAR(36) PRIMARY KEY,
                 status VARCHAR(20) NOT NULL,
-                source_watermark TIMESTAMP NOT NULL,
-                started_at TIMESTAMP NOT NULL,
-                published_at TIMESTAMP,
+                source_watermark TIMESTAMPTZ NOT NULL,
+                started_at TIMESTAMPTZ NOT NULL,
+                published_at TIMESTAMPTZ,
                 error_message VARCHAR(1000)
             )
             """);
@@ -155,6 +167,14 @@ public class OltpToOlapEtlService {
             "accountid", "userid", "username", "availablefunds",
             "creationdate", "account_type"
         );
+    }
+
+    private void loadInstruments(String runId) {
+        List<Map<String, Object>> rows = oltpJdbcTemplate.queryForList(
+            "SELECT instrumentid, ticker, instrumentname FROM public.instruments");
+        batchInsertEvidence(
+            "INSERT INTO public.instruments_info (instrumentid, ticker, instrumentname, dataset_run_id) VALUES (?, ?, ?, ?)",
+            rows, runId, "instrumentid", "ticker", "instrumentname");
     }
 
     private void loadTradeFacts() {
@@ -269,57 +289,87 @@ public class OltpToOlapEtlService {
     }
 
     private void loadEvidence(String runId) {
-        batchInsertWithRunId("""
+        batchInsertEvidence("""
             INSERT INTO public.order_facts
                 (requestid, accountid, userid, instrumentid, side, quantity_requested,
                  bidprice, order_status, created_at_utc, correlation_id, dataset_run_id)
-            SELECT tr.requestid, tr.accountid, a.userid, tr.instrumentid, tr.side,
-                   tr.quantity, tr.bidprice, tr.status, tr.created_at_utc,
-                   tr.correlation_id, ?
-            FROM public.trade_request tr JOIN public.accounts a ON a.accountid = tr.accountid
-            """, runId);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, oltpJdbcTemplate.queryForList("""
+                SELECT tr.requestid, tr.accountid, a.userid, tr.instrumentid, tr.side,
+                       tr.quantity, tr.bidprice, tr.status, tr.created_at_utc, tr.correlation_id
+                FROM public.trade_request tr JOIN public.accounts a ON a.accountid = tr.accountid
+                """), runId,
+            "requestid", "accountid", "userid", "instrumentid", "side", "quantity",
+            "bidprice", "status", "created_at_utc", "correlation_id");
 
-        batchInsertWithRunId("""
+        batchInsertEvidence("""
             INSERT INTO public.fill_facts
                 (executeid, requestid, accountid, instrumentid, executed_quantity,
                  execution_price, fee, executed_at_utc, dataset_run_id)
-            SELECT te.executeid, te.requestid, tr.accountid, tr.instrumentid,
-                   te.quantity_executed, te.askprice, te.fee, te.executed_at_utc, ?
-            FROM public.trades_executed te JOIN public.trade_request tr ON tr.requestid = te.requestid
-            """, runId);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, oltpJdbcTemplate.queryForList("""
+                SELECT te.executeid, te.requestid, tr.accountid, tr.instrumentid,
+                       te.quantity_executed, te.askprice, te.fee, te.executed_at_utc
+                FROM public.trades_executed te JOIN public.trade_request tr ON tr.requestid = te.requestid
+                """), runId,
+            "executeid", "requestid", "accountid", "instrumentid", "quantity_executed",
+            "askprice", "fee", "executed_at_utc");
 
-        batchInsertWithRunId("""
+        batchInsertEvidence("""
             INSERT INTO public.lifecycle_event_facts
                 (event_id, requestid, accountid, instrumentid, event_type, event_sequence,
                  occurred_at_utc, correlation_id, quote_source, quote_at_utc, quote_price,
                  decision_price, quantity, fee, reason, dataset_run_id)
-            SELECT event_id, order_id, account_id, instrument_id, event_type, event_sequence,
-                   occurred_at_utc, correlation_id, quote_source, quote_at_utc, quote_price,
-                   decision_price, quantity, fee, reason, ?
-            FROM public.order_lifecycle_events
-            """, runId);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, oltpJdbcTemplate.queryForList("""
+                SELECT event_id, order_id, account_id, instrument_id, event_type, event_sequence,
+                       occurred_at_utc, correlation_id, quote_source, quote_at_utc, quote_price,
+                       decision_price, quantity, fee, reason
+                FROM public.order_lifecycle_events
+                """), runId,
+            "event_id", "order_id", "account_id", "instrument_id", "event_type", "event_sequence",
+            "occurred_at_utc", "correlation_id", "quote_source", "quote_at_utc", "quote_price",
+            "decision_price", "quantity", "fee", "reason");
 
-        batchInsertWithRunId("""
+        batchInsertEvidence("""
             INSERT INTO public.cash_movement_facts
                 (movement_id, requestid, accountid, amount, currency, movement_type,
                  occurred_at_utc, correlation_id, dataset_run_id)
-            SELECT movement_id, order_id, account_id, amount, currency, movement_type,
-                   occurred_at_utc, correlation_id, ?
-            FROM public.cash_movements
-            """, runId);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, oltpJdbcTemplate.queryForList("""
+                SELECT movement_id, order_id, account_id, amount, currency, movement_type,
+                       occurred_at_utc, correlation_id FROM public.cash_movements
+                """), runId,
+            "movement_id", "order_id", "account_id", "amount", "currency", "movement_type",
+            "occurred_at_utc", "correlation_id");
 
-        batchInsertWithRunId("""
+        batchInsertEvidence("""
             INSERT INTO public.holding_movement_facts
                 (movement_id, requestid, accountid, instrumentid, quantity_delta,
                  quantity_after, occurred_at_utc, correlation_id, dataset_run_id)
-            SELECT movement_id, order_id, account_id, instrument_id, quantity_delta,
-                   quantity_after, occurred_at_utc, correlation_id, ?
-            FROM public.holding_movements
-            """, runId);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, oltpJdbcTemplate.queryForList("""
+                SELECT movement_id, order_id, account_id, instrument_id, quantity_delta,
+                       quantity_after, occurred_at_utc, correlation_id FROM public.holding_movements
+                """), runId,
+            "movement_id", "order_id", "account_id", "instrument_id", "quantity_delta",
+            "quantity_after", "occurred_at_utc", "correlation_id");
     }
 
-    private void batchInsertWithRunId(String sql, String runId) {
-        olapJdbcTemplate.update(sql, runId);
+    private void batchInsertEvidence(String sql, List<Map<String, Object>> rows, String runId, String... columns) {
+        if (rows.isEmpty()) {
+            return;
+        }
+        List<Object[]> arguments = new ArrayList<>(rows.size());
+        for (Map<String, Object> row : rows) {
+            Object[] values = new Object[columns.length + 1];
+            for (int i = 0; i < columns.length; i++) {
+                values[i] = row.get(columns[i]);
+            }
+            values[columns.length] = runId;
+            arguments.add(values);
+        }
+        olapJdbcTemplate.batchUpdate(sql, arguments);
     }
 
     private void batchInsert(@NonNull String sql, List<Map<String, Object>> rows, String... columns) {

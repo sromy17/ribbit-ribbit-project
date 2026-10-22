@@ -1,5 +1,8 @@
-C:\Users\Administrator\ribbit-ribbit-project\src\test\java\com\neueda\leap\trading\api\OrderControllerTest.java
-C:\Users\Administrator\ribbit-ribbit-project\src\test\java\com\neueda\leap\trading\api\UserControllerTest.java
-C:\Users\Administrator\ribbit-ribbit-project\src\test\java\com\neueda\leap\trading\OrderProcessingIntegrationTest.java
-C:\Users\Administrator\ribbit-ribbit-project\src\test\java\com\neueda\leap\trading\service\impl\DefaultTradingRulesServiceTest.java
-C:\Users\Administrator\ribbit-ribbit-project\src\test\java\com\neueda\leap\trading\service\impl\TradingOrderServiceTest.java
+/Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/ApplicationContextTest.java
+/Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/AdminPostgresTest.java
+/Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/OrderProcessingIntegrationTest.java
+/Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/api/OrderControllerTest.java
+/Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/api/UserControllerTest.java
+/Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/service/impl/DefaultTradingRulesServiceTest.java
+/Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/service/impl/TradingOrderServiceTest.java
+/Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/service/impl/marketdata/FauxnanceQuoteClientTest.java

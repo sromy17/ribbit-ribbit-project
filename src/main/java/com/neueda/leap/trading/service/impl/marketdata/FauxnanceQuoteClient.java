@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.neueda.leap.trading.service.contract.MarketQuote;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,10 @@ public class FauxnanceQuoteClient {
     }
 
     public BigDecimal fetchQuote(String symbol) {
+        return fetchMarketQuote(symbol).price();
+    }
+
+    public MarketQuote fetchMarketQuote(String symbol) {
         String normalized = normalizeSymbol(symbol);
 
         try {
@@ -56,7 +61,8 @@ public class FauxnanceQuoteClient {
                 throw new IllegalArgumentException("Market data API returned an invalid price for symbol " + normalized);
             }
 
-            return response.data().price();
+            QuoteData data = response.data();
+            return new MarketQuote(normalized, data.price(), data.change(), data.changePercent());
         } catch (RestClientResponseException ex) {
             throw new IllegalArgumentException(extractErrorMessage(ex) + " for symbol " + normalized, ex);
         }
@@ -101,7 +107,7 @@ public class FauxnanceQuoteClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record QuoteData(BigDecimal price) {
+    private record QuoteData(BigDecimal price, BigDecimal change, BigDecimal changePercent) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

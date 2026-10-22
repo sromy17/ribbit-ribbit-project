@@ -52,6 +52,7 @@ public class TradingOrderService implements OrderService {
     private final AccountOrderReadMapper readMapper;
     private final KafkaOrderExecutionProducer executionProducer;
     private final OrderEvidenceService evidenceService;
+    private final ExecutionAttemptEvidenceService executionAttemptEvidenceService;
 
     public TradingOrderService(
         OrderRepository orderRepository,
@@ -68,6 +69,7 @@ public class TradingOrderService implements OrderService {
     ) {
         this(
             orderRepository,
+            rejectedOrderRepository,
             tradeRepository,
             accountRepository,
             instrumentRepository,
@@ -78,6 +80,7 @@ public class TradingOrderService implements OrderService {
             tradingRulesService,
             readMapper,
             null,
+            null,
             null
         );
     }
@@ -85,6 +88,7 @@ public class TradingOrderService implements OrderService {
     @Autowired
     public TradingOrderService(
         OrderRepository orderRepository,
+        RejectedOrderRepository rejectedOrderRepository,
         TradeRepository tradeRepository,
         TradingAccountRepository accountRepository,
         InstrumentRepository instrumentRepository,
@@ -95,7 +99,8 @@ public class TradingOrderService implements OrderService {
         TradingRulesService tradingRulesService,
         AccountOrderReadMapper readMapper,
         KafkaOrderExecutionProducer executionProducer,
-        OrderEvidenceService evidenceService
+        OrderEvidenceService evidenceService,
+        ExecutionAttemptEvidenceService executionAttemptEvidenceService
     ) {
         this.orderRepository = orderRepository;
         this.rejectedOrderRepository = rejectedOrderRepository;
@@ -110,6 +115,7 @@ public class TradingOrderService implements OrderService {
         this.readMapper = readMapper;
         this.executionProducer = executionProducer;
         this.evidenceService = evidenceService;
+        this.executionAttemptEvidenceService = executionAttemptEvidenceService;
     }
 
     @Override
@@ -125,7 +131,11 @@ public class TradingOrderService implements OrderService {
             throw new IllegalArgumentException("Only PENDING orders can be executed");
         }
 
-        if (evidenceService != null) evidenceService.event(order, "EXECUTION_ATTEMPTED", null);
+        if (executionAttemptEvidenceService != null) {
+            executionAttemptEvidenceService.record(
+                order.getOrderId(), order.getAccount().getAccountId(),
+                order.getInstrument().getInstrumentId(), order.getCorrelationId(), order.getQuantity());
+        }
 
         TradingAccount account = order.getAccount();
         Instrument instrument = order.getInstrument();
@@ -166,7 +176,7 @@ public class TradingOrderService implements OrderService {
                 order.getSide() == OrderSide.BUY ? notional.add(fee).negate() : notional.subtract(fee),
                 order.getSide() == OrderSide.BUY ? "BUY_SETTLEMENT" : "SELL_SETTLEMENT");
         }
-        int quantityAfter = updateHolding(account, instrument, order.getSide(), trade.getExecutedQuantity());
+        int quantityAfter = updateHolding(account, instrument, order.getSide(), trade.getExecutedQuantity(), executionPrice);
         if (evidenceService != null) {
             evidenceService.holdingMovement(order,
                 order.getSide() == OrderSide.BUY ? trade.getExecutedQuantity() : -trade.getExecutedQuantity(),
@@ -220,6 +230,7 @@ public class TradingOrderService implements OrderService {
         order.setPrice(marketPrice);
         order.setDateRequested(LocalDate.now());
         order.setCreatedAtUtc(Instant.now());
+        order.setStatus(validation.isValid() ? OrderStatus.PENDING : OrderStatus.REJECTED);
         order = orderRepository.save(order);
         if (evidenceService != null) evidenceService.event(order, "ORDER_SUBMITTED", null);
 
@@ -227,7 +238,6 @@ public class TradingOrderService implements OrderService {
         if (!validation.isValid()) {
             order.setStatus(OrderStatus.REJECTED);
             if (evidenceService != null) evidenceService.rejected(order, validation.getReason());
-            throw new IllegalArgumentException("Order rejected: " + validation.getReason());
             order = orderRepository.save(order);
             saveRejection(order.getOrderId(), validation.getReason());
             return new CreateOrderResponse(
@@ -309,6 +319,9 @@ public class TradingOrderService implements OrderService {
             .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
         order.cancel();
         orderRepository.save(order);
+        if (evidenceService != null) {
+            evidenceService.event(order, "ORDER_CANCELLED", "Cancelled by account owner");
+        }
     }
 
     @Override
@@ -330,7 +343,8 @@ public class TradingOrderService implements OrderService {
         TradingAccount account,
         Instrument instrument,
         OrderSide side,
-        Integer quantity
+        Integer quantity,
+        BigDecimal executionPrice
     ) {
         Holding holding = holdingRepository
             .findByAccountAccountIdAndInstrumentInstrumentId(account.getAccountId(), instrument.getInstrumentId())
@@ -339,10 +353,17 @@ public class TradingOrderService implements OrderService {
                 newHolding.setAccount(account);
                 newHolding.setInstrument(instrument);
                 newHolding.setQuantity(0);
+                newHolding.setAverageCost(BigDecimal.ZERO);
                 return newHolding;
             });
 
         boolean isBuy = side == OrderSide.BUY;
+        if (isBuy) {
+            BigDecimal priorCost = holding.getAverageCost() == null ? BigDecimal.ZERO : holding.getAverageCost();
+            holding.setAverageCost(priorCost.multiply(BigDecimal.valueOf(holding.getQuantity()))
+                .add(executionPrice.multiply(BigDecimal.valueOf(quantity)))
+                .divide(BigDecimal.valueOf((long) holding.getQuantity() + quantity), 10, java.math.RoundingMode.HALF_EVEN));
+        }
         holding.updatePosition(isBuy, quantity);
         if (holding.getQuantity() == 0) {
             holdingRepository.delete(holding);

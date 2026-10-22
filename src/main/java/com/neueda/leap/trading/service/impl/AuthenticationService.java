@@ -58,14 +58,14 @@ public class AuthenticationService {
             .issuedAt(issuedAt)
             .expiresAt(expiresAt)
             .build();
-        String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+        String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(org.springframework.security.oauth2.jwt.JwsHeader.with(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256).build(), claims)).getTokenValue();
 
         Session session = new Session();
         session.setUser(user);
         session.setAccessToken(accessToken);
         session.setExpiresAt(LocalDateTime.ofInstant(expiresAt, ZoneOffset.UTC));
         sessionRepository.save(session);
-        return new LoginResult(accessToken, expiresAt);
+        return new LoginResult(accessToken, expiresAt, user.getUserId(), user.getUsername());
     }
 
     @Transactional
@@ -73,6 +73,6 @@ public class AuthenticationService {
         sessionRepository.deleteByAccessToken(accessToken);
     }
 
-    public record LoginResult(String accessToken, Instant expiresAt) {
+    public record LoginResult(String accessToken, Instant expiresAt, Integer userId, String username) {
     }
 }
