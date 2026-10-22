@@ -9,7 +9,10 @@ DROP TABLE IF EXISTS canceled_order cascade;
 DROP TABLE IF EXISTS support_ticket cascade;
 DROP TABLE IF EXISTS rejected_orders cascade;
 DROP TABLE IF EXISTS holdings cascade;
-
+drop table if exists bank cascade;
+drop table if exists bank_movement cascade;
+drop table if exists refresh_tokens cascade;
+drop table if exists access_tokens cascade;
 
 CREATE TABLE users
 (
@@ -119,11 +122,26 @@ CREATE TABLE holdings
     UNIQUE (accountid, instrumentid)
 );
 
-CREATE TABLE user_sessions
+--
+CREATE TABLE refresh_tokens
 (
-    userid INT REFERENCES users(userid) PRIMARY KEY,
-    refreshToken INT,
-    dateIssued TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    refreshTokenId INT PRIMARY KEY,
+    userid INT REFERENCES users(userid) NOT NULL,
+    refreshTokenHash VARCHAR(64) NOT NULL UNIQUE,
+    dateIssued TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    dateExpires TIMESTAMPTZ NOT NULL,
+    isRevoked BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+--"Thats why im moving to asia (fuck america)" - Sukie
+CREATE TABLE access_tokens
+(
+    accessTokenId INT PRIMARY KEY,
+    refreshTokenId INT NOT NULL REFERENCES refresh_tokens(refreshTokenId),
+    accessTokenHash VARCHAR(64) NOT NULL UNIQUE,
+    dateIssued TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    dateExpires TIMESTAMPTZ NOT NULL,
+    isRevoked BOOLEAN NOT NULL DEFAULT FALSE
 );
 -- the clock dont stop, the clock dont stop, the clock dont stop, the clock dont stop
 CREATE TABLE bank
@@ -131,7 +149,10 @@ CREATE TABLE bank
     bankid INT PRIMARY KEY,
     accountid INT NOT NULL REFERENCES accounts(accountid),
     accountName varchar(50) NOT NULL,
-    balance NUMERIC NOT NULL CHECK (balance >= 0)
+    routing_number varchar(9) NOT NULL,
+    account_number varchar(17) NOT NULL,
+    balance NUMERIC NOT NULL CHECK (balance >= 0),
+    CONSTRAINT uq_bank_account_details UNIQUE (accountid, routing_number, account_number)
 );
 --evil money you can sell your soul for a little change - "Acid Souljah"
 CREATE table bank_movement

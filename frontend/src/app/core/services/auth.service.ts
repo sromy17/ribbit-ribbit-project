@@ -6,6 +6,8 @@ import { RegisterRequest } from './api.service';
 export interface User {
   id: string;
   username: string;
+  firstName: string;
+  lastName: string;
   role: 'investor' | 'admin' | 'analyst';
 }
 
@@ -13,9 +15,11 @@ interface AuthResponse {
   token: string;
   tokenType: string;
   expiresInSeconds: number;
-  refreshToken?: number;
+  refreshToken?: string;
   userId: number;
   username: string;
+  firstName: string;
+  lastName: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -49,6 +53,8 @@ export class AuthService {
         const user = {
           id: String(response.userId),
           username: response.username,
+          firstName: response.firstName,
+          lastName: response.lastName,
           role: 'investor' as const
         };
         this.currentUser.next(user);
@@ -61,7 +67,7 @@ export class AuthService {
   refreshSession(): Observable<AuthResponse> {
     const refreshToken = localStorage.getItem('refreshToken');
     return this.http.post<AuthResponse>('/auth/refresh', {
-      refreshToken: Number(refreshToken)
+      refreshToken
     }).pipe(
       tap((response) => {
         this.storeTokens(response);
@@ -74,8 +80,18 @@ export class AuthService {
     this.sessionWarning.next(false);
   }
 
-  register(request: RegisterRequest): Observable<{ userId: number; username: string }> {
-    return this.http.post<{ userId: number; username: string }>('/auth/register', request);
+  register(request: RegisterRequest): Observable<{
+    userId: number;
+    username: string;
+    firstName: string;
+    lastName: string;
+  }> {
+    return this.http.post<{
+      userId: number;
+      username: string;
+      firstName: string;
+      lastName: string;
+    }>('/auth/register', request);
   }
 
   logout(): void {
