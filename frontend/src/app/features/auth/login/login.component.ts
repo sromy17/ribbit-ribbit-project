@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -18,13 +18,24 @@ export class LoginComponent {
   error = '';
   loading = false;
 
-  constructor(public auth: AuthService, public router: Router) {}
+  constructor(
+    public auth: AuthService,
+    public router: Router,
+    private changeDetector: ChangeDetectorRef
+  ) {}
 
-  login() {
-    this.loading = true;
+  login(): void {
     this.error = '';
+    const username = this.username.trim();
 
-    this.auth.login(this.username, this.password, this.staffLogin).subscribe({
+    if (!username || !this.password) {
+      this.error = 'Username and password are required';
+      return;
+    }
+
+    this.loading = true;
+
+    this.auth.login(username, this.password).subscribe({
       next: (user) => {
         const destination = user.role === 'admin' ? '/admin-dashboard' : user.role === 'analyst' ? '/analyst-dashboard' : '/accounts';
         this.router.navigate([destination]);
@@ -32,9 +43,11 @@ export class LoginComponent {
       error: () => {
         this.error = 'Invalid credentials';
         this.loading = false;
+        this.changeDetector.detectChanges();
       },
       complete: () => {
         this.loading = false;
+        this.changeDetector.detectChanges();
       }
     });
   }

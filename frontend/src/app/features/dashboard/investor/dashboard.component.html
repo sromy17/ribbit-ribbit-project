@@ -160,7 +160,7 @@
             <div class="form-group">
               <div class="form-field">
                 <label>Side</label>
-                <select [(ngModel)]="orderForm.side" [disabled]="loading">
+                <select [(ngModel)]="orderForm.side" (ngModelChange)="onOrderFormChange()" [disabled]="loading">
                   <option>BUY</option>
                   <option>SELL</option>
                 </select>
@@ -176,6 +176,7 @@
                   inputmode="numeric"
                   (keydown)="blockInvalidNumberKey($event, false)"
                   (paste)="sanitizeNumberPaste($event, false)"
+                  (ngModelChange)="onOrderFormChange()"
                   [disabled]="loading" />
                 <span class="error-text" *ngIf="orderFormErrors['quantity']">{{ orderFormErrors['quantity'] }}</span>
               </div>

@@ -25,6 +25,10 @@ export class RegisterComponent {
       this.error = 'Username and password are required';
       return;
     }
+    if (this.password.length < 12) {
+      this.error = 'Password must be at least 12 characters';
+      return;
+    }
 
     this.loading = true;
     this.auth.register({ username: this.username.trim(), password: this.password }).subscribe({

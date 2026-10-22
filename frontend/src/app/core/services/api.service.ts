@@ -88,7 +88,6 @@ export interface RegisterRequest {
 export interface CreateAccountRequest {
   userId: number;
   accountType: string;
-  initialCashBalance: number;
 }
 
 export interface LoginResponse {
