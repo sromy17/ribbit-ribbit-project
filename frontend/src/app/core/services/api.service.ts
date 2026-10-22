@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, map } from 'rxjs';
+import { Observable, of, map, tap } from 'rxjs';
 import { delay } from 'rxjs/operators';
 
 // Component -> ApiService -> HttpClient -> API
@@ -155,6 +155,7 @@ export interface MarketInstrument {
 export class ApiService {
   private apiUrl = '/api';
   private useMockData = false;
+  private readonly marketQuoteCache = new Map<string, { symbol: string; price: number; change?: number; changePercent?: number }>();
 
   constructor(private http: HttpClient) {}
 
@@ -226,6 +227,23 @@ export class ApiService {
 
   getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number }> {
     return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number }>(`/api/market/quotes/${encodeURIComponent(symbol)}`);
+  }
+
+  getMarketQuotes(symbols: string[]): Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number }>> {
+    const normalizedSymbols = [...new Set(symbols.map((symbol) => symbol.toUpperCase()))];
+    const cachedQuotes = normalizedSymbols
+      .map((symbol) => this.marketQuoteCache.get(symbol))
+      .filter((quote): quote is { symbol: string; price: number; change?: number; changePercent?: number } => !!quote);
+    if (cachedQuotes.length === normalizedSymbols.length) {
+      return of(cachedQuotes);
+    }
+
+    return this.http.get<Array<{ symbol: string; price: number; change?: number; changePercent?: number }>>(
+      `${this.apiUrl}/market/quotes`,
+      { params: { symbols: normalizedSymbols.join(',') } }
+    ).pipe(
+      tap((quotes) => quotes.forEach((quote) => this.marketQuoteCache.set(quote.symbol.toUpperCase(), quote)))
+    );
   }
 
   getMarketInstruments(): Observable<{ symbols: MarketInstrument[] }> {

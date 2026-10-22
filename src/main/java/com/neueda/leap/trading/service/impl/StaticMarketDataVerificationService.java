@@ -3,6 +3,8 @@ package com.neueda.leap.trading.service.impl;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Locale;
+import java.util.List;
+import java.util.ArrayList;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import com.neueda.leap.trading.domain.Order;
 
@@ -134,7 +137,64 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
             QuoteData data = response.data();
             return new MarketQuote(symbol, data.price(), data.change(), data.changePercent());
         } catch (RestClientResponseException ex) {
-            throw new IllegalStateException(extractErrorMessage(ex), ex);
+            String message = extractErrorMessage(ex);
+            log.warn("Fauxnance quote request failed for {} with HTTP {}: {}", symbol, ex.getStatusCode().value(), message);
+            throw new IllegalStateException(
+                "Market data provider returned HTTP " + ex.getStatusCode().value() + " for " + symbol,
+                ex
+            );
+        }
+    }
+
+    @Override
+    public List<MarketQuote> getQuotes(List<String> tickers) {
+        if (tickers == null || tickers.isEmpty() || tickers.size() > 25) {
+            throw new IllegalArgumentException("Between 1 and 25 tickers are required");
+        }
+
+        String symbols = tickers.stream()
+            .filter(ticker -> ticker != null && !ticker.isBlank())
+            .map(ticker -> ticker.trim().toUpperCase(Locale.ROOT))
+            .distinct()
+            .reduce((left, right) -> left + "," + right)
+            .orElseThrow(() -> new IllegalArgumentException("At least one ticker is required"));
+
+        try {
+            JsonNode response = restClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/quotes").queryParam("symbols", symbols).build())
+                .headers(headers -> {
+                    if (apiKey != null && !apiKey.isBlank()) {
+                        headers.set("X-Api-Key", apiKey);
+                    }
+                })
+                .retrieve()
+                .body(JsonNode.class);
+
+            List<MarketQuote> quotes = new ArrayList<>();
+            JsonNode items = response == null ? null : response.path("data").path("quotes");
+            if (items == null || !items.isArray()) {
+                throw new IllegalStateException("Market data API returned no quote list");
+            }
+            for (JsonNode item : items) {
+                JsonNode quote = item.path("quote");
+                if (!quote.isObject() || quote.path("price").isMissingNode()) {
+                    continue;
+                }
+                quotes.add(new MarketQuote(
+                    quote.path("symbol").asText(item.path("symbol").asText()),
+                    quote.path("price").decimalValue(),
+                    quote.path("change").isNull() ? null : quote.path("change").decimalValue(),
+                    quote.path("changePercent").isNull() ? null : quote.path("changePercent").decimalValue()
+                ));
+            }
+            return quotes;
+        } catch (RestClientResponseException ex) {
+            String message = extractErrorMessage(ex);
+            log.warn("Fauxnance batch quote request failed with HTTP {}: {}", ex.getStatusCode().value(), message);
+            throw new IllegalStateException(
+                "Market data provider returned HTTP " + ex.getStatusCode().value(),
+                ex
+            );
         }
     }
 

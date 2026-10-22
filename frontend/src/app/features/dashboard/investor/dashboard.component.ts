@@ -2,9 +2,13 @@ import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, from, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { concatMap, toArray } from 'rxjs/operators';
 import { AuthService, User } from '../../../core/services/auth.service';
 import { ApiService, Holding, MarketInstrument, Order, Trade, SymbolTrend, TradingAccount } from '../../../core/services/api.service';
+import { HeatmapStock, StockHeatmapComponent } from '../../../shared/heatmap/stock-heatmap.component';
+import { FinnhubNewsArticle, FinnhubNewsCategory, FinnhubNewsService } from '../../../core/services/finnhub-news.service';
 
 interface WalletBankAccount {
   id: number;
@@ -24,12 +28,12 @@ interface WalletActivity {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, StockHeatmapComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  activeView: 'portfolio' | 'trade' | 'history' | 'wallet' | 'help' = 'portfolio';
+  activeView: 'portfolio' | 'trade' | 'history' | 'wallet' | 'graphs' | 'news' | 'help' = 'portfolio';
   accountTypeLabel = 'Trading Account';
   currentUser: User | null = null;
   currentRole: string = '';
@@ -54,6 +58,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   orders: Order[] = [];
   symbolTrends: SymbolTrend[] = [];
   marketInstruments: MarketInstrument[] = [];
+  marketStocks: HeatmapStock[] = [];
+  loadingMarketHeatmap = false;
+  marketHeatmapError = '';
   loadingInstrumentCatalog = false;
   instrumentCatalogError = '';
   bankAccounts: WalletBankAccount[] = [];
@@ -83,12 +90,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private readonly feeRate = 0.001;
   private readonly minFee = 1;
   private readonly destroy$ = new Subject<void>();
+  newsArticles: FinnhubNewsArticle[] = [];
+  newsCategory: FinnhubNewsCategory = 'general';
+  newsSearch = '';
+  loadingNews = false;
+  newsError = '';
+  private newsLoaded = false;
+  readonly skeletonBlocks = Array.from({ length: 8 });
 
   constructor(
     private auth: AuthService,
     private router: Router,
     private route: ActivatedRoute,
     private api: ApiService,
+    private finnhubNews: FinnhubNewsService,
     private cdr: ChangeDetectorRef
   ) {
     this.currentUser = this.auth.getUser();
@@ -118,7 +133,77 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.loadAccountDetails();
       this.loadAccounts();
       this.loadDashboardData();
+      this.loadMarketHeatmap();
     });
+  }
+
+  loadMarketHeatmap(): void {
+    this.loadingMarketHeatmap = true;
+    this.marketHeatmapError = '';
+    this.api.getMarketInstruments().subscribe({
+      next: ({ symbols }) => {
+        const instruments = symbols.slice(0, 100);
+        const batches = this.chunk(instruments, 25);
+        from(batches).pipe(
+          concatMap((batch) =>
+            this.api.getMarketQuotes(batch.map((instrument) => instrument.symbol)).pipe(
+              catchError((error) => {
+                console.warn('Skipping unavailable market-data batch:', error);
+                return of([]);
+              })
+            )
+          ),
+          toArray()
+        ).subscribe({
+          next: (responses) => {
+            const bySymbol = new Map(responses.flat().map((quote) => [quote.symbol, quote]));
+            this.marketStocks = instruments.reduce<HeatmapStock[]>((stocks, instrument) => {
+              const quote = bySymbol.get(instrument.symbol);
+              const stock = this.toHeatmapStock(instrument, quote);
+              if (stock) {
+                stocks.push(stock);
+              }
+              return stocks;
+            }, []);
+            this.loadingMarketHeatmap = false;
+            this.cdr.detectChanges();
+          },
+          error: (error) => this.handleMarketHeatmapError(error)
+        });
+      },
+      error: (error) => this.handleMarketHeatmapError(error)
+    });
+  }
+
+  private handleMarketHeatmapError(error: unknown): void {
+    console.error('Error loading market heatmap:', error);
+    this.marketHeatmapError = 'Market data is temporarily unavailable.';
+    this.loadingMarketHeatmap = false;
+    this.cdr.detectChanges();
+  }
+
+  private toHeatmapStock(
+    instrument: MarketInstrument,
+    quote?: { symbol: string; price: number; change?: number; changePercent?: number }
+  ): HeatmapStock | null {
+    if (!quote || !Number.isFinite(quote.price) || quote.price <= 0) {
+      return null;
+    }
+    return {
+      ticker: instrument.symbol,
+      companyName: instrument.name,
+      currentPrice: quote.price,
+      dailyChange: quote.changePercent ?? 0,
+      sector: instrument.type,
+    };
+  }
+
+  private chunk<T>(items: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let index = 0; index < items.length; index += size) {
+      chunks.push(items.slice(index, index + size));
+    }
+    return chunks;
   }
 
   backToAccounts(): void {
@@ -276,7 +361,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error loading quote:', err);
-        this.quoteError = 'Price unavailable';
+        this.quoteError = err?.status === 503
+          ? 'Market data provider is temporarily unavailable'
+          : 'Unable to load the market price';
         this.loadingQuote = false;
         this.cdr.detectChanges();
       }
@@ -313,8 +400,107 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.setView('portfolio');
   }
 
-  setView(view: 'portfolio' | 'trade' | 'history' | 'wallet' | 'help'): void {
+  setView(view: 'portfolio' | 'trade' | 'history' | 'wallet' | 'graphs' | 'news' | 'help'): void {
     this.activeView = view;
+    if (view === 'news' && !this.newsLoaded) {
+      this.loadNews();
+    }
+  }
+
+  getUserDisplayName(): string {
+    const username = this.currentUser?.username?.trim() || '';
+    const parts = username.split(/[._-]+/).filter(Boolean);
+    return parts.length > 1
+      ? parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+      : username || 'Trader';
+  }
+
+  getUserInitials(): string {
+    return this.getUserDisplayName().split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+  }
+
+  loadNews(): void {
+    this.loadingNews = true;
+    this.newsError = '';
+    this.finnhubNews.getMarketNews(this.newsCategory).subscribe({
+      next: (articles) => {
+        this.newsArticles = articles;
+        this.newsLoaded = true;
+        this.loadingNews = false;
+      },
+      error: (error) => {
+        console.error('Error loading Finnhub news:', error);
+        this.newsError = 'Live news is temporarily unavailable. Please try again shortly.';
+        this.loadingNews = false;
+      }
+    });
+  }
+
+  setNewsCategory(category: FinnhubNewsCategory): void {
+    this.newsCategory = category;
+    this.loadNews();
+  }
+
+  searchNews(): void {
+    const symbol = this.newsSearch.trim().toUpperCase();
+    if (!symbol) {
+      this.loadNews();
+      return;
+    }
+    if (!/^[A-Z]{1,5}$/.test(symbol)) {
+      this.newsError = 'Enter a valid ticker such as AAPL, NVDA, or TSLA.';
+      return;
+    }
+
+    const today = new Date();
+    const fromDate = new Date(today);
+    fromDate.setDate(today.getDate() - 7);
+    this.loadingNews = true;
+    this.newsError = '';
+    this.finnhubNews.getCompanyNews(symbol, this.toNewsDate(fromDate), this.toNewsDate(today)).subscribe({
+      next: (articles) => {
+        this.newsArticles = articles;
+        this.loadingNews = false;
+      },
+      error: (error) => {
+        console.error(`Error loading Finnhub news for ${symbol}:`, error);
+        this.newsError = `News for ${symbol} is temporarily unavailable.`;
+        this.loadingNews = false;
+      }
+    });
+  }
+
+  get filteredNewsArticles(): FinnhubNewsArticle[] {
+    const query = this.newsSearch.trim().toUpperCase();
+    if (!query) {
+      return this.newsArticles;
+    }
+    return this.newsArticles.filter((article) =>
+      article.headline.toUpperCase().includes(query) ||
+      article.summary.toUpperCase().includes(query) ||
+      (article.related ?? '').toUpperCase().split(',').includes(query)
+    );
+  }
+
+  getArticleTickers(article: FinnhubNewsArticle): string[] {
+    return (article.related ?? '').split(',').map((ticker) => ticker.trim().toUpperCase()).filter(Boolean).slice(0, 4);
+  }
+
+  getTimeAgo(timestamp: number): string {
+    const minutes = Math.max(0, Math.floor((Date.now() - timestamp * 1000) / 60000));
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  }
+
+  openNewsTicker(ticker: string): void {
+    this.setView('trade');
+    this.selectTicker(ticker);
+  }
+
+  private toNewsDate(date: Date): string {
+    return date.toISOString().slice(0, 10);
   }
 
   openBankAccountModal(): void {

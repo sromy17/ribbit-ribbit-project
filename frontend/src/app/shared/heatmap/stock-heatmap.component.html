@@ -1,0 +1,91 @@
+<div class="heatmap-shell">
+  <div class="heatmap-toolbar">
+    <span class="heatmap-count">Top {{ tiles.length }} stocks</span>
+    <span class="heatmap-subtitle">Weighted market mosaic</span>
+  </div>
+
+  <div class="heatmap-skeleton" *ngIf="loading && tiles.length === 0" aria-label="Loading market heatmap">
+    <span *ngFor="let block of skeletonBlocks"></span>
+  </div>
+
+  <div class="heatmap-treemap" *ngIf="!loading && tiles.length > 0; else emptyState" aria-label="Top 50 stock market heatmap">
+    <article
+      *ngFor="let tile of tiles; trackBy: trackByTicker"
+      class="tile"
+      [class.tile-large]="tile.textMode === 'large'"
+      [class.tile-medium]="tile.textMode === 'medium'"
+      [class.tile-small]="tile.textMode === 'small'"
+      [class.tile-micro]="tile.textMode === 'micro'"
+      [style.background-color]="tile.color"
+      [style.left.%]="tile.left / layoutWidth * 100"
+      [style.top.%]="tile.top / layoutHeight * 100"
+      [style.width.%]="tile.width / layoutWidth * 100"
+      [style.height.%]="tile.height / layoutHeight * 100"
+      tabindex="0"
+      [attr.aria-label]="tile.ticker + ' ' + formatChange(tile.dailyChange)"
+      (click)="selectStock(tile)"
+      (keydown.enter)="selectStock(tile)"
+      (keydown.space)="selectStock(tile); $event.preventDefault()"
+    >
+      <div class="tile-header" aria-hidden="true">
+        <img
+          *ngIf="getLogoUrl(tile.ticker) && !hiddenLogos.has(tile.ticker)"
+          class="company-logo"
+          [class.company-logo-large]="tile.textMode === 'large' || tile.textMode === 'medium'"
+          [class.company-logo-compact]="tile.textMode === 'small' || tile.textMode === 'micro'"
+          [src]="getLogoUrl(tile.ticker)!"
+          [alt]="tile.companyName + ' logo'"
+          (error)="hideLogo(tile.ticker)"
+        />
+        <span
+          *ngIf="!getLogoUrl(tile.ticker) || hiddenLogos.has(tile.ticker)"
+          class="logo-avatar"
+          [class.logo-avatar-compact]="tile.textMode === 'small' || tile.textMode === 'micro'">{{ getInitials(tile.ticker) }}</span>
+      </div>
+      <div class="tile-content">
+        <strong class="ticker" [class.ticker-centered]="tile.textMode === 'micro'">{{ tile.ticker }}</strong>
+        <span class="change" *ngIf="tile.textMode === 'large' || tile.textMode === 'medium' || tile.textMode === 'small'">{{ formatChange(tile.dailyChange) }}</span>
+        <span class="price" *ngIf="tile.textMode === 'large'">${{ tile.currentPrice | number: '1.2-2' }}</span>
+      </div>
+      <div class="tooltip" role="tooltip">
+        <strong>{{ tile.companyName }}</strong>
+        <span>{{ tile.ticker }}</span>
+        <span>Price: ${{ tile.currentPrice | number: '1.2-2' }}</span>
+        <span *ngIf="tile.marketCap">Market cap: ${{ tile.marketCap | number: '1.0-0' }}</span>
+        <span>Change: {{ formatChange(tile.dailyChange) }}</span>
+        <span *ngIf="tile.volume">Volume: {{ tile.volume | number }}</span>
+        <span *ngIf="tile.sector">Sector: {{ tile.sector }}</span>
+      </div>
+    </article>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="empty-state" *ngIf="!loading">Market data is unavailable.</div>
+  </ng-template>
+
+  <aside class="details-drawer" *ngIf="selectedStock as stock" aria-label="Stock details">
+    <button class="close-button" type="button" (click)="closeDetails()" aria-label="Close stock details">×</button>
+    <span class="drawer-sector">{{ stock.sector || 'Market' }}</span>
+    <h3>{{ stock.ticker }}</h3>
+    <p>{{ stock.companyName }}</p>
+    <div class="drawer-change" [style.color]="getHeatmapColor(stock.dailyChange)">{{ formatChange(stock.dailyChange) }}</div>
+    <dl>
+      <div><dt>Price</dt><dd>${{ stock.currentPrice | number: '1.2-2' }}</dd></div>
+      <div *ngIf="stock.marketCap"><dt>Market cap</dt><dd>${{ stock.marketCap | number: '1.0-0' }}</dd></div>
+      <div *ngIf="stock.volume"><dt>Volume</dt><dd>{{ stock.volume | number }}</dd></div>
+      <div *ngIf="stock.low !== undefined && stock.high !== undefined">
+        <dt>Day range</dt><dd>${{ stock.low | number: '1.2-2' }} - ${{ stock.high | number: '1.2-2' }}</dd>
+      </div>
+    </dl>
+    <section class="drawer-news" aria-label="Recent company news">
+      <h4>Recent News</h4>
+      <div *ngIf="loadingCompanyNews" class="drawer-news-loading">Loading company news...</div>
+      <p *ngIf="companyNewsError" class="drawer-news-error">{{ companyNewsError }}</p>
+      <p *ngIf="!loadingCompanyNews && !companyNewsError && companyNews.length === 0" class="drawer-news-empty">No recent company news found.</p>
+      <a *ngFor="let article of companyNews" [href]="article.url" target="_blank" rel="noopener noreferrer">
+        <strong>{{ article.headline }}</strong>
+        <span>{{ article.source }} · {{ getCompanyNewsTime(article.datetime) }}</span>
+      </a>
+    </section>
+  </aside>
+</div>

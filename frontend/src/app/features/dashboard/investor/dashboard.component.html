@@ -2,7 +2,7 @@
   <div class="header-content">
     <div class="brand-lockup" aria-label="Leap Trader Pro">
       <span class="brand-mark" aria-hidden="true">L</span>
-      <span class="brand-name">Leap Trader <strong>Pro</strong></span>
+      <span class="brand-name">Leap Trader <strong class="brand-pro-badge">PRO</strong></span>
     </div>
     <div class="header-actions">
       <div class="account-switcher">
@@ -70,7 +70,17 @@
       <button type="button" class="sidebar-button" [class.active]="activeView === 'trade'" (click)="setView('trade')">Trade</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'history'" (click)="setView('history')">History</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'wallet'" (click)="setView('wallet')">Wallet</button>
+      <button type="button" class="sidebar-button" [class.active]="activeView === 'graphs'" (click)="setView('graphs')">Graphs</button>
+      <button type="button" class="sidebar-button" [class.active]="activeView === 'news'" (click)="setView('news')">News</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'help'" (click)="setView('help')">Help</button>
+      <div class="sidebar-user-card">
+        <span class="sidebar-user-avatar">{{ getUserInitials() }}</span>
+        <span class="sidebar-user-copy">
+          <strong>{{ getUserDisplayName() }}</strong>
+          <small>Active account</small>
+        </span>
+        <span class="sidebar-user-chevron" aria-hidden="true">⌄</span>
+      </div>
     </nav>
 
     <div class="account-main">
@@ -338,6 +348,66 @@
         <p>Coming soon.</p>
       </div>
 
+      <div *ngIf="activeView === 'graphs'" class="section full-width market-heatmap-section">
+        <h2>Market Heatmap</h2>
+        <p class="description">Top 50 stocks with balanced rank sizing, corporate logos, and daily performance colors.</p>
+        <div *ngIf="loadingMarketHeatmap" class="loading-indicator">Loading live market data...</div>
+        <div *ngIf="marketHeatmapError" class="error-banner">{{ marketHeatmapError }}</div>
+        <app-stock-heatmap [stocks]="marketStocks" [loading]="loadingMarketHeatmap"></app-stock-heatmap>
+      </div>
+
+      <section *ngIf="activeView === 'news'" class="news-view section full-width" aria-labelledby="news-heading">
+        <div class="news-header">
+          <div>
+            <span class="news-badge">LIVE FINNHUB FEED</span>
+            <h2 id="news-heading">Market News &amp; FinNews Catalysts</h2>
+            <p class="description">Live market headlines, ticker sentiment, and breaking catalysts from Finnhub.</p>
+          </div>
+        </div>
+
+        <div class="news-controls">
+          <div class="news-tabs" role="tablist" aria-label="News categories">
+            <button type="button" [class.active]="newsCategory === 'general'" (click)="setNewsCategory('general')">Top Stories</button>
+            <button type="button" [class.active]="newsCategory === 'technology'" (click)="setNewsCategory('technology')">Technology</button>
+            <button type="button" [class.active]="newsCategory === 'merger'" (click)="setNewsCategory('merger')">Mergers</button>
+            <button type="button" [class.active]="newsCategory === 'crypto'" (click)="setNewsCategory('crypto')">Crypto</button>
+          </div>
+          <form class="news-search" (ngSubmit)="searchNews()">
+            <input name="newsSearch" [(ngModel)]="newsSearch" placeholder="Search ticker (AAPL, NVDA...)" aria-label="Search news by ticker" />
+            <button type="submit">Search</button>
+          </form>
+        </div>
+
+        <div *ngIf="newsError" class="error-banner">{{ newsError }}</div>
+        <div *ngIf="loadingNews" class="news-grid news-grid-skeleton" aria-label="Loading financial news">
+          <article *ngFor="let skeleton of skeletonBlocks" class="news-card-skeleton">
+            <span></span><span></span><span></span><span></span>
+          </article>
+        </div>
+        <div *ngIf="!loadingNews && !newsError && filteredNewsArticles.length > 0" class="news-grid">
+          <article *ngFor="let article of filteredNewsArticles" class="news-card">
+            <div class="news-card-image">
+              <img *ngIf="article.image" [src]="article.image" [alt]="article.headline" (error)="$any($event.target).style.display = 'none'" />
+              <span *ngIf="!article.image">FINNEWS</span>
+            </div>
+            <div class="news-card-body">
+              <div class="news-meta"><span>{{ article.source }}</span><time>{{ getTimeAgo(article.datetime) }}</time></div>
+              <h3>{{ article.headline }}</h3>
+              <p>{{ article.summary || 'Read the latest market context and catalyst details from this source.' }}</p>
+              <div class="news-card-footer">
+                <div class="news-tickers">
+                  <button *ngFor="let ticker of getArticleTickers(article)" type="button" (click)="openNewsTicker(ticker)">${{ ticker }}</button>
+                </div>
+                <a [href]="article.url" target="_blank" rel="noopener noreferrer">Read Full Article ↗</a>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div *ngIf="!loadingNews && !newsError && filteredNewsArticles.length === 0" class="news-empty">
+          No market news matched this filter.
+        </div>
+      </section>
+
       <div *ngIf="showBankAccountModal || showWalletTransactionModal" class="modal-overlay" (click)="closeWalletModal()">
         <div class="modal-box wallet-modal" (click)="$event.stopPropagation()">
           <div class="modal-header">
@@ -430,53 +500,6 @@
 
     </div>
 
-    <!-- Market Heatmap Section -->
-    <div class="section full-width">
-      <h2>Market Trading Heatmap</h2>
-      <p class="description">Treemap view: block size tracks traded volume and color reflects buy/sell pressure.</p>
-      
-      <!-- Heatmap by Sector -->
-      <div class="sectors-container">
-        <div class="sector" *ngFor="let sector of ['Technology', 'Finance', 'Healthcare', 'Energy', 'Other']">
-          <div class="sector-header">{{ sector }}</div>
-          <div class="sector-heatmap">
-            <div
-              *ngFor="let trend of (symbolTrends | slice:0:20)"
-              [hidden]="getSymbolSector(trend.symbol) !== sector"
-              class="heatmap-cell-treemap"
-              [style.background-color]="getHeatmapColor(trend)"
-              [style.flex-grow]="getSizeMultiplier(trend)"
-              [style.flex-basis.px]="getHeatmapCellSize(trend)"
-              [style.min-height.px]="getHeatmapCellSize(trend)"
-              [title]="getHeatmapTitle(trend)"
-            >
-              <div class="cell-symbol">{{ trend.symbol }}</div>
-              <div class="cell-score">{{ trend.popularityScore }}%</div>
-              <div class="cell-volume">{{ trend.totalVolume }} vol</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Legend -->
-      <div class="heatmap-legend">
-        <p class="legend-title">Reading The Map</p>
-        <div class="legend-items">
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #1b5e20"></div>
-            <span>Green = Buy pressure (bullish flow)</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #b71c1c"></div>
-            <span>Red = Sell pressure (bearish flow)</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #6a6a6a"></div>
-            <span>Larger blocks = more traded volume</span>
-          </div>
-        </div>
-      </div>
-    </div>
       </div>
     </div>
   </div>
