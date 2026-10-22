@@ -57,15 +57,16 @@
   </div>
 </header>
 
-<div class="container">
+<div class="container" [class.trading-layout]="currentRole === 'investor'">
   <!-- Loading & Error States -->
-  <div *ngIf="error" class="error-banner">
+  <div *ngIf="error && currentRole !== 'investor'" class="error-banner">
     {{ error }}
   </div>
 
   <!-- INVESTOR DASHBOARD -->
   <div *ngIf="currentRole === 'investor'" class="account-page">
     <nav class="sidebar" aria-label="Trading platform navigation">
+      <div class="sidebar-links">
       <button type="button" class="sidebar-button" [class.active]="activeView === 'portfolio'" (click)="setView('portfolio')">Portfolio</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'trade'" (click)="setView('trade')">Trade</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'history'" (click)="setView('history')">History</button>
@@ -73,18 +74,19 @@
       <button type="button" class="sidebar-button" [class.active]="activeView === 'graphs'" (click)="setView('graphs')">Graphs</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'news'" (click)="setView('news')">News</button>
       <button type="button" class="sidebar-button" [class.active]="activeView === 'help'" (click)="setView('help')">Help</button>
+      </div>
       <div class="sidebar-user-card">
         <span class="sidebar-user-avatar">{{ getUserInitials() }}</span>
         <span class="sidebar-user-copy">
           <strong>{{ getUserDisplayName() }}</strong>
-          <small>Active account</small>
+          <small class="sidebar-session-status"><span aria-hidden="true"></span>Active Session</small>
         </span>
-        <span class="sidebar-user-chevron" aria-hidden="true">⌄</span>
       </div>
     </nav>
 
-    <div class="account-main">
-      <div *ngIf="activeView !== 'wallet'" class="account-toolbar">
+    <div class="account-main" [class.news-active]="activeView === 'news'">
+      <div *ngIf="error" class="error-banner" role="alert">{{ error }}</div>
+      <div *ngIf="activeView !== 'wallet' && activeView !== 'graphs' && activeView !== 'help'" class="account-toolbar">
         <div class="account-title">
           <h1>{{ accountTypeLabel }}</h1>
           <p class="description">Account #{{ accountId }}</p>
@@ -343,17 +345,13 @@
         </div>
       </div>
 
-      <div *ngIf="activeView === 'help'" class="placeholder">
-        <h2>Help</h2>
-        <p>Coming soon.</p>
-      </div>
+      <app-help *ngIf="activeView === 'help'"></app-help>
 
       <div *ngIf="activeView === 'graphs'" class="section full-width market-heatmap-section">
-        <h2>Market Heatmap</h2>
-        <p class="description">Top 50 stocks with balanced rank sizing, corporate logos, and daily performance colors.</p>
+        <h1 class="market-heatmap-title">LEAP Trader Pro Heatmap</h1>
         <div *ngIf="loadingMarketHeatmap" class="loading-indicator">Loading live market data...</div>
         <div *ngIf="marketHeatmapError" class="error-banner">{{ marketHeatmapError }}</div>
-        <app-stock-heatmap [stocks]="marketStocks" [loading]="loadingMarketHeatmap"></app-stock-heatmap>
+        <app-stock-heatmap [stocks]="marketStocks" [loading]="loadingMarketHeatmap" [accountNumber]="accountId"></app-stock-heatmap>
       </div>
 
       <section *ngIf="activeView === 'news'" class="news-view section full-width" aria-labelledby="news-heading">
@@ -368,9 +366,10 @@
         <div class="news-controls">
           <div class="news-tabs" role="tablist" aria-label="News categories">
             <button type="button" [class.active]="newsCategory === 'general'" (click)="setNewsCategory('general')">Top Stories</button>
-            <button type="button" [class.active]="newsCategory === 'technology'" (click)="setNewsCategory('technology')">Technology</button>
-            <button type="button" [class.active]="newsCategory === 'merger'" (click)="setNewsCategory('merger')">Mergers</button>
-            <button type="button" [class.active]="newsCategory === 'crypto'" (click)="setNewsCategory('crypto')">Crypto</button>
+            <button type="button" [class.active]="newsCategory === 'technology'" (click)="setNewsCategory('technology')">Tech &amp; AI</button>
+            <button type="button" [class.active]="newsCategory === 'healthcare'" (click)="setNewsCategory('healthcare')">Healthcare</button>
+            <button type="button" [class.active]="newsCategory === 'finance'" (click)="setNewsCategory('finance')">Finance &amp; Banks</button>
+            <button type="button" [class.active]="newsCategory === 'energy'" (click)="setNewsCategory('energy')">Energy &amp; Oil</button>
           </div>
           <form class="news-search" (ngSubmit)="searchNews()">
             <input name="newsSearch" [(ngModel)]="newsSearch" placeholder="Search ticker (AAPL, NVDA...)" aria-label="Search news by ticker" />
@@ -385,10 +384,13 @@
           </article>
         </div>
         <div *ngIf="!loadingNews && !newsError && filteredNewsArticles.length > 0" class="news-grid">
-          <article *ngFor="let article of filteredNewsArticles" class="news-card">
+          <article *ngFor="let article of filteredNewsArticles; let articleIndex = index" class="news-card">
             <div class="news-card-image">
-              <img *ngIf="article.image" [src]="article.image" [alt]="article.headline" (error)="$any($event.target).style.display = 'none'" />
-              <span *ngIf="!article.image">FINNEWS</span>
+              <img
+                [src]="getNewsImage(article, articleIndex)"
+                [alt]="article.headline"
+                (error)="handleNewsImageError(article)" />
+              <span *ngIf="getArticleTickers(article)[0] as ticker" class="news-image-ticker">${{ ticker }}</span>
             </div>
             <div class="news-card-body">
               <div class="news-meta"><span>{{ article.source }}</span><time>{{ getTimeAgo(article.datetime) }}</time></div>
@@ -468,11 +470,88 @@
       </div>
 
       <div class="section portfolio-chart">
-        <h2>Portfolio Value Over Time</h2>
-        <div class="chart-placeholder">Graph coming soon</div>
+        <div class="portfolio-chart-heading">
+          <div>
+            <h2>Portfolio Balance History</h2>
+            <small>Recorded account snapshots since this browser first observed the account.</small>
+            <small *ngIf="valuationNotice" class="portfolio-valuation-note" [title]="valuationNotice">Estimated valuation · some positions use cost basis</small>
+            <span class="portfolio-chart-summary" [style.color]="getHistoryColor()">
+              {{ formatSignedHistoryValue(getHistoryChange()) }}
+              ({{ getHistoryChangePercent() >= 0 ? '+' : '' }}{{ getHistoryChangePercent() | number: '1.2-2' }}%)
+            </span>
+          </div>
+          <div class="portfolio-range-tabs" role="tablist" aria-label="Portfolio history range">
+            <button
+              *ngFor="let range of portfolioRanges"
+              type="button"
+              [class.active]="portfolioRange === range"
+              (click)="setPortfolioRange(range)">{{ range }}</button>
+          </div>
+        </div>
+        <div class="portfolio-chart-canvas" *ngIf="portfolioHistory.length > 0">
+          <div class="portfolio-price-axis" aria-label="Portfolio value axis">
+            <span *ngFor="let value of historyPriceTicks">${{ value | number: (historyHigh - historyLow < 4 ? '1.2-2' : '1.0-0') }}</span>
+          </div>
+          <div class="portfolio-plot">
+          <svg
+            class="portfolio-history-svg"
+            [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight"
+            preserveAspectRatio="none"
+            role="img"
+            aria-label="Portfolio balance history chart">
+            <defs>
+              <linearGradient id="portfolio-positive-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#22c55e" stop-opacity=".25"></stop>
+                <stop offset="100%" stop-color="#22c55e" stop-opacity="0"></stop>
+              </linearGradient>
+              <linearGradient id="portfolio-negative-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#ef4444" stop-opacity=".25"></stop>
+                <stop offset="100%" stop-color="#ef4444" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+            <g class="portfolio-gridlines">
+              <line *ngFor="let line of [0, 1, 2, 3, 4]" x1="0" [attr.y1]="line * 90" x2="1000" [attr.y2]="line * 90"></line>
+            </g>
+            <path class="portfolio-area" [attr.d]="getPortfolioAreaPath()" [attr.fill]="getHistoryColor() === '#22c55e' ? 'url(#portfolio-positive-fill)' : 'url(#portfolio-negative-fill)'"></path>
+            <path class="portfolio-line" [attr.d]="getPortfolioLinePath()" [style.stroke]="getHistoryColor()"></path>
+            <g *ngIf="hoveredHistoryIndex !== null">
+              <line
+                class="portfolio-crosshair"
+                [attr.x1]="getChartX(hoveredHistoryIndex!)"
+                y1="0"
+                [attr.x2]="getChartX(hoveredHistoryIndex!)"
+                y2="360"></line>
+            </g>
+            <circle
+              *ngFor="let point of portfolioHistory; let index = index"
+              class="portfolio-hover-point"
+              [attr.cx]="getChartX(index)"
+              [attr.cy]="getChartY(point.value)"
+              r="13"
+              (mouseenter)="hoveredHistoryIndex = index"
+              (mouseleave)="hoveredHistoryIndex = null"></circle>
+          </svg>
+          <div
+            *ngIf="hoveredHistoryIndex !== null"
+            class="portfolio-chart-tooltip"
+            [style.left.%]="getChartX(hoveredHistoryIndex!) / chartWidth * 100"
+            [style.top.%]="getChartY(portfolioHistory[hoveredHistoryIndex!].value) / chartHeight * 100">
+            <strong>{{ formatHistoryDate(portfolioHistory[hoveredHistoryIndex!].date) }}</strong>
+            <span>{{ formatHistoryValue(portfolioHistory[hoveredHistoryIndex!].value) }}</span>
+            <small [style.color]="getHistoryColor()">
+              {{ formatSignedHistoryValue(getHistoryChange()) }}
+              ({{ getHistoryChangePercent() >= 0 ? '+' : '' }}{{ getHistoryChangePercent() | number: '1.2-2' }}%)
+            </small>
+          </div>
+          </div>
+          <div class="portfolio-date-axis" aria-label="History date axis">
+            <span *ngFor="let date of historyDateTicks">{{ date }}</span>
+          </div>
+        </div>
       </div>
 
       <div class="section">
+        <app-asset-allocation [state]="accountState"></app-asset-allocation>
         <h2>Holdings</h2>
         <div *ngIf="loadingHoldings" class="loading-indicator">Loading holdings...</div>
         <div *ngIf="!loadingHoldings && portfolio.holdings.length === 0" class="empty-state">
