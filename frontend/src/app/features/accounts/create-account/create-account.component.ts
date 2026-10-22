@@ -1,3 +1,4 @@
+import { UI_COMPONENTS } from '../../../shared/ui';
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -8,7 +9,7 @@ import { AuthService } from '../../../core/services/auth.service';
 @Component({
   selector: 'app-create-account',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [...UI_COMPONENTS, CommonModule, FormsModule],
   templateUrl: './create-account.component.html',
   styleUrls: ['./create-account.component.css']
 })

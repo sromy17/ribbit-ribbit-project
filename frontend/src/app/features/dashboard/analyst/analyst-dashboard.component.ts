@@ -1,3 +1,4 @@
+import { UI_COMPONENTS } from '../../../shared/ui';
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -7,7 +8,7 @@ import { ApiService, SymbolTrend, MarketTrend } from '../../../core/services/api
 @Component({
   selector: 'app-analyst-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [...UI_COMPONENTS, CommonModule],
   templateUrl: './analyst-dashboard.component.html',
   styleUrls: ['./analyst-dashboard.component.css']
 })

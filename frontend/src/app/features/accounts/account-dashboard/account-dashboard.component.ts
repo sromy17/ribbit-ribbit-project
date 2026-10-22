@@ -1,3 +1,4 @@
+import { UI_COMPONENTS } from '../../../shared/ui';
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -7,7 +8,7 @@ import { ApiService, TradingAccount } from '../../../core/services/api.service';
 @Component({
   selector: 'app-account-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [...UI_COMPONENTS, CommonModule],
   templateUrl: './account-dashboard.component.html',
   styleUrls: ['./account-dashboard.component.css']
 })

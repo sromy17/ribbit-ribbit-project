@@ -1,45 +1,83 @@
-<div class="login-container">
-  <div class="login-box">
-    <div class="brand-lockup" aria-label="Leap Trader Pro">
-      <span class="brand-mark" aria-hidden="true">L</span>
-      <span class="brand-name">Leap Trader <strong>Pro</strong></span>
+<div class="auth-page">
+  <aside class="auth-story">
+    <app-brand />
+    <div>
+      <p class="eyebrow">Your next move starts here</p>
+      <h1 class="mt-5">A clearer view.<br /><span class="text-brand">A better trade.</span></h1>
+      <div class="auth-accent"></div>
+      <p>Your accounts, market activity, and trading tools in one considered workspace.</p>
+      <div class="mt-10 grid max-w-md grid-cols-2 gap-6">
+        <div class="border-t border-line pt-4">
+          <span class="text-xs font-medium text-ink">Stay informed</span>
+          <p class="!mt-2 !text-xs">Positions and order history, together.</p>
+        </div>
+        <div class="border-t border-line pt-4">
+          <span class="text-xs font-medium text-ink">Stay in control</span>
+          <p class="!mt-2 !text-xs">Dedicated investor and staff workspaces.</p>
+        </div>
+      </div>
     </div>
-    <p class="subtitle">Institutional trading workspace</p>
-
-    <form (ngSubmit)="login()" novalidate>
-      <div class="form-group">
-        <label>Username</label>
-        <input 
-          type="text" 
-          [(ngModel)]="username" 
-          name="username"
-          placeholder="investor@test.com"
-          required 
-        />
-      </div>
-
-      <div class="form-group">
-        <label>Password</label>
-        <input 
-          type="password" 
-          [(ngModel)]="password" 
-          name="password"
-          placeholder="password"
-          required 
-        />
-      </div>
-
-      <label><input type="checkbox" name="staffLogin" [(ngModel)]="staffLogin"> Staff sign-in</label>
-      <div *ngIf="error" class="error">{{ error }}</div>
-
-      <button type="submit" [disabled]="loading" class="btn-login">
-        {{ loading ? 'Signing in...' : 'Sign In' }}
-      </button>
-
-      <button type="button" class="btn-secondary" (click)="router.navigate(['/register'])">
+    <div class="auth-story-foot">
+      <span class="size-1.5 rounded-full bg-brand"></span> Leap Trader Pro
+      <span class="ml-auto">Built around your next move.</span>
+    </div>
+  </aside>
+  <main class="auth-content">
+    <div class="auth-card">
+      <div class="mb-10 lg:hidden"><app-brand /></div>
+      <p class="eyebrow mb-3">Welcome back</p>
+      <h1>Sign in to your workspace</h1>
+      <p class="description">Enter your details to continue.</p>
+      <form (ngSubmit)="login()" novalidate>
+        <div class="form-group">
+          <label for="login-username">Username</label
+          ><input
+            uiInput
+            id="login-username"
+            type="text"
+            [(ngModel)]="username"
+            name="username"
+            placeholder="Your username"
+            autocomplete="username"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label
+          ><input
+            uiInput
+            id="login-password"
+            type="password"
+            [(ngModel)]="password"
+            name="password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+        <div class="rounded-lg border border-line bg-panel p-4">
+          <label class="checkbox-row"
+            ><input type="checkbox" name="staffLogin" [(ngModel)]="staffLogin" />Staff
+            sign-in</label
+          >
+          <p class="mt-2 pl-6 text-xs">
+            Use your assigned staff account for administration or reporting.
+          </p>
+        </div>
+        <div *ngIf="error" class="error" role="alert">{{ error }}</div>
+        <button uiButton="primary" type="submit" [disabled]="loading">
+          {{ loading ? 'Signing in…' : 'Sign in'
+          }}<span *ngIf="!loading" aria-hidden="true">→</span>
+        </button>
+      </form>
+      <div class="auth-divider"></div>
+      <p class="mb-4 text-center text-xs">New to Leap Trader?</p>
+      <button uiButton type="button" (click)="router.navigate(['/register'])">
         Create a user profile
       </button>
-    </form>
-
-  </div>
+      <p class="mt-8 text-center text-[11px]">
+        Your access is determined by your account permissions.
+      </p>
+    </div>
+  </main>
 </div>

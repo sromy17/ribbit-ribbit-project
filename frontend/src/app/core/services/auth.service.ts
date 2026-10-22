@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, map, tap, switchMap, of } from 'rxjs';
+import { BehaviorSubject, Subject, Observable, map, tap, switchMap, of } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { RegisterRequest } from './api.service';
 

@@ -1,3 +1,4 @@
+import { UI_COMPONENTS } from '../../../shared/ui';
 import { Component, OnDestroy, OnInit, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -8,7 +9,7 @@ import { ApiService, AdminOrder, DisputeCase, TradingAccount, ReportingStatus } 
 
 type Row = Record<string, any>;
 @Component({
-  selector: 'app-admin-dashboard', changeDetection: ChangeDetectionStrategy.Default, standalone: true, imports: [CommonModule, FormsModule],
+  selector: 'app-admin-dashboard', changeDetection: ChangeDetectionStrategy.Default, standalone: true, imports: [...UI_COMPONENTS, CommonModule, FormsModule],
   templateUrl: './admin-dashboard.component.html', styleUrls: ['./admin-dashboard.component.css']
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
@@ -100,6 +101,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (!this.accountId) return;
     this.historyPage = page; this.history = null; this.historyLoading = true;
     this.run('history', this.api.accountHistory(this.accountId, this.historyKind, page), result => { this.history = result; this.historyLoading = false; });
+  }
+  columnLabel(key: string): string {
+    const labels: Record<string, string> = {requestid: 'Order', ticker: 'Symbol', side: 'Side', quantity: 'Quantity', bidprice: 'Order price', status: 'Status', created_at_utc: 'Created (UTC)', executeid: 'Fill', quantity_executed: 'Executed quantity', askprice: 'Execution price', fee: 'Fee', executed_at_utc: 'Executed (UTC)', holdingid: 'Holding', average_cost: 'Average cost', as_of_date: 'As of date', movement_id: 'Movement', order_id: 'Order', amount: 'Amount', currency: 'Currency', movement_type: 'Type', occurred_at_utc: 'Recorded (UTC)'};
+    return labels[key] || key.replaceAll('_', ' ');
   }
   get historyColumns(): string[] { return this.history?.['items']?.length ? Object.keys(this.history['items'][0]) : []; }
   get visibleCases() { return this.disputes; }
