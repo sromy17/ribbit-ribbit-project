@@ -40,8 +40,8 @@ export class LoginComponent {
           this.router.navigate(['/accounts']);
         }
       },
-      error: () => {
-        this.error = 'Invalid credentials';
+      error: (error) => {
+        this.error = error.error?.message || 'Invalid credentials';
         this.loading = false;
         this.changeDetector.detectChanges();
       },

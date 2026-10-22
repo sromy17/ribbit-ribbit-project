@@ -1,7 +1,7 @@
 package com.neueda.leap.trading.service.impl;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -110,7 +110,7 @@ public class TradingOrderService implements OrderService {
         trade.setOrder(order);
         trade.setExecutionPrice(executionPrice);
         trade.setExecutedQuantity(order.getQuantity());
-        trade.setExecutedAt(LocalDate.now());
+        trade.setExecutedAt(Instant.now());
         trade = tradeRepository.save(trade);
 
         order.setStatus(OrderStatus.EXECUTED);
@@ -156,7 +156,7 @@ public class TradingOrderService implements OrderService {
 
         order.setOrderId(nextOrderId());
         order.setPrice(marketPrice);
-        order.setDateRequested(LocalDate.now());
+        order.setDateRequested(Instant.now());
 
         // Set order status based on validation result
         if (!validation.isValid()) {
@@ -211,7 +211,7 @@ public class TradingOrderService implements OrderService {
         rejection.setRejectId(rejectedOrderRepository.findMaxRejectId() + 1);
         rejection.setRequestId(orderId);
         rejection.setReason(reason == null ? "Order rejected" : reason.substring(0, Math.min(reason.length(), 50)));
-        rejection.setRejectDate(LocalDate.now());
+        rejection.setRejectDate(Instant.now());
         rejectedOrderRepository.save(rejection);
     }
 
@@ -259,7 +259,7 @@ public class TradingOrderService implements OrderService {
 
         boolean isBuy = side == OrderSide.BUY;
         holding.updatePosition(isBuy, quantity, executionPrice);
-        holding.setAsOfDate(LocalDate.now());
+        holding.setAsOfDate(Instant.now());
         holdingRepository.save(holding);
     }
 

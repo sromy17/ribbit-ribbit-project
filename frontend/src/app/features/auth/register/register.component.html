@@ -8,6 +8,16 @@
 
     <form (ngSubmit)="register()">
       <div class="form-group">
+        <label for="firstName">First name</label>
+        <input id="firstName" type="text" [(ngModel)]="firstName" name="firstName" required autocomplete="given-name" />
+      </div>
+
+      <div class="form-group">
+        <label for="lastName">Last name</label>
+        <input id="lastName" type="text" [(ngModel)]="lastName" name="lastName" required autocomplete="family-name" />
+      </div>
+
+      <div class="form-group">
         <label for="username">Username</label>
         <input id="username" type="text" [(ngModel)]="username" name="username" required autocomplete="username" />
       </div>

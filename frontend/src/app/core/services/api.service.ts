@@ -83,11 +83,31 @@ export interface LoginRequest {
 export interface RegisterRequest {
   username: string;
   password: string;
+  firstName: string;
+  lastName: string;
 }
 
 export interface CreateAccountRequest {
   userId: number;
   accountType: string;
+}
+
+export interface WalletBankAccount {
+  bankId: number;
+  accountId: number;
+  accountName: string;
+  routingNumber: string;
+  accountNumber: string;
+  balance: number;
+}
+
+export interface WalletActivity {
+  movementId: number;
+  bankId: number;
+  movementType: 'DEPOSIT' | 'WITHDRAWAL';
+  amount: number;
+  movementDate: string;
+  cashBalance?: number;
 }
 
 export interface LoginResponse {
@@ -195,6 +215,39 @@ export class ApiService {
 
   updateAccountBalance(accountId: string, amount: number): Observable<any> {
     return this.http.put(`${this.apiUrl}/accounts/${accountId}/balance`, { cashBalance: amount });
+  }
+
+  getWalletBanks(accountId: string): Observable<WalletBankAccount[]> {
+    return this.http.get<WalletBankAccount[]>(`${this.apiUrl}/accounts/${accountId}/wallet/banks`);
+  }
+
+  createWalletBank(accountId: string, request: {
+    nickname: string;
+    routingNumber: string;
+    accountNumber: string;
+  }): Observable<WalletBankAccount> {
+    return this.http.post<WalletBankAccount>(
+      `${this.apiUrl}/accounts/${accountId}/wallet/banks`,
+      request
+    );
+  }
+
+  getWalletActivity(accountId: string): Observable<WalletActivity[]> {
+    return this.http.get<WalletActivity[]>(`${this.apiUrl}/accounts/${accountId}/wallet/activity`);
+  }
+
+  depositToWallet(accountId: string, bankId: number, amount: number): Observable<WalletActivity> {
+    return this.http.post<WalletActivity>(
+      `${this.apiUrl}/accounts/${accountId}/wallet/deposit`,
+      { bankId, amount }
+    );
+  }
+
+  withdrawFromWallet(accountId: string, bankId: number, amount: number): Observable<WalletActivity> {
+    return this.http.post<WalletActivity>(
+      `${this.apiUrl}/accounts/${accountId}/wallet/withdraw`,
+      { bankId, amount }
+    );
   }
 
   // Holdings
