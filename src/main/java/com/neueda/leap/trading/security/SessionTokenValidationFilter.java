@@ -2,7 +2,6 @@ package com.neueda.leap.trading.security;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.time.Instant;
 
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -10,6 +9,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import org.jspecify.annotations.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.neueda.leap.trading.domain.AccessToken;
@@ -29,13 +29,17 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
         return "/actuator/health".equals(path) || "/actuator/info".equals(path);
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(
+        @NonNull HttpServletRequest request,
+        @NonNull HttpServletResponse response,
+        @NonNull FilterChain filterChain
+    )
         throws ServletException, IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -51,11 +55,10 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
             return;
         }
 
+        Object uid=jwt.getClaim("uid");
+        if(!(uid instanceof Number)) { reject(response,"Session is invalid"); return; }
         AccessToken accessToken = accessTokenRepository
-            .findByAccessTokenHashAndRevokedFalseAndDateExpiresAfter(
-                TokenHash.sha256(rawToken),
-                Instant.now()
-            )
+            .findValidToken(TokenHash.sha256(rawToken),((Number)uid).intValue(),Instant.now())
             .orElse(null);
         if (accessToken == null) {
             reject(response, "Session is invalid");
@@ -75,4 +78,5 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write("{\"message\":\"" + message + "\"}");
     }
+
 }

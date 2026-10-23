@@ -35,6 +35,12 @@ public class TradingAccount {
 	@Column(name = "availablefunds", nullable = false)
 	private BigDecimal availableFunds;
 
+	@Column(name = "currency", length = 3)
+	private String currency;
+
+	public String getCurrency() { return currency; }
+	public void setCurrency(String value) { currency = value; }
+
 	@Column(name = "creationdate", nullable = false)
 	private Instant creationDate;
 

@@ -31,10 +31,46 @@ public class Trade {
     private BigDecimal executionPrice;
 
     @Column(name = "date_execution", nullable = false)
-    private Instant executedAt;
+    private java.time.LocalDate executedAt;
 
     @Column(name = "quantity_executed", nullable = false)
     private Integer executedQuantity;
+
+    @Column(name = "fee", nullable = false, precision = 30, scale = 10)
+    private BigDecimal fee = BigDecimal.ZERO;
+
+    @Column(name = "executed_at_utc")
+    private java.time.Instant executedAtUtc;
+
+    @Column(name = "execution_currency", length = 3)
+    private String executionCurrency;
+    @Column(name = "fee_currency", length = 3)
+    private String feeCurrency;
+    @Column(name = "quantity_unit", length = 40)
+    private String quantityUnit;
+    @Column(name = "contract_multiplier", precision = 30, scale = 10)
+    private BigDecimal contractMultiplier;
+    @Column(name = "product_convention", length = 80)
+    private String productConvention;
+    @Column(name = "pricing_event_id")
+    private Long pricingEventId;
+    @Column(name = "client_id")
+    private Integer clientId;
+
+    public Integer getClientId() { return clientId; }
+    public void setClientId(Integer value) { clientId = value; }
+    public String getExecutionCurrency() { return executionCurrency; }
+    public void setExecutionCurrency(String value) { executionCurrency = value; }
+    public String getFeeCurrency() { return feeCurrency; }
+    public void setFeeCurrency(String value) { feeCurrency = value; }
+    public String getQuantityUnit() { return quantityUnit; }
+    public void setQuantityUnit(String value) { quantityUnit = value; }
+    public BigDecimal getContractMultiplier() { return contractMultiplier; }
+    public void setContractMultiplier(BigDecimal value) { contractMultiplier = value; }
+    public String getProductConvention() { return productConvention; }
+    public void setProductConvention(String value) { productConvention = value; }
+    public Long getPricingEventId() { return pricingEventId; }
+    public void setPricingEventId(Long value) { pricingEventId = value; }
 
     public Integer getTradeId() {
         return tradeId;
@@ -72,11 +108,11 @@ public class Trade {
         this.executionPrice = executionPrice;
     }
 
-    public Instant getExecutedAt() {
+    public java.time.LocalDate getExecutedAt() {
         return executedAt;
     }
 
-    public void setExecutedAt(Instant executedAt) {
+    public void setExecutedAt(java.time.LocalDate executedAt) {
         this.executedAt = executedAt;
     }
 
@@ -87,4 +123,9 @@ public class Trade {
     public void setExecutedQuantity(Integer executedQuantity) {
         this.executedQuantity = executedQuantity;
     }
+
+    public BigDecimal getFee() { return fee; }
+    public void setFee(BigDecimal fee) { this.fee = fee; }
+    public java.time.Instant getExecutedAtUtc() { return executedAtUtc; }
+    public void setExecutedAtUtc(java.time.Instant executedAtUtc) { this.executedAtUtc = executedAtUtc; }
 }

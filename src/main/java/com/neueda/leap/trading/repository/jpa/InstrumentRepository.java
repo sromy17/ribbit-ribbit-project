@@ -8,4 +8,5 @@ import com.neueda.leap.trading.domain.Instrument;
 
 public interface InstrumentRepository extends JpaRepository<Instrument, Integer> {
 	Optional<Instrument> findByTickerIgnoreCase(String ticker);
+	long countByTickerIgnoreCase(String ticker);
 }

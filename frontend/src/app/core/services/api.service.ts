@@ -140,6 +140,64 @@ export interface PlatformStats {
   topTrader: InvestorInfo;
 }
 
+export interface AdminOrder {
+  requestid: number;
+  accountid: number;
+  instrumentid?: number;
+  side: 'BUY' | 'SELL';
+  quantity_requested: number;
+  bidprice?: number;
+  order_status: string;
+  created_at_utc: string;
+  correlation_id: string;
+  orderId: string;
+  accountId: string;
+  symbol: string;
+  quantity: number;
+  price: number;
+  status: string;
+  dateRequested: string;
+}
+
+export interface AdminOrderPage {
+  items: AdminOrder[];
+  page: number;
+  size: number;
+  total: number;
+  from: string;
+  to: string;
+  asOf?: string;
+}
+
+export interface ReportingStatus {
+  stale?: boolean;
+  ageSeconds?: number;
+  run_id?: string;
+  status: string;
+  source_watermark?: string;
+  started_at?: string;
+  published_at?: string;
+  asOf?: string;
+}
+
+export interface DisputeCase {
+  caseId: number;
+  transactionType: string;
+  transactionReference: string;
+  title: string;
+  reason: string;
+  status: string;
+  customerUserId: number;
+  accountId: number;
+  orderId?: number;
+  feeRelated?: boolean;
+  assignedStaffUserId?: number;
+  resolutionReason?: string;
+  version: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
 // Analyst Dashboard Interfaces
 export interface SymbolTrend {
   symbol: string;
@@ -199,7 +257,7 @@ export class ApiService {
 
   getAccountsForUser(userId: string): Observable<TradingAccount[]> {
     return this.http.get<TradingAccount | TradingAccount[]>(`${this.apiUrl}/accounts/user/${userId}`).pipe(
-      map((response) => Array.isArray(response) ? response : [response])
+      map((response) => (Array.isArray(response) ? response : [response]).map(account => ({...account, accountId: String(account.accountId)})))
     );
   }
 
@@ -308,6 +366,56 @@ export class ApiService {
       return of(this.mockGetAllOrders()).pipe(delay(500));
     }
     return this.http.get<Order[]>(`${this.apiUrl}/admin/orders`);
+  }
+
+  getAdminOrders(from: string, to: string, page = 0, size = 25, status = '', symbol = ''): Observable<AdminOrderPage> {
+    const params: Record<string, string | number> = { from, to, page, size };
+    if (status) params['status'] = status;
+    if (symbol) params['symbol'] = symbol;
+    return this.http.get<AdminOrderPage>(`${this.apiUrl}/admin/orders`, { params: params as any });
+  }
+
+  getAdminReportingStatus(): Observable<ReportingStatus> {
+    return this.http.get<ReportingStatus>(`${this.apiUrl}/admin/reporting/status`);
+  }
+
+  getAdminActivity(from: string, to: string): Observable<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`${this.apiUrl}/admin/reports/trading-activity`, { params: { from, to } });
+  }
+
+  getAdminDisputes(status = ''): Observable<DisputeCase[]> {
+    const params: Record<string, string> = {};
+    if (status) params['status'] = status;
+    return this.http.get<DisputeCase[]>(`${this.apiUrl}/admin/disputes`, { params });
+  }
+
+  claimDispute(caseId: number, version: number): Observable<DisputeCase> {
+    return this.http.post<DisputeCase>(`${this.apiUrl}/admin/disputes/${caseId}/claim`, { expectedVersion: version });
+  }
+
+  getAdminCasePage(status: string, page: number): Observable<{items: DisputeCase[]; total: number; asOf: string}> {
+    return this.http.get<{items: DisputeCase[]; total: number; asOf: string}>(`${this.apiUrl}/admin/disputes/page`, {params: {status, page, size: 25}});
+  }
+  getAdminCase(id: number): Observable<DisputeCase> {
+    return this.http.get<DisputeCase>(`${this.apiUrl}/admin/disputes/${id}`);
+  }
+  getAdminCaseEvents(id: number): Observable<Record<string, any>[]> {
+    return this.http.get<Record<string, any>[]>(`${this.apiUrl}/admin/disputes/${id}/events`);
+  }
+  caseAction(id: number, action: string, body: Record<string, unknown>): Observable<DisputeCase> {
+    return this.http.post<DisputeCase>(`${this.apiUrl}/admin/disputes/${id}/${action}`, body);
+  }
+  investigate(id: number): Observable<Record<string, any>> {
+    return this.http.get<Record<string, any>>(`${this.apiUrl}/admin/investigations/${id}`);
+  }
+  lookupUser(id: number): Observable<{userId: number; username: string}> {
+    return this.http.get<{userId: number; username: string}>(`${this.apiUrl}/admin/users/${id}`);
+  }
+  lookupAccounts(id: number): Observable<TradingAccount[]> {
+    return this.http.get<TradingAccount[]>(`${this.apiUrl}/admin/users/${id}/accounts`);
+  }
+  accountHistory(id: string, kind: string, page: number): Observable<Record<string, any>> {
+    return this.http.get<Record<string, any>>(`${this.apiUrl}/admin/accounts/${id}/history`, {params: {kind, page, size: 25}});
   }
 
   getPlatformStats(): Observable<PlatformStats> {

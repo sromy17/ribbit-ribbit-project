@@ -1,0 +1,33 @@
+flowchart LR
+    subgraph OLTP["ribbit_oltp"]
+        O["orders"]
+        T["trades_executed"]
+        A["accounts"]
+        I["instruments"]
+        H["holdings"]
+    end
+
+    EXEC["Order execution<br/>TradingOrderService.executeOrder()"]
+    UPDATE["Find holding by<br/>account + instrument"]
+    CREATE["If none exists:<br/>create holding with quantity 0"]
+    POSITION["Apply BUY or SELL quantity"]
+    SAVE["Save updated holding"]
+
+    O --> EXEC
+    EXEC --> T
+    EXEC --> UPDATE
+    A --> UPDATE
+    I --> UPDATE
+    UPDATE -->|holding found| POSITION
+    UPDATE -->|no holding found| CREATE
+    CREATE --> POSITION
+    POSITION --> SAVE
+    SAVE --> H
+
+    BUY["BUY: quantity increases"]
+    SELL["SELL: quantity decreases"]
+    POSITION -.-> BUY
+    POSITION -.-> SELL
+
+    ZERO["If quantity reaches 0,<br/>the holding row is deleted"]
+    POSITION -.-> ZERO

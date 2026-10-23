@@ -1,3 +1,4 @@
+import { UI_COMPONENTS } from '../../../shared/ui';
 import { ChangeDetectorRef, Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,12 +8,13 @@ import { AuthService } from '../../../core/services/auth.service';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [...UI_COMPONENTS, CommonModule, FormsModule],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
 export class LoginComponent {
   username = '';
+  staffLogin = false;
   password = '';
   error = '';
   loading = false;
@@ -34,11 +36,10 @@ export class LoginComponent {
 
     this.loading = true;
 
-    this.auth.login(username, this.password).subscribe({
+    this.auth.login(username, this.password, this.staffLogin).subscribe({
       next: (user) => {
-        if (user.role === 'investor') {
-          this.router.navigate(['/accounts']);
-        }
+        const destination = user.role === 'admin' ? '/admin-dashboard' : user.role === 'analyst' ? '/analyst-dashboard' : '/accounts';
+        this.router.navigate([destination]);
       },
       error: (error) => {
         this.error = error.error?.message || 'Invalid credentials';

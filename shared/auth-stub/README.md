@@ -25,6 +25,7 @@ The service starts at `http://localhost:4000` by default.
 - `POST /register`
 - `POST /login`
 - `POST /logout`
+- `POST /refresh`
 - `GET /health`
 
 ### Register
@@ -32,7 +33,9 @@ The service starts at `http://localhost:4000` by default.
 ```json
 {
   "username": "alice",
-  "password": "mission123"
+  "password": "use-a-long-development-password",
+  "firstName": "Alice",
+  "lastName": "Example"
 }
 ```
 
@@ -69,3 +72,5 @@ The stub signs HS256 JWTs with claims:
 - `sub`: username
 - `uid`: numeric user id
 - `roles`: string array
+
+For the combined investor/admin/analytics connection check and disposable test accounts, see [merged dashboard verification](../../documents/merged-dashboard-verification.md).

@@ -18,6 +18,7 @@ import com.neueda.leap.trading.api.dto.ProcessOrderRequest;
 import com.neueda.leap.trading.api.dto.ProcessOrderResponse;
 import com.neueda.leap.trading.domain.Order;
 import com.neueda.leap.trading.service.contract.OrderService;
+import com.neueda.leap.trading.security.AccountAccessService;
 
 import jakarta.validation.Valid;
 
@@ -25,9 +26,11 @@ import jakarta.validation.Valid;
 @RestController
 public class OrderController {
     private final OrderService orderService;
+    private final AccountAccessService accountAccessService;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, AccountAccessService accountAccessService) {
         this.orderService = orderService;
+        this.accountAccessService = accountAccessService;
     }
 
     @PostMapping
@@ -36,13 +39,35 @@ public class OrderController {
         @PathVariable("accountId") Integer accountId,
         @Valid @RequestBody CreateAccountOrderRequest request
     ) {
+        accountAccessService.requireAccountOwner(accountId);
         return orderService.submitOrder(new ProcessOrderRequest(
             accountId,
             request.ticker(),
             request.side(),
             request.quantity(),
-            null
+            null,
+            request.instrumentId()
         ));
+    }
+
+    @PostMapping("/{orderId}/execute")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void executeOrderAsync(
+        @PathVariable("accountId") Integer accountId,
+        @PathVariable("orderId") Integer orderId
+    ) {
+        accountAccessService.requireAccountOwner(accountId);
+        boolean accountOwnsOrder = orderService.getOrders(accountId).stream()
+            .anyMatch(order -> orderId.equals(order.getOrderId()));
+
+        if (!accountOwnsOrder) {
+            throw new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Order not found for account: " + accountId
+            );
+        }
+
+        orderService.enqueueExecution(orderId);
     }
 
     @DeleteMapping("/{orderId}/status")
@@ -51,6 +76,7 @@ public class OrderController {
         @PathVariable("accountId") Integer accountId,
         @PathVariable("orderId") Integer orderId
     ) {
+        accountAccessService.requireAccountOwner(accountId);
         boolean accountOwnsOrder = orderService.getOrders(accountId).stream()
             .anyMatch(order -> orderId.equals(order.getOrderId()));
 
@@ -66,6 +92,7 @@ public class OrderController {
 
     @GetMapping
     public List<Order> getOrdersByAccount(@PathVariable("accountId") Integer accountId) {
+        accountAccessService.requireAccountAccess(accountId, "PERM_ORDER_INVESTIGATION");
         return orderService.getOrders(accountId);
     }
 }

@@ -19,6 +19,7 @@ paths:
   /accounts:
     post:
       summary: Create a trading account
+      description: Optional currency is an explicit three-letter uppercase account currency; omission remains unknown, never USD by default.
   /accounts/{accountId}:
     get:
       summary: Fetch account details
@@ -81,6 +82,34 @@ paths:
             type: string
     post:
       summary: Create an order
+      description: >
+        Provide instrumentId (canonical) or ticker with side and quantity.
+        Ticker-only requests are supported only when unambiguous.
+        When both are supplied they must match. Duplicate tickers require a
+        qualified provider symbol configured against the selected instrument ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [side, quantity]
+              anyOf:
+                - required: [instrumentId]
+                - required: [ticker]
+              properties:
+                instrumentId:
+                  type: integer
+                  minimum: 1
+                ticker:
+                  type: string
+                  minLength: 1
+                side:
+                  type: string
+                  enum: [BUY, SELL]
+                quantity:
+                  type: integer
+                  minimum: 1
   /accounts/{accountId}/trades:
     get:
       summary: View trade history
@@ -105,7 +134,161 @@ paths:
   /logout:
     post:
       summary: Logout
+  /api/analytics/overview:
+    get:
+      summary: Period totals with separate native currencies, fees, cash and submission-cohort rejection rate
+      security:
+        - analyticsBearer: []
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: string, format: date}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date}}
+        - {name: timezone, in: query, schema: {type: string, default: UTC}}
+        - {name: datasetId, in: query, schema: {type: string, format: uuid}}
+        - {name: instrumentId, in: query, schema: {type: integer, minimum: 1}}
+        - {name: side, in: query, schema: {type: string, enum: [BUY, SELL]}}
+        - {name: segment, in: query, schema: {type: string, maxLength: 60}}
+        - {name: page, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+        - {name: sort, in: query, schema: {type: string, enum: [fills, instrument, period, segment], default: fills}}
+        - {name: direction, in: query, schema: {type: string, enum: [asc, desc], default: desc}}
+      responses:
+        '200':
+          description: Pinned OLAP calculation with period, timezone, filters, dataset ID, metric version, source coverage, cutoff, publication time and warnings.
+        '400': {description: Invalid query or date span exceeds 366 days}
+        '401': {description: Sign-in required}
+        '403': {description: Server-side PERM_REPORTING required}
+        '409': {description: Dataset token expired; refresh the analysis}
+        '503': {description: Reporting unavailable or timed out; no OLTP fallback}
+  /api/analytics/activity:
+    get:
+      summary: Daily fill and client activity in the reporting timezone
+      security:
+        - analyticsBearer: []
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: string, format: date}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date}}
+        - {name: timezone, in: query, schema: {type: string, default: UTC}}
+        - {name: datasetId, in: query, schema: {type: string, format: uuid}}
+        - {name: instrumentId, in: query, schema: {type: integer, minimum: 1}}
+        - {name: side, in: query, schema: {type: string, enum: [BUY, SELL]}}
+        - {name: segment, in: query, schema: {type: string, maxLength: 60}}
+        - {name: page, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+        - {name: sort, in: query, schema: {type: string, enum: [fills, instrument, period, segment], default: fills}}
+        - {name: direction, in: query, schema: {type: string, enum: [asc, desc], default: desc}}
+      responses:
+        '200':
+          description: Pinned OLAP calculation with period, timezone, filters, dataset ID, metric version, source coverage, cutoff, publication time and warnings.
+        '400': {description: Invalid query or date span exceeds 366 days}
+        '401': {description: Sign-in required}
+        '403': {description: Server-side PERM_REPORTING required}
+        '409': {description: Dataset token expired; refresh the analysis}
+        '503': {description: Reporting unavailable or timed out; no OLTP fallback}
+  /api/analytics/instruments:
+    get:
+      summary: Instrument ranking by fills; quantities retain recorded units
+      security:
+        - analyticsBearer: []
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: string, format: date}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date}}
+        - {name: timezone, in: query, schema: {type: string, default: UTC}}
+        - {name: datasetId, in: query, schema: {type: string, format: uuid}}
+        - {name: instrumentId, in: query, schema: {type: integer, minimum: 1}}
+        - {name: side, in: query, schema: {type: string, enum: [BUY, SELL]}}
+        - {name: segment, in: query, schema: {type: string, maxLength: 60}}
+        - {name: page, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+        - {name: sort, in: query, schema: {type: string, enum: [fills, instrument, period, segment], default: fills}}
+        - {name: direction, in: query, schema: {type: string, enum: [asc, desc], default: desc}}
+      responses:
+        '200':
+          description: Pinned OLAP calculation with period, timezone, filters, dataset ID, metric version, source coverage, cutoff, publication time and warnings.
+        '400': {description: Invalid query or date span exceeds 366 days}
+        '401': {description: Sign-in required}
+        '403': {description: Server-side PERM_REPORTING required}
+        '409': {description: Dataset token expired; refresh the analysis}
+        '503': {description: Reporting unavailable or timed out; no OLTP fallback}
+  /api/analytics/client-segments:
+    get:
+      summary: Event-time client segments including UNKNOWN
+      security:
+        - analyticsBearer: []
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: string, format: date}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date}}
+        - {name: timezone, in: query, schema: {type: string, default: UTC}}
+        - {name: datasetId, in: query, schema: {type: string, format: uuid}}
+        - {name: instrumentId, in: query, schema: {type: integer, minimum: 1}}
+        - {name: side, in: query, schema: {type: string, enum: [BUY, SELL]}}
+        - {name: segment, in: query, schema: {type: string, maxLength: 60}}
+        - {name: page, in: query, schema: {type: integer, minimum: 0, maximum: 10000, default: 0}}
+        - {name: size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 25}}
+        - {name: sort, in: query, schema: {type: string, enum: [fills, instrument, period, segment], default: fills}}
+        - {name: direction, in: query, schema: {type: string, enum: [asc, desc], default: desc}}
+      responses:
+        '200':
+          description: Pinned OLAP calculation with period, timezone, filters, dataset ID, metric version, source coverage, cutoff, publication time and warnings.
+        '400': {description: Invalid query or date span exceeds 366 days}
+        '401': {description: Sign-in required}
+        '403': {description: Server-side PERM_REPORTING required}
+        '409': {description: Dataset token expired; refresh the analysis}
+        '503': {description: Reporting unavailable or timed out; no OLTP fallback}
+  /api/analytics/data-status:
+    get:
+      summary: Last-good dataset and latest refresh status
+      security: [{analyticsBearer: []}]
+      responses:
+        '200': {description: Dataset availability, cutoff, publication time and provisional stale threshold}
+        '503': {description: Reporting store unavailable}
+  /api/analytics/reports:
+    post:
+      summary: Issue an immutable monthly report or explicit amendment
+      security: [{analyticsBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from, to, timezone, idempotencyKey]
+              properties:
+                from: {type: string, format: date}
+                to: {type: string, format: date}
+                timezone: {type: string}
+                instrumentId: {type: integer, minimum: 1}
+                side: {type: string, enum: [BUY, SELL]}
+                segment: {type: string, maxLength: 60}
+                idempotencyKey: {type: string, minLength: 1, maxLength: 100}
+                datasetId: {type: string, format: uuid}
+                amendsReportId: {type: string, format: uuid}
+                amendmentReason: {type: string, maxLength: 500}
+      responses:
+        '200': {description: Saved report ID, version, issuance time and complete frozen snapshot; retry returns original}
+        '400': {description: Invalid month, filters or amendment reason}
+        '401': {description: Sign-in required}
+        '403': {description: PERM_REPORTING required}
+        '409': {description: Conflicting request key, concurrent issuance or amendment version}
+        '413': {description: More than 1000 groups per table; narrow filters}
+        '503': {description: Reporting unavailable; no live trading fallback}
+  /api/analytics/reports/{reportId}:
+    get:
+      summary: Retrieve a retained report version without recalculating it
+      security: [{analyticsBearer: []}]
+      parameters:
+        - {name: reportId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Saved snapshot, totals, filters, metric version, dataset, coverage and amendment lineage}
+        '401': {description: Sign-in required}
+        '403': {description: PERM_REPORTING required}
+        '404': {description: Report not found}
+        '503': {description: Reporting unavailable}
 components:
+  securitySchemes:
+    analyticsBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     User:
       type: object
