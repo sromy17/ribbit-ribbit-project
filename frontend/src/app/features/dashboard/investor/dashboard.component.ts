@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subject, Subscription, from, of, timer, takeUntil } from 'rxjs';
+import { Subject, Subscription, from, of, timer, takeUntil, forkJoin } from 'rxjs';
 import { catchError, timeout } from 'rxjs/operators';
 import { concatMap, toArray } from 'rxjs/operators';
 import { AuthService, User } from '../../../core/services/auth.service';
@@ -780,6 +780,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         }
       });
+  }
+
+  
   private loadWalletData(): void {
     forkJoin({
       accounts: this.api.getWalletBanks(this.accountId),
@@ -810,6 +813,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
   }
 
+  /**
   loadDashboardData() {
     this.loadingBalance = true;
     this.loadingHoldings = true;
@@ -868,7 +872,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // Market trend data is not exposed by the current backend contract.
     this.symbolTrends = [];
     this.loadWalletData();
-  }
+  } */
 
   // Form Validation Methods
   onOrderFormChange(): void {

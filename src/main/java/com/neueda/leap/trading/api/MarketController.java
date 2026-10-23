@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -38,7 +39,7 @@ public class MarketController {
     }
 
     @GetMapping("/quotes")
-    public List<MarketQuote> getQuotes(String symbols) {
+    public List<MarketQuote> getQuotes(@RequestParam("symbols") String symbols) {
         try {
             List<String> requested = Arrays.stream(symbols == null ? new String[0] : symbols.split(","))
                 .map(String::trim)
