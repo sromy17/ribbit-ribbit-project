@@ -12,6 +12,8 @@ DROP TABLE IF EXISTS holding_movement_facts cascade;
 DROP TABLE IF EXISTS instruments_info cascade;
 DROP TABLE IF EXISTS clients_info cascade;
 DROP TABLE IF EXISTS client_segment_history cascade;
+DROP TABLE IF EXISTS bank_movement_facts cascade;
+DROP TABLE IF EXISTS bank_info cascade;
 
 CREATE TABLE IF NOT EXISTS etl_refresh_runs
 (
@@ -78,28 +80,30 @@ CREATE TABLE if NOT EXISTS trade_facts
     side CHAR(5),
     quantity_requested INT,
     bidprice NUMERIC,
-    date_request DATE,
+    date_request TIMESTAMPTZ,
     executeid INT,
     execution_count INT,
     last_execution_price NUMERIC,
-    first_execution_date DATE,
-    last_execution_date DATE,
+    first_execution_date TIMESTAMPTZ,
+    last_execution_date TIMESTAMPTZ,
     quantity_executed INT,
     cancel_id INT,
     cancel_reason VARCHAR(50),
-    cancel_date DATE,
+    cancel_date TIMESTAMPTZ,
     reject_id INT,
     reject_reason VARCHAR(50),
-    reject_date DATE,
+    reject_date TIMESTAMPTZ,
     disputeid INT,
     dispute_status VARCHAR(20),
     dispute_category VARCHAR(20),
     dispute_reason VARCHAR(75),
     dispute_employee_id INT,
     availablefunds NUMERIC,
-    creationdate DATE,
+    creationdate TIMESTAMPTZ,
     account_type VARCHAR(20),
     username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
     ticker VARCHAR(25),
     instrumentname VARCHAR(25),
     dispute_employeeusername VARCHAR(50),
@@ -114,9 +118,11 @@ CREATE TABLE if NOT EXISTS accounts_info
     accountid INT PRIMARY KEY,
     userid INT,
     username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
     availablefunds NUMERIC,
     currency CHAR(3),
-    creationdate DATE,
+    creationdate TIMESTAMPTZ,
     account_type VARCHAR(20)
     );
 
@@ -154,6 +160,8 @@ CREATE TABLE if NOT EXISTS employees_info
     ticket_id INT PRIMARY KEY,
     accountid INT,
     username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
     support_reason VARCHAR(75),
     created_at TIMESTAMPTZ,
     status VARCHAR(20),
@@ -169,11 +177,13 @@ CREATE TABLE if NOT EXISTS holdings_info
     accountid INT NOT NULL,
     userid INT,
     username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
     instrumentid INT,
     ticker VARCHAR(25),
     instrumentname VARCHAR(25),
     quantity INT,
-    as_of_date DATE,
+    as_of_date TIMESTAMPTZ,
     last_synced_at TIMESTAMPTZ,
     PRIMARY KEY (accountid, instrumentid)
     );
@@ -204,3 +214,31 @@ CREATE INDEX IF NOT EXISTS idx_lifecycle_order ON lifecycle_event_facts(requesti
 CREATE INDEX IF NOT EXISTS idx_cash_period ON cash_movement_facts(occurred_at_utc,requestid);
 CREATE INDEX IF NOT EXISTS idx_segment_effective ON client_segment_history(client_id,effective_from_utc,effective_to_utc);
 COMMIT;
+
+CREATE TABLE IF NOT EXISTS bank_info
+(
+    bankid INT PRIMARY KEY,
+    accountid INT NOT NULL,
+    userid INT,
+    username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    accountname VARCHAR(50),
+    routing_number VARCHAR(9),
+    account_number VARCHAR(17),
+    balance NUMERIC
+);
+
+CREATE TABLE IF NOT EXISTS bank_movement_facts
+(
+    movement_id INT PRIMARY KEY,
+    bankid INT NOT NULL,
+    accountid INT NOT NULL,
+    userid INT,
+    username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    amount NUMERIC NOT NULL,
+    movement_type VARCHAR(10) NOT NULL,
+    movement_date TIMESTAMPTZ NOT NULL
+);

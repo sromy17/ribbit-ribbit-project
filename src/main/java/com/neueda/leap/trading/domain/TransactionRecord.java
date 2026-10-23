@@ -1,7 +1,7 @@
 package com.neueda.leap.trading.domain;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -38,7 +38,7 @@ public class TransactionRecord {
     private BigDecimal amount;
 
     @Column(name = "timestamp", nullable = false)
-    private LocalDateTime timestamp;
+    private Instant timestamp;
 
     public Integer getTransactionId() {
         return transactionId;
@@ -72,11 +72,11 @@ public class TransactionRecord {
         this.amount = amount;
     }
 
-    public LocalDateTime getTimestamp() {
+    public Instant getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(LocalDateTime timestamp) {
+    public void setTimestamp(Instant timestamp) {
         this.timestamp = timestamp;
     }
 }

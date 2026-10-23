@@ -1,6 +1,6 @@
 package com.neueda.leap.trading.domain;
 
-import java.time.LocalDate;
+import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,7 +21,7 @@ public class RejectedOrder {
     private String reason;
 
     @Column(name = "reject_date", nullable = false)
-    private LocalDate rejectDate;
+    private Instant rejectDate;
 
     public Integer getRejectId() {
         return rejectId;
@@ -47,11 +47,11 @@ public class RejectedOrder {
         this.reason = reason;
     }
 
-    public LocalDate getRejectDate() {
+    public Instant getRejectDate() {
         return rejectDate;
     }
 
-    public void setRejectDate(LocalDate rejectDate) {
+    public void setRejectDate(Instant rejectDate) {
         this.rejectDate = rejectDate;
     }
 }

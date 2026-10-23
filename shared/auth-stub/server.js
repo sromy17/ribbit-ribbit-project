@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const dotenv = require("dotenv");
 const { Pool } = require("pg");
 
@@ -18,10 +19,6 @@ const DB_USER = process.env.DB_USER;
 const DB_PASSWORD = process.env.DB_PASSWORD;
 const DB_SSL = (process.env.DB_SSL || "false").toLowerCase() === "true";
 
-function formatDateOnly(date) {
-  return date.toISOString().slice(0, 10);
-}
-
 function extractBearerToken(authHeader) {
   if (typeof authHeader !== "string") {
     return undefined;
@@ -32,7 +29,16 @@ function extractBearerToken(authHeader) {
 }
 
 function generateRefreshTokenValue() {
-  return Math.floor(Math.random() * 900000000) + 100000000;
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+async function allocateId(table, column) {
+  const result = await pool.query(`SELECT COALESCE(MAX(${column}), 0) + 1 AS next_id FROM ${table}`);
+  return Number(result.rows[0].next_id);
 }
 
 function normalizeDbUrl(url) {
@@ -110,8 +116,8 @@ async function allocateRefreshToken() {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const candidate = generateRefreshTokenValue();
     const existing = await pool.query(
-      "SELECT 1 FROM user_sessions WHERE refreshtoken = $1",
-      [candidate]
+      "SELECT 1 FROM refresh_tokens WHERE refreshtokenhash = $1",
+      [hashToken(candidate)]
     );
     if (existing.rowCount === 0) {
       return candidate;
@@ -121,21 +127,37 @@ async function allocateRefreshToken() {
   throw new Error("Unable to allocate a refresh token");
 }
 
-async function upsertUserSession(userId, refreshToken, dateIssued) {
+async function storeTokenPair(userId, username, refreshToken) {
+  const refreshTokenId = await allocateId("refresh_tokens", "refreshtokenid");
+  const now = new Date();
+  const refreshExpires = new Date(now.getTime() + REFRESH_TOKEN_VALID_DAYS * 24 * 60 * 60 * 1000);
   await pool.query(
-    `INSERT INTO user_sessions (userid, refreshtoken, dateissued)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (userid)
-     DO UPDATE SET refreshtoken = EXCLUDED.refreshtoken, dateissued = EXCLUDED.dateissued`,
-    [userId, refreshToken, dateIssued]
+    `INSERT INTO refresh_tokens
+      (refreshtokenid, userid, refreshtokenhash, dateissued, dateexpires, isrevoked)
+     VALUES ($1, $2, $3, $4, $5, FALSE)`,
+    [refreshTokenId, userId, hashToken(refreshToken), now, refreshExpires]
   );
-}
 
-function isRefreshTokenExpired(dateIssued) {
-  const issuedAt = new Date(dateIssued);
-  const ageMs = Date.now() - issuedAt.getTime();
-  const maxAgeMs = REFRESH_TOKEN_VALID_DAYS * 24 * 60 * 60 * 1000;
-  return ageMs > maxAgeMs;
+  const accessToken = issueToken({
+    userId,
+    username,
+    roles: ["MISSION_OPERATOR"]
+  });
+  const accessTokenId = await allocateId("access_tokens", "accesstokenid");
+  await pool.query(
+    `INSERT INTO access_tokens
+      (accesstokenid, refreshtokenid, accesstokenhash, dateissued, dateexpires, isrevoked)
+     VALUES ($1, $2, $3, $4, $5, FALSE)`,
+    [
+      accessTokenId,
+      refreshTokenId,
+      hashToken(accessToken),
+      now,
+      new Date(now.getTime() + JWT_EXPIRATION_SECONDS * 1000)
+    ]
+  );
+
+  return { accessToken, refreshToken, refreshTokenId };
 }
 
 async function generateUserId(client) {
@@ -168,10 +190,12 @@ app.get("/health", (_req, res) => {
 });
 
 app.post("/register", async (req, res) => {
-  const { username, password } = req.body || {};
+  const { username, password, firstName, lastName } = req.body || {};
 
-  if (!username || !password) {
-    return res.status(400).json({ message: "username and password are required" });
+  if (!username || !password || !firstName || !lastName) {
+    return res.status(400).json({
+      message: "username, password, firstName, and lastName are required"
+    });
   }
 
   const client = await pool.connect();
@@ -191,14 +215,18 @@ app.post("/register", async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     await client.query(
-      "INSERT INTO users (userid, username, salt, userhashedsaltedpassword, registered_at_utc) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)",
-      [nextUserId, username, "bcrypt", passwordHash]
+      `INSERT INTO users
+        (userid, username, salt, userhashedsaltedpassword, first_name, last_name, registered_at_utc)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
+      [nextUserId, username, "bcrypt", passwordHash, firstName, lastName]
     );
 
     await client.query("COMMIT");
     return res.status(201).json({
       userId: nextUserId,
       username,
+      firstName,
+      lastName,
       message: "User registered. Login to receive a JWT."
     });
   } catch (error) {
@@ -219,7 +247,8 @@ app.post("/login", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT userid, username, userhashedsaltedpassword FROM users WHERE username = $1",
+      `SELECT userid, username, first_name, last_name, userhashedsaltedpassword
+       FROM users WHERE username = $1`,
       [username]
     );
 
@@ -235,22 +264,22 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
-    const token = issueToken({
-      userId: Number(user.userid),
-      username: user.username,
-      roles: ["MISSION_OPERATOR"]
-    });
     const refreshToken = await allocateRefreshToken();
-    const dateIssued = formatDateOnly(new Date());
-    await upsertUserSession(Number(user.userid), refreshToken, dateIssued);
+    const tokenPair = await storeTokenPair(
+      Number(user.userid),
+      user.username,
+      refreshToken
+    );
 
     return res.json({
-      token,
+      token: tokenPair.accessToken,
       tokenType: "Bearer",
       expiresInSeconds: JWT_EXPIRATION_SECONDS,
       refreshToken,
       userId: Number(user.userid),
-      username: user.username
+      username: user.username,
+      firstName: user.first_name,
+      lastName: user.last_name
     });
   } catch (error) {
     console.error("Login error", error);
@@ -259,19 +288,21 @@ app.post("/login", async (req, res) => {
 });
 
 app.post("/refresh", async (req, res) => {
-  const refreshToken = Number(req.body?.refreshToken);
+  const refreshToken = typeof req.body?.refreshToken === "string"
+    ? req.body.refreshToken.trim()
+    : "";
 
-  if (!Number.isInteger(refreshToken)) {
+  if (!refreshToken) {
     return res.status(400).json({ message: "refreshToken is required" });
   }
 
   try {
     const result = await pool.query(
-      `SELECT us.userid, us.refreshtoken, us.dateissued, u.username
-       FROM user_sessions us
-       INNER JOIN users u ON u.userid = us.userid
-       WHERE us.refreshtoken = $1`,
-      [refreshToken]
+      `SELECT rt.refreshtokenid, rt.userid, rt.dateexpires, rt.isrevoked, u.username
+       FROM refresh_tokens rt
+       INNER JOIN users u ON u.userid = rt.userid
+       WHERE rt.refreshtokenhash = $1`,
+      [hashToken(refreshToken)]
     );
 
     if (result.rowCount === 0) {
@@ -279,22 +310,27 @@ app.post("/refresh", async (req, res) => {
     }
 
     const session = result.rows[0];
-    if (isRefreshTokenExpired(session.dateissued)) {
-      await pool.query("DELETE FROM user_sessions WHERE userid = $1", [Number(session.userid)]);
+    if (session.isrevoked || new Date(session.dateexpires) <= new Date()) {
+      await pool.query(
+        "UPDATE refresh_tokens SET isrevoked = TRUE WHERE refreshtokenid = $1",
+        [session.refreshtokenid]
+      );
       return res.status(401).json({ message: "Refresh token expired" });
     }
 
-    const newAccessToken = issueToken({
-      userId: Number(session.userid),
-      username: session.username,
-      roles: ["MISSION_OPERATOR"]
-    });
+    await pool.query(
+      "UPDATE refresh_tokens SET isrevoked = TRUE WHERE refreshtokenid = $1",
+      [session.refreshtokenid]
+    );
     const newRefreshToken = await allocateRefreshToken();
-    const dateIssued = formatDateOnly(new Date());
-    await upsertUserSession(Number(session.userid), newRefreshToken, dateIssued);
+    const tokenPair = await storeTokenPair(
+      Number(session.userid),
+      session.username,
+      newRefreshToken
+    );
 
     return res.json({
-      token: newAccessToken,
+      token: tokenPair.accessToken,
       tokenType: "Bearer",
       expiresInSeconds: JWT_EXPIRATION_SECONDS,
       refreshToken: newRefreshToken
@@ -315,20 +351,33 @@ app.post("/logout", async (req, res) => {
   }
 
   try {
-    const payload = jwt.verify(token, SHARED_SECRET, {
+    jwt.verify(token, SHARED_SECRET, {
       algorithms: ["HS256"],
       ignoreExpiration: true
     });
 
-    const userId = Number(payload.uid);
-    if (!Number.isInteger(userId)) {
-      return res.status(400).json({ message: "Invalid access token payload" });
+    const accessTokenHash = hashToken(token);
+    const result = await pool.query(
+      `SELECT at.accesstokenid, at.refreshtokenid
+       FROM access_tokens at
+       WHERE at.accesstokenhash = $1
+         AND at.isrevoked = FALSE
+         AND at.dateexpires > CURRENT_TIMESTAMP`,
+      [accessTokenHash]
+    );
+    if (result.rowCount === 0) {
+      return res.status(401).json({ message: "Invalid access token" });
     }
 
-    const revokedRefreshToken = await allocateRefreshToken();
-    const revokeFromDate = new Date();
-    revokeFromDate.setDate(revokeFromDate.getDate() + 1);
-    await upsertUserSession(userId, revokedRefreshToken, formatDateOnly(revokeFromDate));
+    const accessTokenRecord = result.rows[0];
+    await pool.query(
+      "UPDATE access_tokens SET isrevoked = TRUE WHERE accesstokenid = $1",
+      [accessTokenRecord.accesstokenid]
+    );
+    await pool.query(
+      "UPDATE refresh_tokens SET isrevoked = TRUE WHERE refreshtokenid = $1",
+      [accessTokenRecord.refreshtokenid]
+    );
     return res.status(204).send();
   } catch (error) {
     return res.status(401).json({ message: "Invalid access token" });

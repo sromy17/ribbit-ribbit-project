@@ -15,6 +15,8 @@ import { AuthService } from '../../../core/services/auth.service';
 export class RegisterComponent {
   username = '';
   password = '';
+  firstName = '';
+  lastName = '';
   error = '';
   loading = false;
 
@@ -22,8 +24,8 @@ export class RegisterComponent {
 
   register(): void {
     this.error = '';
-    if (!this.username.trim() || !this.password) {
-      this.error = 'Username and password are required';
+    if (!this.firstName.trim() || !this.lastName.trim() || !this.username.trim() || !this.password) {
+      this.error = 'First name, last name, username, and password are required';
       return;
     }
     if (this.password.length < 12) {
@@ -32,7 +34,12 @@ export class RegisterComponent {
     }
 
     this.loading = true;
-    this.auth.register({ username: this.username.trim(), password: this.password }).subscribe({
+    this.auth.register({
+      username: this.username.trim(),
+      password: this.password,
+      firstName: this.firstName.trim(),
+      lastName: this.lastName.trim()
+    }).subscribe({
       next: () => this.router.navigate(['/login']),
       error: (error) => {
         this.error = error.status === 409 ? 'That username already exists' : 'Unable to create your profile';

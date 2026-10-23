@@ -1,7 +1,7 @@
 package com.neueda.leap.trading.api;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -71,7 +71,7 @@ public class AccountController {
         account.setType(request.accountType());
         account.setCurrency(request.currency());
         account.setAvailableFunds(BigDecimal.ZERO);
-        account.setCreationDate(LocalDate.now());
+        account.setCreationDate(Instant.now());
         return accountRepository.save(account);
     }
 

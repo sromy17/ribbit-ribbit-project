@@ -4,6 +4,10 @@ Standalone Node.js authentication stub that issues JWTs for the Spring trading s
 
 The stub reads and writes users in the same PostgreSQL `users` table used by the Spring service.
 
+The users in the repository seed script use `mission123` as their password. Existing databases
+created with older placeholder password values must be reseeded or migrated before those users
+can log in.
+
 ## Run
 
 1. Copy `.env.example` to `.env` and set `JWT_SHARED_SECRET`, `DB_URL`, `DB_USER`, and `DB_PASSWORD`.

@@ -41,8 +41,8 @@ export class LoginComponent {
         const destination = user.role === 'admin' ? '/admin-dashboard' : user.role === 'analyst' ? '/analyst-dashboard' : '/accounts';
         this.router.navigate([destination]);
       },
-      error: () => {
-        this.error = 'Invalid credentials';
+      error: (error) => {
+        this.error = error.error?.message || 'Invalid credentials';
         this.loading = false;
         this.changeDetector.detectChanges();
       },

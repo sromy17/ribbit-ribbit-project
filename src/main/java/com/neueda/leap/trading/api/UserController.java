@@ -43,6 +43,8 @@ public class UserController {
         user.setUserId((int) System.currentTimeMillis() % 1000000); // Simple ID generation
         user.setUsername(request.username());
         user.setRegisteredAtUtc(java.time.Instant.now());
+        user.setFirstName(request.firstName());
+        user.setLastName(request.lastName());
         user.setSalt("contract-salt");
         user.setUserHashedSaltedPassword(passwordEncoder.encode(request.password()));
         return UserResponse.from(userRepository.save(user));
@@ -54,7 +56,7 @@ public class UserController {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
 
-        user.updateProfile(request.username());
+        user.updateProfile(request.username(), request.firstName(), request.lastName());
         return UserResponse.from(userRepository.save(user));
     }
 }

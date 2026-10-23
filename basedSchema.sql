@@ -16,7 +16,10 @@ DROP TABLE IF EXISTS canceled_order cascade;
 DROP TABLE IF EXISTS support_ticket cascade;
 DROP TABLE IF EXISTS rejected_orders cascade;
 DROP TABLE IF EXISTS holdings cascade;
-
+drop table if exists bank cascade;
+drop table if exists bank_movement cascade;
+drop table if exists refresh_tokens cascade;
+drop table if exists access_tokens cascade;
 
 CREATE TABLE users
 (
@@ -24,7 +27,9 @@ CREATE TABLE users
     username varchar(50) UNIQUE NOT NULL,
     registered_at_utc TIMESTAMPTZ,
     salt varchar(25) NOT NULL,
-    userHashedSaltedPassword varchar(64) NOT NULL
+    userHashedSaltedPassword varchar(64) NOT NULL,
+    first_name varchar(50) NOT NULL,
+    last_name varchar(50) NOT NULL
 );
 
 CREATE TABLE roles
@@ -67,7 +72,7 @@ CREATE TABLE accounts
     availablefunds NUMERIC NOT NULL DEFAULT 0,
     currency CHAR(3),
     CHECK (availablefunds >= 0),
-    creationdate DATE NOT NULL,
+    creationdate TIMESTAMPTZ NOT NULL,
     account_type VARCHAR(20) NOT NULL,
     FOREIGN KEY (userid) REFERENCES users(userid)
 );
@@ -224,7 +229,7 @@ CREATE TABLE canceled_order
     cancel_id INT PRIMARY KEY NOT NULL,
     request_id INT REFERENCES trade_request(requestid) NOT NULL,
     reason VARCHAR(50),
-    cancel_date DATE NOT NULL
+    cancel_date TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE support_ticket
@@ -232,10 +237,10 @@ CREATE TABLE support_ticket
     ticket_id INT PRIMARY KEY NOT NULL,
     accountid INT NOT NULL REFERENCES accounts(accountid),
     reason VARCHAR(75) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED')),
     assigned_to INT REFERENCES employees(employeeid),
-    closed_at TIMESTAMP DEFAULT NULL
+    closed_at TIMESTAMPTZ DEFAULT NULL
 );
 
 -- literally 1984!!!!!! The system dont want me to trade!!!!!
@@ -244,7 +249,7 @@ CREATE TABLE rejected_orders
     reject_id INT PRIMARY KEY NOT NULL,
     request_id INT REFERENCES trade_request(requestid) NOT NULL,
     reason VARCHAR(50),
-    reject_date DATE NOT NULL
+    reject_date TIMESTAMPTZ NOT NULL
 );
 
 -- ho wmuch one user owns of one particular stock
@@ -260,9 +265,44 @@ CREATE TABLE holdings
 );
 -- the clock dont stop, the clock dont stop, the clock dont stop, the clock dont stop
 
-CREATE TABLE user_sessions
+--
+CREATE TABLE refresh_tokens
 (
-	userid INT REFERENCES users(userid) PRIMARY KEY,
-	refreshToken INT,	
-	dateIssued DATE
+    refreshTokenId INT PRIMARY KEY,
+    userid INT REFERENCES users(userid) NOT NULL,
+    refreshTokenHash VARCHAR(64) NOT NULL UNIQUE,
+    dateIssued TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    dateExpires TIMESTAMPTZ NOT NULL,
+    isRevoked BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+--"Thats why im moving to asia (fuck america)" - Sukie
+CREATE TABLE access_tokens
+(
+    accessTokenId INT PRIMARY KEY,
+    refreshTokenId INT NOT NULL REFERENCES refresh_tokens(refreshTokenId),
+    accessTokenHash VARCHAR(64) NOT NULL UNIQUE,
+    dateIssued TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    dateExpires TIMESTAMPTZ NOT NULL,
+    isRevoked BOOLEAN NOT NULL DEFAULT FALSE
+);
+-- the clock dont stop, the clock dont stop, the clock dont stop, the clock dont stop
+CREATE TABLE bank
+(
+    bankid INT PRIMARY KEY,
+    accountid INT NOT NULL REFERENCES accounts(accountid),
+    accountName varchar(50) NOT NULL,
+    routing_number varchar(9) NOT NULL,
+    account_number varchar(17) NOT NULL,
+    balance NUMERIC NOT NULL CHECK (balance >= 0),
+    CONSTRAINT uq_bank_account_details UNIQUE (accountid, routing_number, account_number)
+);
+--evil money you can sell your soul for a little change - "Acid Souljah"
+CREATE table bank_movement
+(
+    movement_id INT PRIMARY KEY,
+    bankid INT NOT NULL REFERENCES bank(bankid),
+    amount NUMERIC NOT NULL CHECK (amount >= 0),
+    movement_type VARCHAR(10) NOT NULL CHECK (movement_type IN ('DEPOSIT', 'WITHDRAWAL')),
+    movement_date TIMESTAMPTZ NOT NULL
 );

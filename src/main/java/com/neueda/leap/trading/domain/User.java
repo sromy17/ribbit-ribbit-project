@@ -30,6 +30,12 @@ public class User {
     public java.time.Instant getRegisteredAtUtc() { return registeredAtUtc; }
     public void setRegisteredAtUtc(java.time.Instant value) { registeredAtUtc = value; }
 
+    @Column(name = "first_name", nullable = false, length = 50)
+    private String firstName;
+
+    @Column(name = "last_name", nullable = false, length = 50)
+    private String lastName;
+
     @Column(name = "salt", nullable = false, length = 25)
     @JsonIgnore
     private String salt;
@@ -41,10 +47,6 @@ public class User {
     @JsonIgnore
     @OneToMany(mappedBy = "user")
     private List<TradingAccount> tradingAccounts = new ArrayList<>();
-
-    @JsonIgnore
-    @OneToMany(mappedBy = "user")
-    private List<Session> sessions = new ArrayList<>();
 
     @JsonIgnore
     @ManyToMany(mappedBy = "users")
@@ -74,6 +76,22 @@ public class User {
         this.username = username;
     }
 
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
     public String getSalt() {
         return salt;
     }
@@ -96,14 +114,6 @@ public class User {
 
     public void setTradingAccounts(List<TradingAccount> tradingAccounts) {
         this.tradingAccounts = tradingAccounts;
-    }
-
-    public List<Session> getSessions() {
-        return sessions;
-    }
-
-    public void setSessions(List<Session> sessions) {
-        this.sessions = sessions;
     }
 
     public Set<Role> getRoles() {
@@ -130,7 +140,9 @@ public class User {
         this.notifications = notifications;
     }
 
-    public void updateProfile(String username) {
+    public void updateProfile(String username, String firstName, String lastName) {
         this.username = username;
+        this.firstName = firstName;
+        this.lastName = lastName;
     }
 }

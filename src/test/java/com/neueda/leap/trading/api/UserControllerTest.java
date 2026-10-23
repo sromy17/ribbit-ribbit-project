@@ -52,13 +52,20 @@ class UserControllerTest {
         User saved = new User();
         saved.setUserId(77);
         saved.setUsername("alice");
+        saved.setFirstName("Alice");
+        saved.setLastName("Example");
         saved.setSalt("contract-salt");
         saved.setUserHashedSaltedPassword("secret");
 
         when(passwordEncoder.encode("secret")).thenReturn("encoded-secret");
         when(userRepository.save(any(User.class))).thenReturn(saved);
 
-        CreateUserRequest request = new CreateUserRequest("alice", "secret");
+        CreateUserRequest request = new CreateUserRequest(
+            "alice",
+            "secret",
+            "Alice",
+            "Example"
+        );
 
         mockMvc.perform(post("/users")
                 .contentType("application/json")

@@ -1,7 +1,8 @@
 package com.neueda.leap.trading.domain;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,7 +50,7 @@ public class Order {
     private BigDecimal price;
 
     @Column(name = "date_request", nullable = false)
-    private LocalDate dateRequested;
+    private Instant dateRequested;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -122,11 +123,11 @@ public class Order {
         this.price = price;
     }
 
-    public LocalDate getDateRequested() {
+    public Instant getDateRequested() {
         return dateRequested;
     }
 
-    public void setDateRequested(LocalDate dateRequested) {
+    public void setDateRequested(Instant dateRequested) {
         this.dateRequested = dateRequested;
     }
 
