@@ -20,14 +20,10 @@ class AnalyticsPostgresTest {
     void migrationsEvidenceGrainsCohortsAndEventTimeSegmentsReconcile() throws Exception {
         String sourceUrl = System.getenv("ADMIN_PG_URL").replace("admin_verification", "analytics_verification");
         String reportingUrl = sourceUrl.replace("analytics_verification", "analytics_reporting");
-        try (var context = new SpringApplicationBuilder(Main.class).run(
-                "--server.port=0", "--spring.config.location=file:src/main/resources/application.yml",
-                "--spring.datasource.url=" + sourceUrl, "--spring.datasource.username=postgres",
-                "--spring.datasource.password=admin-test-only",
-                "--app.datasource.olap.url=" + reportingUrl, "--app.datasource.olap.username=postgres",
-                "--app.datasource.olap.password=admin-test-only",
-                "--market-data.kafka.enabled=false", "--market-data.execution.kafka.enabled=false",
-                "--etl.schedule.cron=-")) {
+        String savedId, savedPayload;
+        int replayId;
+        BigDecimal balanceBeforeRestart;
+        try (var context = start(sourceUrl, reportingUrl)) {
             var source = context.getBean("oltpJdbcTemplate", JdbcTemplate.class);
             var reporting = context.getBean("olapJdbcTemplate", JdbcTemplate.class);
             reporting.execute(Files.readString(Path.of("olap.sql")));
@@ -155,6 +151,10 @@ class AnalyticsPostgresTest {
             assertEquals("GBP", pricing.get("quote_currency"));
             assertNotEquals(pricing.get("quote_at_utc"), pricing.get("quote_received_at_utc"));
 
+            AnalyticsAssertions.verify(context, source, reporting);
+            PersonaLoadAssertions.verify(context, source, reporting);
+            runId=reporting.queryForObject("SELECT DISTINCT dataset_run_id FROM fill_facts",String.class);
+
             // Publication failure must not replace the previous consistent dataset.
             source.update("""
                 INSERT INTO client_segment_history(client_id,segment_code,source,effective_from_utc,recorded_at_utc)
@@ -164,6 +164,31 @@ class AnalyticsPostgresTest {
             assertEquals(runId, reporting.queryForObject("SELECT DISTINCT dataset_run_id FROM fill_facts", String.class));
             assertEquals(2L, reporting.queryForObject("SELECT COUNT(*) FROM client_segment_history", Long.class));
             assertEquals(1L, reporting.queryForObject("SELECT COUNT(*) FROM etl_refresh_runs WHERE status='FAILED'", Long.class));
+            savedId=reporting.queryForObject("SELECT report_id FROM analytics_reports WHERE version=1",String.class);
+            savedPayload=reporting.queryForObject("SELECT snapshot::text FROM analytics_reports WHERE report_id=?",String.class,savedId);
+            replayId=source.queryForObject("SELECT MAX(requestid) FROM trades_executed",Integer.class);
+            balanceBeforeRestart=source.queryForObject("SELECT availablefunds FROM accounts WHERE accountid=1",BigDecimal.class);
         }
+        try (var restarted=start(sourceUrl,reportingUrl)) {
+            var source=restarted.getBean("oltpJdbcTemplate",JdbcTemplate.class);
+            var reporting=restarted.getBean("olapJdbcTemplate",JdbcTemplate.class);
+            assertEquals(savedPayload,reporting.queryForObject("SELECT snapshot::text FROM analytics_reports WHERE report_id=?",String.class,savedId));
+            assertEquals(savedId,restarted.getBean(com.neueda.leap.trading.analytics.AnalyticsService.class).report(savedId).get("reportId"));
+            assertThrows(IllegalArgumentException.class,()->restarted.getBean(com.neueda.leap.trading.service.impl.TradingOrderService.class).executeOrder(replayId));
+            assertEquals(balanceBeforeRestart,source.queryForObject("SELECT availablefunds FROM accounts WHERE accountid=1",BigDecimal.class));
+            assertEquals(1,source.queryForObject("SELECT COUNT(*) FROM trades_executed WHERE requestid=?",Integer.class,replayId));
+            assertEquals(1,source.queryForObject("SELECT COUNT(*) FROM cash_movements WHERE order_id=?",Integer.class,replayId));
+            assertEquals(1,source.queryForObject("SELECT COUNT(*) FROM holding_movements WHERE order_id=?",Integer.class,replayId));
+        }
+    }
+    private org.springframework.context.ConfigurableApplicationContext start(String sourceUrl,String reportingUrl) {
+        return new SpringApplicationBuilder(Main.class).run(
+                "--server.port=0", "--spring.config.location=file:src/main/resources/application.yml",
+                "--spring.datasource.url=" + sourceUrl, "--spring.datasource.username=postgres",
+                "--spring.datasource.password=admin-test-only",
+                "--app.datasource.olap.url=" + reportingUrl, "--app.datasource.olap.username=postgres",
+                "--app.datasource.olap.password=admin-test-only",
+                "--market-data.kafka.enabled=false", "--market-data.execution.kafka.enabled=false",
+                "--etl.schedule.cron=-");
     }
 }

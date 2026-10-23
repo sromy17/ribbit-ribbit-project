@@ -149,3 +149,11 @@ Run **Java: Reload Projects** from the Command Palette to refresh the Maven
 project model. The workspace automatically refreshes Java build configuration
 when build files change. If diagnostics persist, run `mvn test` from the repository
 root to distinguish source failures from stale editor diagnostics.
+
+### Commercial analytics
+
+The analyst dashboard now uses the protected `/api/analytics` routes and OLAP only.
+Apply `scripts/analytics-reporting-migration.sql` to the reporting database before
+deployment and run ETL. See [analytics implementation and verification](documents/analytics-implementation.md)
+for endpoint parameters, report amendments, limits and local mixed-load measurements.
+Metrics and segment-source approval remain pending; screens label the definitions PROPOSED.

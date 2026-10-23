@@ -56,12 +56,17 @@ public class OltpToOlapEtlService {
             sourceTransactionTemplate.executeWithoutResult(source -> olapTransactionTemplate.executeWithoutResult(status -> {
                 Boolean locked = olapJdbcTemplate.queryForObject("SELECT pg_try_advisory_xact_lock(738291)", Boolean.class);
                 if (!Boolean.TRUE.equals(locked)) throw new IllegalStateException("Another process is publishing reporting data");
-                olapJdbcTemplate.update(
-                    "TRUNCATE TABLE public.trade_facts, public.accounts_info, public.instruments_info, " +
-                    "public.employees_info, public.holdings_info, public.order_facts, " +
-                    "public.fill_facts, public.lifecycle_event_facts, public.cash_movement_facts, " +
-                    "public.holding_movement_facts, public.clients_info, public.client_segment_history"
-                );
+                // DELETE preserves MVCC snapshots for in-flight repeatable-read reports.
+                // Reports are retained separately and are never refreshed or deleted here.
+                for (String table : List.of("trade_facts", "accounts_info", "instruments_info",
+                        "employees_info", "holdings_info", "order_facts", "fill_facts",
+                        "lifecycle_event_facts", "cash_movement_facts", "holding_movement_facts",
+                        "clients_info", "client_segment_history")) {
+                    olapJdbcTemplate.update("DELETE FROM public." + table);
+                }
+                var snapshotTime = sourceWatermark().value();
+                olapJdbcTemplate.update("UPDATE etl_refresh_runs SET source_watermark=? WHERE run_id=?",
+                    java.sql.Timestamp.from(snapshotTime), runId);
                 loadAccounts();
                 loadInstruments(runId);
                 loadClients(runId);
@@ -116,7 +121,7 @@ public class OltpToOlapEtlService {
 
     private void completeRun(String runId) {
         olapJdbcTemplate.update(
-            "UPDATE etl_refresh_runs SET status = 'SUCCEEDED', published_at = CURRENT_TIMESTAMP WHERE run_id = ?",
+            "UPDATE etl_refresh_runs SET status = 'SUCCEEDED', published_at = clock_timestamp() WHERE run_id = ?",
             runId);
     }
 

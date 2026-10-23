@@ -4,7 +4,7 @@ Version: `reporting-metric-contract-v2`, 2026-10-23.
 
 **Status: proposed metric definitions, awaiting review with Priya, Operations and
 Finance. These formulas are recommendations, not definitions supplied by the
-PDF. Do not implement new charts against them until approval is recorded.**
+PDF. The next-stage implementation was explicitly authorized by the user; calculations and screens remain labelled PROPOSED until approval is recorded.**
 This version supersedes the former acceptance-cohort rejection-rate proposal.
 The user approved event-time historical segmentation on 2026-10-23; the segment
 source, values and tenure proposal remain unapproved.
@@ -17,10 +17,10 @@ source, values and tenure proposal remain unapproved.
 | Operations | Submission/acceptance/rejection events, fill finality, pending/outcome coverage | Pending |
 | Finance | Native currencies, multiplier/product conventions, fees, cash reconciliation, rounding | Pending |
 
-Record reviewer, decision, approval time and contract version before enabling
-new calculations/charts. Proposed target definitions do not assert that every
-existing report already implements them. The current activity report still
-offers fill/instrument and current order-state aggregates, not this full suite.
+Record reviewer, decision, approval time and contract version before production sign-off.
+The protected analytics APIs now implement these calculations against OLAP; the
+legacy admin activity endpoint retains its compatibility aggregates. See
+[implementation status](analytics-implementation.md) for scope and limits.
 
 ## Common rules
 
@@ -88,8 +88,8 @@ event time, with `effective_from_utc <= event_time < effective_to_utc`; null end
 means open-ended. For rejection cohorts, use submission-time membership for
 numerator and denominator, not the segment at the rejection date.
 
-The segment source/values remain pending. Do not expose segment analysis merely
-because storage exists. NEW (<30 elapsed days), ESTABLISHED (>=30 days) and UNKNOWN
+The segment source/values remain pending. The user-authorized exploratory segment
+view shows recorded memberships and UNKNOWN, with a pending-approval warning. NEW (<30 elapsed days), ESTABLISHED (>=30 days) and UNKNOWN
 remain an unapproved tenure proposal requiring trustworthy registration times.
 Do not derive registration from account creation or first trade.
 
@@ -100,9 +100,10 @@ two segment active-client counts, but once overall. No exclusive monthly
 reference-point policy has been approved. Never join history on client ID alone.
 
 Do not overwrite published classifications when membership changes. Corrections
-need an attributable new report/dataset version. Current full-refresh OLAP tables
-do **not** retain old versions; reproducible historical publication remains a
-delivery gate, not an implemented guarantee.
+need an attributable new report/dataset version. Issued reports now retain their
+complete aggregate payload, filters, classifications, dataset/cutoff and metric
+version. Full-refresh raw OLAP facts retain only the current dataset; historical
+raw-fact drill-down is not claimed for old reports.
 
 ## Evidence and fact model
 

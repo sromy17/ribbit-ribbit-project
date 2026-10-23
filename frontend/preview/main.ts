@@ -2,7 +2,8 @@
 import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideRouter, RouterOutlet } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
+import { AnalyticsService } from '../src/app/core/services/analytics.service';
 import { routes } from '../src/app/app.routes';
 import { AuthService } from '../src/app/core/services/auth.service';
 import { ApiService } from '../src/app/core/services/api.service';
@@ -391,5 +392,20 @@ bootstrapApplication(Preview, {
     provideRouter(routes),
     { provide: AuthService, useValue: auth },
     { provide: ApiService, useValue: api },
+    { provide: AnalyticsService, useValue: {
+      read: (kind: string, selection: any, page = 0) => of({
+        datasetId: 'design-preview-only', metricVersion: 'reporting-metric-contract-v2', definitionStatus: 'PROPOSED',
+        period: {...selection, startInclusive: selection.from + 'T00:00:00Z', endExclusive: new Date(Date.parse(selection.to+'T00:00:00Z')+86400000).toISOString()},
+        filters: {}, sourceCutoff: now, publishedAt: now, stale: false, completeness: 'INCOMPLETE',
+        sourceCoverage: {unassigned_fill_time: 2}, warnings: ['Sample data for visual review only. No backend is connected.'],
+        data: kind === 'overview' ? {submitted_orders:124,accepted_orders:120,fill_count:146,executed_orders:118,active_clients:42,
+          cohort_orders:124,rejected_orders:4,pending_orders:2,unknown_outcome_orders:0,rejection_rate_percent:3.23,
+          grossNotional:[{currency:'GBP',amount:12048},{currency:'USD',amount:18492}],fees:[{currency:'GBP',amount:18},{currency:'USD',amount:28}],netCash:[{currency:'GBP',amount:-2340},{currency:'USD',amount:1230}]} :
+          {items: kind === 'client-segments' ? [{segment_code:'UNKNOWN',fill_count:146,executed_orders:118,active_clients:42,buy_fills:86,sell_fills:60}] :
+            trends.slice(0,8).sort((a,b)=>b.tradeCount-a.tradeCount).map((t,i)=>({instrumentid:i+1,ticker:t.symbol,quantity_unit:'SHARE',executed_quantity:t.totalVolume,period:selection.from.slice(0,8)+String(i+1).padStart(2,'0'),fill_count:t.tradeCount,executed_orders:t.tradeCount,active_clients:12+i,buy_fills:t.buyCount,sell_fills:t.sellCount})),total:kind==='client-segments'?1:Math.min(8,trends.length),page,size:25}
+      }),
+      issue: () => throwError(() => ({error:{message:'Design preview cannot issue reports. Use the connected application.'}})),
+      report: () => throwError(() => ({error:{message:'Design preview cannot open saved reports. Use the connected application.'}}))
+    } },
   ],
 }).catch(console.error);

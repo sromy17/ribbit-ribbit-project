@@ -1,184 +1,76 @@
-<app-workspace
-  area="Market intelligence"
-  [username]="currentUser?.username || ''"
-  (logout)="logout()"
->
-  <div class="page-body">
-    <app-page-heading
-      eyebrow="Research & insights"
-      title="Market intelligence"
-      description="Explore trading activity, instrument trends, and market participation."
-    />
-    <!-- Loading & Error States -->
-    <div *ngIf="error" class="error-banner">
-      {{ error }}
-    </div>
-
-    <div *ngIf="loading" class="loading-full-screen">
-      <p>Loading market analysis...</p>
-    </div>
-
-    <div *ngIf="!loading" class="analyst-dashboard">
-      <!-- Navigation Tabs -->
-      <div class="tabs">
-        <button
-          (click)="activeTab = 'heatmap'"
-          [class.active]="activeTab === 'heatmap'"
-          class="tab-button"
-        >
-          Symbol Heatmap
-        </button>
-        <button
-          (click)="activeTab = 'trends'"
-          [class.active]="activeTab === 'trends'"
-          class="tab-button"
-        >
-          Market Trends
-        </button>
+<app-workspace area="Commercial analytics" [username]="currentUser?.username || ''" (logout)="logout()">
+  <div class="page-body space-y-6">
+    <app-page-heading eyebrow="Priya · Commercial analysis" title="Trading activity" description="Understand recorded client participation and execution activity. Internal activity does not measure exchange sentiment or price performance." />
+    <form class="filter-grid" (ngSubmit)="load()">
+      <label>Month<input type="month" name="month" [(ngModel)]="month" required /></label>
+      <label>Reporting timezone<input name="timezone" [(ngModel)]="timezone" placeholder="Europe/London" required /></label>
+      <label>Instrument ID<input name="instrument" [(ngModel)]="instrument" placeholder="All instruments" inputmode="numeric" /></label>
+      <label>Side<select name="side" [(ngModel)]="side"><option value="">Both sides</option><option>BUY</option><option>SELL</option></select></label>
+      <label>Segment code<input name="segment" [(ngModel)]="segment" placeholder="All, including UNKNOWN" /></label>
+      <button class="ui-button btn-primary" type="submit" [disabled]="loading || issuing">Refresh analysis</button>
+    </form>
+    <div class="error-banner" *ngIf="error" role="alert">{{ error }}</div>
+    <div class="panel" *ngIf="loading" role="status" aria-live="polite">Loading the reporting dataset…</div>
+    <section class="panel report-tools">
+      <label>Saved report ID<input [(ngModel)]="reportId" placeholder="Report UUID" /></label>
+      <button class="ui-button" (click)="openReport()" [disabled]="issuing || loading || !reportId">Open saved report</button>
+      <button class="ui-button btn-primary" (click)="issue()" [disabled]="issuing || loading || !meta || !!saved">{{ issuing ? 'Working…' : 'Issue monthly report' }}</button>
+      <div *ngIf="reportError" class="error-banner" role="alert">{{ reportError }}</div>
+    </section>
+    <ng-container *ngIf="meta && !loading">
+      <section class="panel dataset" aria-label="Dataset provenance">
+        <p><strong>{{ meta.period.from }} – {{ meta.period.to }}</strong> · {{ meta.period.timezone }} · {{ meta.completeness }} <span *ngIf="meta.stale">· STALE</span></p>
+        <p>Dataset {{ meta.datasetId }} · {{ meta.metricVersion }} · {{ meta.definitionStatus }}</p>
+        <p>Source cutoff {{ meta.sourceCutoff }} · Published {{ meta.publishedAt }}</p>
+        <p>UTC boundaries: {{ meta.period.startInclusive }} ≤ event time &lt; {{ meta.period.endExclusive }}</p>
+        <p>Applied filters: instrument {{ meta.filters['instrumentId'] || 'All' }}, side {{ meta.filters['side'] || 'Both' }}, segment {{ meta.filters['segment'] || 'All' }}</p>
+        <details><summary>Coverage and warnings</summary><ul><li *ngFor="let warning of meta.warnings">{{ warning }}</li></ul><dl><ng-container *ngFor="let entry of meta.sourceCoverage | keyvalue"><dt>{{ entry.key }}</dt><dd>{{ entry.value }}</dd></ng-container></dl></details>
+      </section>
+      <div class="panel" *ngIf="saved">
+        <h2>Issued report · version {{ saved.version }}</h2><p>{{ saved.reportId }} · issued {{ saved.issuedAt }}</p>
+        <p>This view uses saved totals, classifications and coverage. Refresh analysis to return to the latest dataset.</p>
+        <p *ngIf="saved.amendsReportId">Amends {{ saved.amendsReportId }}: {{ saved.amendmentReason }}</p>
+        <label>Reason for an explicit amendment<input [(ngModel)]="amendmentReason" maxlength="500" /></label>
+        <button class="ui-button" (click)="issue(true)" [disabled]="issuing || !amendmentReason.trim()">Create amended version from latest data</button>
       </div>
-
-      <!-- HEATMAP TAB -->
-      <div *ngIf="activeTab === 'heatmap'" class="tab-content">
-        <h2>Trading Popularity Heatmap</h2>
-        <p class="description">
-          Treemap view: block size tracks traded volume and color reflects buy/sell pressure.
-        </p>
-
-        <!-- Heatmap by Sector -->
-        <div class="sectors-container">
-          <div
-            class="sector"
-            *ngFor="let sector of ['Technology', 'Finance', 'Healthcare', 'Energy', 'Other']"
-          >
-            <div class="sector-header">{{ sector }}</div>
-            <div class="sector-heatmap">
-              <div
-                *ngFor="let trend of symbolTrends | slice: 0 : 20"
-                [hidden]="getSymbolSector(trend.symbol) !== sector"
-                class="heatmap-cell-treemap"
-                [style.background-color]="getHeatmapColor(trend)"
-                [style.flex-grow]="getSizeMultiplier(trend)"
-                [style.flex-basis.px]="getHeatmapCellSize(trend)"
-                [style.min-height.px]="getHeatmapCellSize(trend)"
-                [title]="getHeatmapTitle(trend)"
-              >
-                <div class="cell-symbol">{{ trend.symbol }}</div>
-                <div class="cell-score">{{ trend.popularityScore }}%</div>
-                <div class="cell-volume">{{ trend.totalVolume }} vol</div>
-              </div>
-            </div>
-          </div>
+      <nav class="tabs" aria-label="Analytics views">
+        <button class="tab-button" *ngFor="let item of ['overview','activity','instruments','client-segments','report','heatmap']" (click)="$any(this).tab = item" [class.active]="tab === item" [attr.aria-current]="tab === item ? 'page' : null">{{ item === 'client-segments' ? 'Client segments' : (item | titlecase) }}</button>
+      </nav>
+      <section *ngIf="tab === 'overview' || tab === 'report'" class="space-y-6">
+        <p class="panel" *ngIf="overview['fill_count'] === 0">Zero recorded fills in this period. Check coverage above before interpreting this as complete zero activity.</p>
+        <div class="metric-grid">
+          <article class="panel" *ngFor="let metric of ['submitted_orders','accepted_orders','fill_count','executed_orders','active_clients']"><p>{{ metric.replaceAll('_',' ') | titlecase }}</p><strong class="metric-value">{{ overview[metric] | number }}</strong></article>
         </div>
-
-        <!-- Legend -->
-        <div class="heatmap-legend">
-          <p class="legend-title">Reading The Map</p>
-          <div class="legend-items">
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #1b5e20"></div>
-              <span>Green = Buy pressure (bullish flow)</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #b71c1c"></div>
-              <span>Red = Sell pressure (bearish flow)</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color" style="background-color: #6a6a6a"></div>
-              <span>Larger blocks = more traded volume</span>
-            </div>
-          </div>
+        <section class="panel"><h2>Submission-cohort rejection rate</h2>
+          <p>{{ overview['rejection_rate_percent'] == null ? 'Unavailable — no submitted orders' : (overview['rejection_rate_percent'] | number:'1.0-2') + '%' }}</p>
+          <p>{{ overview['rejected_orders'] }} rejected / {{ overview['cohort_orders'] }} submitted · {{ overview['pending_orders'] }} pending · {{ overview['unknown_outcome_orders'] }} unknown outcomes · {{ overview['conflicting_outcome_orders'] || 0 }} conflicting outcomes. Outcomes are assessed at the dataset cutoff.</p>
+        </section>
+        <div class="money-grid"><section class="panel" *ngFor="let measure of ['grossNotional','fees','netCash']">
+          <h2>{{ measure === 'grossNotional' ? 'Gross turnover before fees' : measure === 'netCash' ? 'Net cash movements' : 'Execution fees' }}</h2>
+          <table class="data-table"><thead><tr><th scope="col">Native currency</th><th scope="col">Known amount</th></tr></thead><tbody><tr *ngFor="let row of overview[measure]"><td>{{ row.currency }}</td><td>{{ row.amount | number:'1.2-8' }}</td></tr><tr *ngIf="!overview[measure]?.length"><td colspan="2">No valued amounts available; see coverage.</td></tr></tbody></table>
+        </section></div>
+        <p>Cash movements already include settlement fees where recorded. Fees are shown separately and are not subtracted again. Quantities appear per instrument and recorded unit.</p>
+        <p *ngIf="tab === 'report' && !saved">Issue this month to preserve its filters, totals, dataset and completeness. Issued versions remain unchanged when late evidence arrives; use an explicit amendment.</p>
+        <p *ngIf="tab === 'report' && saved">Use Activity, Instruments and Client segments to inspect the complete saved tables for this report version.</p>
+      </section>
+      <section *ngIf="tab !== 'overview' && tab !== 'report'" class="panel">
+        <h2>{{ tab === 'heatmap' ? 'Internal execution activity' : (tab | titlecase) }}</h2>
+        <p *ngIf="tab === 'client-segments'">Membership is evaluated at fill execution time. UNKNOWN includes missing history. Segment-source approval is pending. Clients can appear in more than one segment; do not sum distinct-client counts.</p>
+        <p *ngIf="tab === 'activity'">Daily recorded fill counts in {{ meta.period.timezone }}. Dates without recorded fills are omitted. Active clients and executed orders are distinct within each day; daily counts are not additive.</p>
+        <p *ngIf="tab === 'instruments' || tab === 'heatmap'">Ranked by fill count, with stable instrument ID as tie-break. Quantities retain their recorded units. Buy/sell counts describe internal fills only.</p>
+        <p *ngIf="!rows.length" role="status">Zero recorded activity for this selection. See coverage for missing evidence.</p>
+        <div class="bar-chart" *ngIf="tab !== 'heatmap' && rows.length" role="img" aria-label="Fill counts. Exact values are provided in the following table.">
+          <div *ngFor="let row of rows"><span>{{ label(row) }}</span><div class="bar" [style.width.%]="100 * row['fill_count'] / maxFills"></div><strong>{{ row['fill_count'] }} fills</strong></div>
         </div>
-
-        <!-- Symbol Details Table -->
-        <div class="section">
-          <h3>Symbol Trading Statistics</h3>
-          <div class="table-scroll">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Symbol</th>
-                  <th scope="col">Trade Count</th>
-                  <th scope="col">Total Volume</th>
-                  <th scope="col">Avg Price</th>
-                  <th scope="col">Buy / Sell Ratio</th>
-                  <th scope="col">Popularity</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let trend of symbolTrends">
-                  <td>
-                    <strong>{{ trend.symbol }}</strong>
-                  </td>
-                  <td>{{ trend.tradeCount }}</td>
-                  <td>{{ trend.totalVolume }}</td>
-                  <td>${{ trend.avgPrice | number: '1.0-2' }}</td>
-                  <td>{{ trend.buyCount }} / {{ trend.sellCount }}</td>
-                  <td>
-                    <div class="popularity-bar">
-                      <div class="popularity-fill" [style.width.%]="trend.popularityScore"></div>
-                      <span class="popularity-text">{{ trend.popularityScore }}%</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="activity-map" *ngIf="tab === 'heatmap'" role="img" aria-label="Instrument fill counts, with equivalent values in the following table.">
+          <div *ngFor="let row of rows" [style.opacity]="0.4 + 0.6 * row['fill_count'] / maxFills"><strong>{{ row['ticker'] }} #{{ row['instrumentid'] }}</strong><span>{{ row['fill_count'] }} fills</span></div>
         </div>
-      </div>
-
-      <!-- TRENDS TAB -->
-      <div *ngIf="activeTab === 'trends'" class="tab-content">
-        <h2>Market Trends Over Time</h2>
-        <p class="description">
-          Daily market activity showing the most popular symbol and total trading volume
-        </p>
-
-        <div class="trends-grid">
-          <div *ngFor="let trend of marketTrends" class="trend-card">
-            <div class="trend-date">{{ trend.date }}</div>
-            <div class="trend-symbol">
-              <span class="symbol-badge">{{ trend.topSymbol }}</span>
-            </div>
-            <div class="trend-stats">
-              <div class="stat">
-                <span class="stat-label">Trades</span>
-                <span class="stat-value">{{ trend.tradeCount }}</span>
-              </div>
-              <div class="stat">
-                <span class="stat-label">Volume</span>
-                <span class="stat-value">${{ trend.totalVolume | number: '1.0-0' }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Trends Table -->
-        <div class="section">
-          <h3>Detailed Trend Analysis</h3>
-          <div class="table-scroll">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Date</th>
-                  <th scope="col">Top Symbol</th>
-                  <th scope="col">Trade Count</th>
-                  <th scope="col">Total Volume</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let trend of marketTrends">
-                  <td>{{ trend.date }}</td>
-                  <td>
-                    <strong>{{ trend.topSymbol }}</strong>
-                  </td>
-                  <td>{{ trend.tradeCount }}</td>
-                  <td>${{ trend.totalVolume | number: '1.0-0' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
+        <div class="table-scroll"><table class="data-table"><caption>Recorded activity · {{ saved ? 'saved report version ' + saved.version : 'current published dataset' }}</caption>
+          <thead><tr><th scope="col">{{ tab === 'activity' ? 'Local date' : tab === 'client-segments' ? 'Segment' : 'Instrument' }}</th><th scope="col">Fills</th><th scope="col">Executed orders</th><th scope="col">Active clients</th><th scope="col">Buy / sell fills</th><th scope="col" *ngIf="tab === 'instruments' || tab === 'heatmap'">Executed quantity / unit</th></tr></thead>
+          <tbody><tr *ngFor="let row of rows"><th scope="row">{{ label(row) }}</th><td>{{ row['fill_count'] }}</td><td>{{ row['executed_orders'] }}</td><td>{{ row['active_clients'] }}</td><td>{{ row['buy_fills'] }} / {{ row['sell_fills'] }}</td><td *ngIf="tab === 'instruments' || tab === 'heatmap'">{{ row['executed_quantity'] | number }} {{ row['quantity_unit'] || 'UNKNOWN UNIT' }}</td></tr></tbody>
+        </table></div>
+        <div class="pagination" *ngIf="!saved && rows.length"><button class="ui-button" (click)="page(tab === 'activity' ? 'activity' : tab === 'client-segments' ? 'client-segments' : 'instruments', -1)" [disabled]="table['page'] === 0">Previous</button><span>Page {{ table['page'] + 1 }} · {{ table['total'] }} groups</span><button class="ui-button" (click)="page(tab === 'activity' ? 'activity' : tab === 'client-segments' ? 'client-segments' : 'instruments', 1)" [disabled]="(table['page'] + 1) * table['size'] >= table['total']">Next</button></div>
+      </section>
+    </ng-container>
   </div>
 </app-workspace>

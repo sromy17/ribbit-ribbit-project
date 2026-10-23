@@ -271,10 +271,19 @@ public class TradingOrderService implements OrderService {
         );
     }
 
+    private TradingOrderService transactionalSelf;
+
+    @Autowired
+    void setTransactionalSelf(@org.springframework.context.annotation.Lazy TradingOrderService transactions) {
+        this.transactionalSelf = transactions;
+    }
+
     @Override
-    @Transactional
     public ProcessOrderResponse submitOrder(ProcessOrderRequest request) {
-        CreateOrderResponse created = createOrder(new CreateOrderRequest(
+        // Commit accepted intent before execution and its independently committed attempt evidence.
+        // A direct instance is supported by the isolated unit tests; Spring supplies the proxy at runtime.
+        TradingOrderService transactions = transactionalSelf == null ? this : transactionalSelf;
+        CreateOrderResponse created = transactions.createOrder(new CreateOrderRequest(
             request.accountId(),
             request.ticker(),
             request.side(),
@@ -293,7 +302,7 @@ public class TradingOrderService implements OrderService {
                 null
             );
         }
-        return executeOrder(created.orderId());
+        return transactions.executeOrder(created.orderId());
     }
 
     private void saveRejection(Integer orderId, String reason) {
