@@ -55,7 +55,7 @@ public class Order {
     @Column(name = "status", nullable = false, length = 20)
     private OrderStatus status;
 
-    @Column(name = "created_at_utc", nullable = false)
+    @Column(name = "created_at_utc")
     private Instant createdAtUtc;
 
     @Column(name = "correlation_id", nullable = false, length = 36)

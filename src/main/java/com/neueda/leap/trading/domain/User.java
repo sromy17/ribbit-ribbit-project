@@ -24,6 +24,12 @@ public class User {
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
 
+    @Column(name = "registered_at_utc", updatable = false)
+    private java.time.Instant registeredAtUtc;
+
+    public java.time.Instant getRegisteredAtUtc() { return registeredAtUtc; }
+    public void setRegisteredAtUtc(java.time.Instant value) { registeredAtUtc = value; }
+
     @Column(name = "salt", nullable = false, length = 25)
     @JsonIgnore
     private String salt;

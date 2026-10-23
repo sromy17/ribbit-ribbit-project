@@ -35,6 +35,30 @@ class FauxnanceQuoteClientTest {
         assertEquals(new BigDecimal("123.45"), quote.price());
         assertEquals(new BigDecimal("-1.25"), quote.change());
         assertEquals(new BigDecimal("-1.0"), quote.changePercent());
+        assertEquals("fauxnance", quote.source());
+        assertNull(quote.quoteAtUtc());
+        assertNull(quote.currency());
+        assertNotNull(quote.receivedAtUtc());
+        server.verify();
+    }
+
+    @Test
+    void preservesUpstreamEvidenceThroughCacheAndKafkaSerialization() throws Exception {
+        server.expect(requestTo("https://quotes.test/quotes/ABC.L"))
+            .andRespond(withSuccess("""
+                {"data":{"price":102,"source":"venue-feed","timestamp":"2026-10-23T12:00:00Z",
+                         "currency":"GBP","priceType":"ASK"}}
+                """, MediaType.APPLICATION_JSON));
+        var quote = client.fetchMarketQuote("ABC.L");
+        var snapshot = QuoteSnapshot.from(quote);
+        var mapper = JsonMapper.builder().build();
+        var replayed = mapper.readValue(mapper.writeValueAsString(snapshot), QuoteSnapshot.class);
+        assertEquals("venue-feed", replayed.source());
+        assertEquals(java.time.Instant.parse("2026-10-23T12:00:00Z"), replayed.quoteAtUtc());
+        assertEquals("GBP", replayed.currency());
+        assertEquals("ASK", replayed.priceType());
+        assertEquals(quote.receivedAtUtc().toEpochMilli(), replayed.eventEpochMillis());
+        assertEquals(replayed.quoteAtUtc(), replayed.toMarketQuote().quoteAtUtc());
         server.verify();
     }
 

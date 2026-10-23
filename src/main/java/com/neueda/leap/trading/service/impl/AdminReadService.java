@@ -77,11 +77,15 @@ public class AdminReadService {
         validateRange(from, to);
         if (currency != null && !currency.isBlank()) throw new IllegalArgumentException("Currency-converted reporting is not supported");
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("instruments", olap.queryForList("SELECT f.instrumentid, i.ticker, COUNT(*) AS fill_count, SUM(f.executed_quantity) AS executed_quantity FROM fill_facts f LEFT JOIN instruments_info i ON i.instrumentid=f.instrumentid WHERE f.executed_at_utc >= ? AND f.executed_at_utc < ? GROUP BY f.instrumentid, i.ticker ORDER BY fill_count DESC, f.instrumentid", from.atStartOfDay(), to.plusDays(1).atStartOfDay()));
+        result.put("instruments", olap.queryForList("SELECT f.instrumentid, i.ticker, f.quantity_unit, COUNT(*) AS fill_count, SUM(f.executed_quantity) AS executed_quantity FROM fill_facts f LEFT JOIN instruments_info i ON i.instrumentid=f.instrumentid WHERE f.executed_at_utc >= ? AND f.executed_at_utc < ? GROUP BY f.instrumentid, i.ticker, f.quantity_unit ORDER BY fill_count DESC, f.instrumentid, f.quantity_unit", from.atStartOfDay(), to.plusDays(1).atStartOfDay()));
         result.put("orders", olap.queryForList("SELECT order_status, COUNT(*) AS order_count FROM order_facts WHERE created_at_utc >= ? AND created_at_utc < ? GROUP BY order_status ORDER BY order_status", from.atStartOfDay(), to.plusDays(1).atStartOfDay()));
         result.put("from", from.toString()); result.put("to", to.toString());
         result.put("asOf", latestPublication());
         result.put("valuation", "UNAVAILABLE: quote currency metadata is not available for all fills");
+        result.put("metricContract", "PROPOSED: reporting-metric-contract-v2; stakeholder approval required");
+        result.put("segmentation", "UNAVAILABLE: event-time policy approved; segment source and values pending approval");
+        result.put("unknownExecutionTimeCount", olap.queryForObject(
+            "SELECT COUNT(*) FROM fill_facts WHERE executed_at_utc IS NULL", Long.class));
         return result;
     }
 

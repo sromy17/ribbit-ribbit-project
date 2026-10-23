@@ -69,6 +69,7 @@ public class AccountController {
         account.setAccountId(nextAccountId);
         account.setUser(user);
         account.setType(request.accountType());
+        account.setCurrency(request.currency());
         account.setAvailableFunds(BigDecimal.ZERO);
         account.setCreationDate(LocalDate.now());
         return accountRepository.save(account);

@@ -41,6 +41,12 @@ public class OrderLifecycleEvent {
     private String quoteSource;
     @Column(name = "quote_at_utc")
     private Instant quoteAtUtc;
+    @Column(name = "quote_received_at_utc")
+    private Instant quoteReceivedAtUtc;
+    @Column(name = "quote_currency", length = 3)
+    private String quoteCurrency;
+    @Column(name = "quote_price_type", length = 40)
+    private String quotePriceType;
     @Column(name = "quote_price", precision = 30, scale = 10)
     private BigDecimal quotePrice;
     @Column(name = "decision_price", precision = 30, scale = 10)
@@ -73,6 +79,12 @@ public class OrderLifecycleEvent {
     public void setQuoteSource(String quoteSource) { this.quoteSource = quoteSource; }
     public Instant getQuoteAtUtc() { return quoteAtUtc; }
     public void setQuoteAtUtc(Instant quoteAtUtc) { this.quoteAtUtc = quoteAtUtc; }
+    public Instant getQuoteReceivedAtUtc() { return quoteReceivedAtUtc; }
+    public void setQuoteReceivedAtUtc(Instant value) { quoteReceivedAtUtc = value; }
+    public String getQuoteCurrency() { return quoteCurrency; }
+    public void setQuoteCurrency(String value) { quoteCurrency = value; }
+    public String getQuotePriceType() { return quotePriceType; }
+    public void setQuotePriceType(String value) { quotePriceType = value; }
     public BigDecimal getQuotePrice() { return quotePrice; }
     public void setQuotePrice(BigDecimal quotePrice) { this.quotePrice = quotePrice; }
     public BigDecimal getDecisionPrice() { return decisionPrice; }

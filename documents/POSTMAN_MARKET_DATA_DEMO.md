@@ -70,14 +70,21 @@ safe to show and looks like:
 {
   "symbol": "AAPL",
   "price": 150.25,
-  "eventEpochMillis": 0,
-  "source": "fauxnance-postman"
+  "eventEpochMillis": 1792756800000,
+  "source": "fauxnance",
+  "quoteAtUtc": null,
+  "currency": null,
+  "priceType": null
 }
 ```
 
 The first request fetches from Fauxnance, caches the snapshot, and publishes it
 to Kafka. A subsequent `GET {{apiBaseUrl}}/market-data/quotes` displays the
 currently cached snapshots.
+`eventEpochMillis` is the actual application receipt time (the value above is
+illustrative), not an upstream market timestamp. Optional upstream quote time,
+currency and price type are preserved when supplied, otherwise left unknown.
+Cache/Kafka delivery does not replace the original source or receipt time.
 
 If Fauxnance returns `401` or `502`, the Spring process needs a valid
 `FAUXNANCE_API_KEY`. The key is never sent from Postman; it is held by Spring.

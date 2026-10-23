@@ -119,3 +119,33 @@ curl -X POST http://localhost:8081/accounts/1/orders \
 - Controller tests for user and order endpoints
 - Order service and trading-rule validation tests
 - Application context and configuration binding smoke test
+
+### Analytics evidence and metric approval
+
+Review the [metric dictionary](documents/reporting-metric-contract.md) with Priya,
+Operations and Finance before adding charts. Event-time segmentation is approved;
+segment source/values and metric sign-off remain pending.
+
+For an existing PostgreSQL deployment, apply
+[OLTP migration](scripts/analytics-oltp-migration.sql) to the trading database and
+[OLAP migration](scripts/analytics-olap-migration.sql) to the reporting database
+before deploying the updated application/ETL. These migrations are additive,
+except for removing ticker-only uniqueness and allowing explicitly unknown
+timestamps/currency. They do not backfill historical data. Do not use the root
+schema initializers to upgrade a live database.
+
+Curate instrument conventions and account currency from trustworthy sources.
+New fills snapshot execution/fee currency, quantity unit, multiplier, product
+convention and client identity; missing metadata remains unknown. Historical
+cash labels without `currency_source` are unverified. Registration time is
+recorded only for real new registrations, never inferred for legacy clients.
+Order requests accept `instrumentId`; ticker-only requests remain compatible
+when unambiguous. Repeated tickers require ID-based orders and qualified
+`market_data_symbol` mappings. Reporting joins use stable IDs.
+
+### VS Code reports missing Java types while Maven passes
+
+Run **Java: Reload Projects** from the Command Palette to refresh the Maven
+project model. The workspace automatically refreshes Java build configuration
+when build files change. If diagnostics persist, run `mvn test` from the repository
+root to distinguish source failures from stale editor diagnostics.

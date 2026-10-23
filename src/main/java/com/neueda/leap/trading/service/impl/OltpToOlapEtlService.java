@@ -60,10 +60,11 @@ public class OltpToOlapEtlService {
                     "TRUNCATE TABLE public.trade_facts, public.accounts_info, public.instruments_info, " +
                     "public.employees_info, public.holdings_info, public.order_facts, " +
                     "public.fill_facts, public.lifecycle_event_facts, public.cash_movement_facts, " +
-                    "public.holding_movement_facts"
+                    "public.holding_movement_facts, public.clients_info, public.client_segment_history"
                 );
                 loadAccounts();
                 loadInstruments(runId);
+                loadClients(runId);
                 loadTradeFacts();
                 loadEmployees();
                 loadHoldings();
@@ -103,7 +104,8 @@ public class OltpToOlapEtlService {
     private InstantHolder sourceWatermark() {
         java.sql.Timestamp timestamp = oltpJdbcTemplate.queryForObject(
             "SELECT CURRENT_TIMESTAMP", java.sql.Timestamp.class);
-        return new InstantHolder(timestamp == null ? java.time.Instant.now() : timestamp.toInstant());
+        if (timestamp == null) throw new IllegalStateException("Source watermark is unavailable");
+        return new InstantHolder(timestamp.toInstant());
     }
 
     private void startRun(String runId, java.time.Instant watermark) {
@@ -144,6 +146,37 @@ public class OltpToOlapEtlService {
         if (duplicateFacts != null && duplicateFacts > 0) {
             throw new IllegalStateException("Trade fact uniqueness validation failed");
         }
+        for (String table : List.of("trade_request", "trades_executed", "order_lifecycle_events",
+                "cash_movements", "holding_movements", "users", "instruments", "client_segment_history")) {
+            String target = switch (table) {
+                case "trade_request" -> "order_facts";
+                case "trades_executed" -> "fill_facts";
+                case "order_lifecycle_events" -> "lifecycle_event_facts";
+                case "cash_movements" -> "cash_movement_facts";
+                case "holding_movements" -> "holding_movement_facts";
+                case "users" -> "clients_info";
+                case "instruments" -> "instruments_info";
+                default -> "client_segment_history";
+            };
+            Long sourceCount = oltpJdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Long.class);
+            Long targetCount = olapJdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + target, Long.class);
+            if (!java.util.Objects.equals(sourceCount, targetCount)) {
+                throw new IllegalStateException("Fact/dimension reconciliation failed for " + target);
+            }
+        }
+        Long invalidSegments = olapJdbcTemplate.queryForObject("""
+            SELECT COUNT(*) FROM client_segment_history a
+            WHERE (a.effective_to_utc IS NOT NULL AND a.effective_to_utc <= a.effective_from_utc)
+               OR NOT EXISTS (SELECT 1 FROM clients_info c WHERE c.client_id = a.client_id)
+               OR EXISTS (
+                SELECT 1 FROM client_segment_history b
+                WHERE a.client_id = b.client_id AND a.membership_id <> b.membership_id
+                  AND (b.effective_to_utc IS NULL OR a.effective_from_utc < b.effective_to_utc)
+                  AND (a.effective_to_utc IS NULL OR b.effective_from_utc < a.effective_to_utc))
+            """, Long.class);
+        if (invalidSegments != null && invalidSegments > 0) {
+            throw new IllegalStateException("Invalid or overlapping client segment history");
+        }
     }
 
     private record InstantHolder(java.time.Instant value) {
@@ -152,7 +185,7 @@ public class OltpToOlapEtlService {
     private void loadAccounts() {
         List<Map<String, Object>> rows = oltpJdbcTemplate.queryForList("""
             SELECT a.accountid, a.userid, u.username, a.availablefunds,
-                   a.creationdate, a.account_type
+                   a.creationdate, a.account_type, a.currency
             FROM public.accounts a
             JOIN public.users u ON u.userid = a.userid
             """);
@@ -160,32 +193,67 @@ public class OltpToOlapEtlService {
         batchInsert(
             """
             INSERT INTO public.accounts_info
-                (accountid, userid, username, availablefunds, creationdate, account_type)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (accountid, userid, username, availablefunds, creationdate, account_type, currency)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             rows,
             "accountid", "userid", "username", "availablefunds",
-            "creationdate", "account_type"
+            "creationdate", "account_type", "currency"
         );
     }
 
     private void loadInstruments(String runId) {
         List<Map<String, Object>> rows = oltpJdbcTemplate.queryForList(
-            "SELECT instrumentid, ticker, instrumentname FROM public.instruments");
+            """
+            SELECT instrumentid, ticker, instrumentname, asset_class, market, venue,
+                   quote_currency, settlement_currency, quantity_unit, price_precision,
+                   quantity_precision, contract_multiplier, product_convention, metadata_source,
+                   market_data_symbol FROM public.instruments
+            """);
         batchInsertEvidence(
-            "INSERT INTO public.instruments_info (instrumentid, ticker, instrumentname, dataset_run_id) VALUES (?, ?, ?, ?)",
-            rows, runId, "instrumentid", "ticker", "instrumentname");
+            """
+            INSERT INTO public.instruments_info (instrumentid, ticker, instrumentname, asset_class,
+                market, venue, quote_currency, settlement_currency, quantity_unit, price_precision,
+                quantity_precision, contract_multiplier, product_convention, metadata_source,
+                market_data_symbol, dataset_run_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows, runId, "instrumentid", "ticker", "instrumentname", "asset_class", "market", "venue",
+            "quote_currency", "settlement_currency", "quantity_unit", "price_precision", "quantity_precision",
+            "contract_multiplier", "product_convention", "metadata_source", "market_data_symbol");
+    }
+
+    private void loadClients(String runId) {
+        batchInsertEvidence("""
+            INSERT INTO public.clients_info (client_id, registered_at_utc, dataset_run_id)
+            VALUES (?, ?, ?)
+            """, oltpJdbcTemplate.queryForList("SELECT userid, registered_at_utc FROM public.users"),
+            runId, "userid", "registered_at_utc");
+        batchInsertEvidence("""
+            INSERT INTO public.client_segment_history (membership_id, client_id, segment_code, source,
+                effective_from_utc, effective_to_utc, recorded_at_utc, dataset_run_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, oltpJdbcTemplate.queryForList("""
+                SELECT membership_id, client_id, segment_code, source, effective_from_utc,
+                       effective_to_utc, recorded_at_utc FROM public.client_segment_history
+                """), runId, "membership_id", "client_id", "segment_code", "source",
+            "effective_from_utc", "effective_to_utc", "recorded_at_utc");
     }
 
     private void loadTradeFacts() {
         List<Map<String, Object>> rows = oltpJdbcTemplate.queryForList("""
+            WITH fills AS (
+                SELECT requestid, MAX(executeid) AS executeid, COUNT(*)::int AS execution_count,
+                       (ARRAY_AGG(askprice ORDER BY executed_at_utc DESC NULLS LAST, executeid DESC))[1] AS last_execution_price,
+                       MIN(date_execution) AS first_execution_date, MAX(date_execution) AS last_execution_date,
+                       SUM(quantity_executed)::int AS quantity_executed
+                FROM public.trades_executed GROUP BY requestid
+            )
             SELECT tr.requestid, tr.accountid, a.userid, tr.instrumentid, tr.side,
                    tr.quantity AS quantity_requested, tr.bidprice, tr.date_request,
-                   MAX(te.executeid) AS executeid, COUNT(te.executeid)::int AS execution_count,
-                   MAX(te.askprice) AS last_execution_price,
-                   MIN(te.date_execution) AS first_execution_date,
-                   MAX(te.date_execution) AS last_execution_date,
-                   COALESCE(SUM(te.quantity_executed), 0)::int AS quantity_executed,
+                   te.executeid, COALESCE(te.execution_count, 0) AS execution_count,
+                   te.last_execution_price, te.first_execution_date, te.last_execution_date,
+                   COALESCE(te.quantity_executed, 0) AS quantity_executed,
                    co.cancel_id, co.reason AS cancel_reason, co.cancel_date,
                    ro.reject_id, ro.reason AS reject_reason, ro.reject_date,
                    d.disputeid, d.status AS dispute_status, d.category AS dispute_category,
@@ -199,18 +267,11 @@ public class OltpToOlapEtlService {
             JOIN public.accounts a ON a.accountid = tr.accountid
             JOIN public.users u ON u.userid = a.userid
             JOIN public.instruments i ON i.instrumentid = tr.instrumentid
-            LEFT JOIN public.trades_executed te ON te.requestid = tr.requestid
-            LEFT JOIN public.canceled_order co ON co.request_id = tr.requestid
-            LEFT JOIN public.rejected_orders ro ON ro.request_id = tr.requestid
-            LEFT JOIN public.disputed_orders d ON d.requestid = tr.requestid
+            LEFT JOIN fills te ON te.requestid = tr.requestid
+            LEFT JOIN LATERAL (SELECT * FROM public.canceled_order c WHERE c.request_id = tr.requestid ORDER BY cancel_id DESC LIMIT 1) co ON TRUE
+            LEFT JOIN LATERAL (SELECT * FROM public.rejected_orders r WHERE r.request_id = tr.requestid ORDER BY reject_id DESC LIMIT 1) ro ON TRUE
+            LEFT JOIN LATERAL (SELECT * FROM public.disputed_orders cases WHERE cases.requestid = tr.requestid ORDER BY disputeid DESC LIMIT 1) d ON TRUE
             LEFT JOIN public.employees e ON e.employeeid = d.employeeid
-            GROUP BY tr.requestid, tr.accountid, a.userid, tr.instrumentid, tr.side,
-                     tr.quantity, tr.bidprice, tr.date_request, co.cancel_id,
-                     co.reason, co.cancel_date, ro.reject_id, ro.reason, ro.reject_date,
-                     d.disputeid, d.status, d.category, d.reason, d.employeeid,
-                     a.availablefunds, a.creationdate, a.account_type, u.username,
-                     i.ticker, i.instrumentname, e.employeeusername, e.employeeRoles,
-                     tr.status
             """);
 
         batchInsert(
@@ -305,42 +366,47 @@ public class OltpToOlapEtlService {
         batchInsertEvidence("""
             INSERT INTO public.fill_facts
                 (executeid, requestid, accountid, instrumentid, executed_quantity,
-                 execution_price, fee, executed_at_utc, dataset_run_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 execution_price, fee, executed_at_utc, client_id, execution_currency, fee_currency,
+                 quantity_unit, contract_multiplier, product_convention, pricing_event_id, dataset_run_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, oltpJdbcTemplate.queryForList("""
                 SELECT te.executeid, te.requestid, tr.accountid, tr.instrumentid,
-                       te.quantity_executed, te.askprice, te.fee, te.executed_at_utc
+                       te.quantity_executed, te.askprice, te.fee, te.executed_at_utc,
+                       te.client_id, te.execution_currency, te.fee_currency, te.quantity_unit,
+                       te.contract_multiplier, te.product_convention, te.pricing_event_id
                 FROM public.trades_executed te JOIN public.trade_request tr ON tr.requestid = te.requestid
                 """), runId,
             "executeid", "requestid", "accountid", "instrumentid", "quantity_executed",
-            "askprice", "fee", "executed_at_utc");
+            "askprice", "fee", "executed_at_utc", "client_id", "execution_currency", "fee_currency",
+            "quantity_unit", "contract_multiplier", "product_convention", "pricing_event_id");
 
         batchInsertEvidence("""
             INSERT INTO public.lifecycle_event_facts
                 (event_id, requestid, accountid, instrumentid, event_type, event_sequence,
                  occurred_at_utc, correlation_id, quote_source, quote_at_utc, quote_price,
-                 decision_price, quantity, fee, reason, dataset_run_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 decision_price, quantity, fee, reason, quote_received_at_utc, quote_currency,
+                 quote_price_type, dataset_run_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, oltpJdbcTemplate.queryForList("""
                 SELECT event_id, order_id, account_id, instrument_id, event_type, event_sequence,
                        occurred_at_utc, correlation_id, quote_source, quote_at_utc, quote_price,
-                       decision_price, quantity, fee, reason
+                       decision_price, quantity, fee, reason, quote_received_at_utc, quote_currency, quote_price_type
                 FROM public.order_lifecycle_events
                 """), runId,
             "event_id", "order_id", "account_id", "instrument_id", "event_type", "event_sequence",
             "occurred_at_utc", "correlation_id", "quote_source", "quote_at_utc", "quote_price",
-            "decision_price", "quantity", "fee", "reason");
+            "decision_price", "quantity", "fee", "reason", "quote_received_at_utc", "quote_currency", "quote_price_type");
 
         batchInsertEvidence("""
             INSERT INTO public.cash_movement_facts
-                (movement_id, requestid, accountid, amount, currency, movement_type,
+                (movement_id, requestid, accountid, amount, currency, currency_source, movement_type,
                  occurred_at_utc, correlation_id, dataset_run_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, oltpJdbcTemplate.queryForList("""
-                SELECT movement_id, order_id, account_id, amount, currency, movement_type,
+                SELECT movement_id, order_id, account_id, amount, currency, currency_source, movement_type,
                        occurred_at_utc, correlation_id FROM public.cash_movements
                 """), runId,
-            "movement_id", "order_id", "account_id", "amount", "currency", "movement_type",
+            "movement_id", "order_id", "account_id", "amount", "currency", "currency_source", "movement_type",
             "occurred_at_utc", "correlation_id");
 
         batchInsertEvidence("""

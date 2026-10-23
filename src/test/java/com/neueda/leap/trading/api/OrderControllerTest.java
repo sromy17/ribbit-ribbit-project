@@ -84,6 +84,22 @@ class OrderControllerTest {
     }
 
     @Test
+    void createOrderForwardsStableInstrumentIdWithoutTicker() throws Exception {
+        mockMvc.perform(post("/accounts/1/orders").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"instrumentId\":42,\"side\":\"BUY\",\"quantity\":4}"))
+            .andExpect(status().isCreated());
+        verify(orderService).submitOrder(new ProcessOrderRequest(1, null, OrderSide.BUY, 4, null, 42));
+    }
+
+    @Test
+    void createOrderRequiresAnInstrumentReference() throws Exception {
+        mockMvc.perform(post("/accounts/1/orders").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"side\":\"BUY\",\"quantity\":4}"))
+            .andExpect(status().isBadRequest());
+        verify(orderService, never()).submitOrder(any(ProcessOrderRequest.class));
+    }
+
+    @Test
     void cancelOrder_returnsNoContentWhenOrderBelongsToAccount() throws Exception {
         Order order = new Order();
         order.setOrderId(101);

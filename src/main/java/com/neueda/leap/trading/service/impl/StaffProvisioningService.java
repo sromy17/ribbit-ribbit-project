@@ -8,7 +8,6 @@ import com.neueda.leap.trading.api.StaffRoleResponse;
 import com.neueda.leap.trading.domain.AuditRecord;
 import com.neueda.leap.trading.domain.Role;
 import com.neueda.leap.trading.domain.User;
-import com.neueda.leap.trading.domain.DisputeCase;
 import com.neueda.leap.trading.domain.DisputeCaseEvent;
 import com.neueda.leap.trading.domain.DisputeCaseStatus;
 import com.neueda.leap.trading.repository.jpa.AuditRecordRepository;

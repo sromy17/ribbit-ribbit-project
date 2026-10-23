@@ -1,4 +1,5 @@
 DROP TABLE IF EXISTS users cascade;
+DROP TABLE IF EXISTS client_segment_history cascade;
 DROP TABLE IF EXISTS audit_records cascade;
 DROP TABLE IF EXISTS dispute_case_events cascade;
 DROP TABLE IF EXISTS dispute_cases cascade;
@@ -21,6 +22,7 @@ CREATE TABLE users
 (
     userid INT PRIMARY KEY,
     username varchar(50) UNIQUE NOT NULL,
+    registered_at_utc TIMESTAMPTZ,
     salt varchar(25) NOT NULL,
     userHashedSaltedPassword varchar(64) NOT NULL
 );
@@ -63,6 +65,7 @@ CREATE TABLE accounts
     accountid INT PRIMARY KEY,
     userid INT REFERENCES users(userid) NOT NULL,
     availablefunds NUMERIC NOT NULL DEFAULT 0,
+    currency CHAR(3),
     CHECK (availablefunds >= 0),
     creationdate DATE NOT NULL,
     account_type VARCHAR(20) NOT NULL,
@@ -72,8 +75,28 @@ CREATE TABLE accounts
 CREATE TABLE instruments
 (
     instrumentid INT PRIMARY KEY,
-    ticker VARCHAR(25) NOT NULL UNIQUE,
-    instrumentname VARCHAR(25) NOT NULL
+    ticker VARCHAR(25) NOT NULL,
+    instrumentname VARCHAR(25) NOT NULL,
+    asset_class VARCHAR(30), market VARCHAR(40), venue VARCHAR(80),
+    quote_currency CHAR(3), settlement_currency CHAR(3), quantity_unit VARCHAR(40),
+    price_precision INT CHECK (price_precision >= 0),
+    quantity_precision INT CHECK (quantity_precision >= 0),
+    contract_multiplier NUMERIC CHECK (contract_multiplier > 0),
+    product_convention VARCHAR(80), metadata_source VARCHAR(200),
+    market_data_symbol VARCHAR(80)
+);
+
+CREATE TABLE client_segment_history
+(
+    membership_id BIGSERIAL PRIMARY KEY,
+    client_id INT NOT NULL REFERENCES users(userid),
+    segment_code VARCHAR(60) NOT NULL,
+    source VARCHAR(200) NOT NULL,
+    effective_from_utc TIMESTAMPTZ NOT NULL,
+    effective_to_utc TIMESTAMPTZ,
+    recorded_at_utc TIMESTAMPTZ NOT NULL,
+    UNIQUE (client_id, effective_from_utc),
+    CHECK (effective_to_utc IS NULL OR effective_to_utc > effective_from_utc)
 );
 
 CREATE TABLE trade_request
@@ -85,7 +108,7 @@ CREATE TABLE trade_request
     quantity INT NOT NULL CHECK (quantity > 0),
     bidprice NUMERIC NOT NULL CHECK (bidprice >= 0),
     date_request DATE NOT NULL,
-    created_at_utc TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at_utc TIMESTAMPTZ,
     correlation_id VARCHAR(36) NOT NULL DEFAULT '',
     status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'EXECUTED', 'CANCELLED', 'REJECTED'))
 );
@@ -96,7 +119,11 @@ CREATE TABLE trades_executed
     requestid INT NOT NULL REFERENCES trade_request(requestid),
     askprice NUMERIC NOT NULL CHECK (askprice >= 0),
     date_execution DATE NOT NULL,
-    executed_at_utc TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    executed_at_utc TIMESTAMPTZ,
+    client_id INT REFERENCES users(userid),
+    execution_currency CHAR(3), fee_currency CHAR(3), quantity_unit VARCHAR(40),
+    contract_multiplier NUMERIC CHECK (contract_multiplier > 0),
+    product_convention VARCHAR(80), pricing_event_id BIGINT,
     fee NUMERIC NOT NULL DEFAULT 0,
     quantity_executed INT NOT NULL CHECK (quantity_executed > 0)
 );
@@ -146,7 +173,8 @@ CREATE TABLE order_lifecycle_events
     event_version INT NOT NULL DEFAULT 1,
     occurred_at_utc TIMESTAMP NOT NULL,
     correlation_id VARCHAR(36) NOT NULL,
-    quote_source VARCHAR(80), quote_at_utc TIMESTAMP, quote_price NUMERIC,
+    quote_source VARCHAR(80), quote_at_utc TIMESTAMPTZ, quote_price NUMERIC,
+    quote_received_at_utc TIMESTAMPTZ, quote_currency CHAR(3), quote_price_type VARCHAR(40),
     decision_price NUMERIC, quantity INT, fee NUMERIC, reason VARCHAR(500),
     UNIQUE (order_id, event_sequence)
 );
@@ -156,7 +184,7 @@ CREATE TABLE cash_movements
     movement_id BIGSERIAL PRIMARY KEY,
     order_id INT NOT NULL REFERENCES trade_request(requestid),
     account_id INT NOT NULL REFERENCES accounts(accountid),
-    amount NUMERIC NOT NULL, currency CHAR(3) NOT NULL,
+    amount NUMERIC NOT NULL, currency CHAR(3), currency_source VARCHAR(80),
     movement_type VARCHAR(40) NOT NULL, occurred_at_utc TIMESTAMP NOT NULL,
     correlation_id VARCHAR(36) NOT NULL
 );

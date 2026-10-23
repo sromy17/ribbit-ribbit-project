@@ -2,6 +2,9 @@ package com.neueda.leap.trading.service.impl;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import com.neueda.leap.trading.service.contract.MarketQuote;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.neueda.leap.trading.domain.CashMovement;
 import com.neueda.leap.trading.domain.HoldingMovement;
@@ -16,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OrderEvidenceService {
+    private static final Logger log = LoggerFactory.getLogger(OrderEvidenceService.class);
     private final OrderLifecycleEventRepository lifecycleRepository;
     private final CashMovementRepository cashMovementRepository;
     private final HoldingMovementRepository holdingMovementRepository;
@@ -34,13 +38,25 @@ public class OrderEvidenceService {
         event(order, type, reason, null, null, null, null, null);
     }
 
-    public void quote(Order order, BigDecimal price, BigDecimal fee) {
-        event(order, "PRICING_DECISION", null, "market-data-verification", Instant.now(), price, price, fee);
+    public Long quote(Order order, MarketQuote quote, BigDecimal fee) {
+        OrderLifecycleEvent event = newEvent(order, "PRICING_DECISION", null);
+        event.setQuoteSource(quote.source());
+        event.setQuoteAtUtc(quote.quoteAtUtc());
+        event.setQuoteReceivedAtUtc(quote.receivedAtUtc());
+        event.setQuoteCurrency(quote.currency());
+        event.setQuotePriceType(quote.priceType());
+        event.setQuotePrice(quote.price());
+        event.setDecisionPrice(quote.price());
+        event.setFee(fee);
+        if (quote.source() == null || quote.quoteAtUtc() == null || quote.currency() == null) {
+            log.warn("Incomplete upstream quote evidence for order {}", order.getOrderId());
+        }
+        return lifecycleRepository.save(event).getEventId();
     }
 
     public void fill(Order order, Trade trade) {
-        event(order, "FILL_COMMITTED", null, "market-data-verification", trade.getExecutedAtUtc(),
-            trade.getExecutionPrice(), trade.getExecutionPrice(), trade.getFee());
+        event(order, "FILL_COMMITTED", null, null, null, null,
+            trade.getExecutionPrice(), trade.getFee());
     }
 
     public void cashMovement(Order order, BigDecimal amount, String type) {
@@ -48,7 +64,11 @@ public class OrderEvidenceService {
         movement.setOrderId(order.getOrderId());
         movement.setAccountId(order.getAccount().getAccountId());
         movement.setAmount(amount);
-        movement.setCurrency("USD");
+        movement.setCurrency(order.getAccount().getCurrency());
+        movement.setCurrencySource(order.getAccount().getCurrency() == null ? null : "ACCOUNT_METADATA");
+        if (order.getAccount().getCurrency() == null) {
+            log.warn("Cash movement currency unavailable for order {}", order.getOrderId());
+        }
         movement.setMovementType(type);
         movement.setOccurredAtUtc(Instant.now());
         movement.setCorrelationId(order.getCorrelationId());
@@ -82,6 +102,16 @@ public class OrderEvidenceService {
         BigDecimal decisionPrice,
         BigDecimal fee
     ) {
+        OrderLifecycleEvent event = newEvent(order, type, reason);
+        event.setQuoteSource(quoteSource);
+        event.setQuoteAtUtc(quoteAt);
+        event.setQuotePrice(quotePrice);
+        event.setDecisionPrice(decisionPrice);
+        event.setFee(fee);
+        lifecycleRepository.save(event);
+    }
+
+    private OrderLifecycleEvent newEvent(Order order, String type, String reason) {
         OrderLifecycleEvent event = new OrderLifecycleEvent();
         event.setOrderId(order.getOrderId());
         event.setAccountId(order.getAccount().getAccountId());
@@ -91,12 +121,7 @@ public class OrderEvidenceService {
         event.setOccurredAtUtc(Instant.now());
         event.setCorrelationId(order.getCorrelationId());
         event.setReason(reason);
-        event.setQuoteSource(quoteSource);
-        event.setQuoteAtUtc(quoteAt);
-        event.setQuotePrice(quotePrice);
-        event.setDecisionPrice(decisionPrice);
         event.setQuantity(order.getQuantity());
-        event.setFee(fee);
-        lifecycleRepository.save(event);
+        return event;
     }
 }

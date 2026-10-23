@@ -1,6 +1,6 @@
 # Admin portal: stakeholder answers
 
-Updated: 2026-10-21. Companion to `admin-portal-requirements.md`.
+Updated: 2026-10-23. Companion to `admin-portal-requirements.md`.
 
 Status legend: **Confirmed** means explicitly answered by the user. **Recommended**
 means a proposed answer to an unanswered question, pending stakeholder adoption.
@@ -127,7 +127,7 @@ conflict. Resolution changes the case only, never the underlying financial recor
 - **Recommended active client:** One unique customer with at least one committed
   fill in the period, regardless of account count. Report submitting clients as
   a separate metric if useful. Aggregate per instrument/currency appropriately.
-- **Recommended historical segment:** Use the effective classification at event
+- **Confirmed 2026-10-23 historical policy:** Use the effective classification at event
   time for each metric's event (submission for submission metrics, fill for fill
   metrics). Freeze historical classification unless a documented correction is
   applied. Label any current-classification analysis separately.
@@ -158,6 +158,11 @@ conflict. Resolution changes the case only, never the underlying financial recor
 
 ## 8. Client segmentation
 
+- **Confirmed 2026-10-23:** Event-time historical classification is approved;
+  segment source, commercial values and tenure bands remain pending. Storage
+  availability does not authorise exposing segment reporting. See the proposed
+  [metric dictionary](reporting-metric-contract.md) for review with Priya,
+  Operations and Finance.
 - **Recommended minimal launch segmentation:** Registered client tenure, derived
   from a persisted registration timestamp: NEW (<30 elapsed days at event time),
   ESTABLISHED (>=30 days), UNKNOWN (missing/unreliable registration time).

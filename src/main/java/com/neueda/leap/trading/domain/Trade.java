@@ -39,8 +39,38 @@ public class Trade {
     @Column(name = "fee", nullable = false, precision = 30, scale = 10)
     private BigDecimal fee = BigDecimal.ZERO;
 
-    @Column(name = "executed_at_utc", nullable = false)
+    @Column(name = "executed_at_utc")
     private java.time.Instant executedAtUtc;
+
+    @Column(name = "execution_currency", length = 3)
+    private String executionCurrency;
+    @Column(name = "fee_currency", length = 3)
+    private String feeCurrency;
+    @Column(name = "quantity_unit", length = 40)
+    private String quantityUnit;
+    @Column(name = "contract_multiplier", precision = 30, scale = 10)
+    private BigDecimal contractMultiplier;
+    @Column(name = "product_convention", length = 80)
+    private String productConvention;
+    @Column(name = "pricing_event_id")
+    private Long pricingEventId;
+    @Column(name = "client_id")
+    private Integer clientId;
+
+    public Integer getClientId() { return clientId; }
+    public void setClientId(Integer value) { clientId = value; }
+    public String getExecutionCurrency() { return executionCurrency; }
+    public void setExecutionCurrency(String value) { executionCurrency = value; }
+    public String getFeeCurrency() { return feeCurrency; }
+    public void setFeeCurrency(String value) { feeCurrency = value; }
+    public String getQuantityUnit() { return quantityUnit; }
+    public void setQuantityUnit(String value) { quantityUnit = value; }
+    public BigDecimal getContractMultiplier() { return contractMultiplier; }
+    public void setContractMultiplier(BigDecimal value) { contractMultiplier = value; }
+    public String getProductConvention() { return productConvention; }
+    public void setProductConvention(String value) { productConvention = value; }
+    public Long getPricingEventId() { return pricingEventId; }
+    public void setPricingEventId(Long value) { pricingEventId = value; }
 
     public Integer getTradeId() {
         return tradeId;

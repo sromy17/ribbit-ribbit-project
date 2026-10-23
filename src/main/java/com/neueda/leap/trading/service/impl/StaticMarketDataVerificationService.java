@@ -36,20 +36,25 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
 
     @Override
     public BigDecimal verifyExecutionPrice(Order order) {
+        return verifyExecutionQuote(order).price();
+    }
+
+    @Override
+    public MarketQuote verifyExecutionQuote(Order order) {
         String symbol = extractSymbol(order);
 
         try {
             Duration maxAge = Duration.ofMillis(Math.max(quoteCacheMaxAgeMs, 1));
-            BigDecimal cachedPrice = quoteCache.getFreshPrice(symbol, maxAge).orElse(null);
-            if (cachedPrice != null) {
-                return cachedPrice;
+            QuoteSnapshot cached = quoteCache.getFreshSnapshot(symbol, maxAge).orElse(null);
+            if (cached != null) {
+                return cached.toMarketQuote();
             }
 
-            BigDecimal livePrice = fauxnanceQuoteClient.fetchQuote(symbol);
-            QuoteSnapshot snapshot = new QuoteSnapshot(symbol, livePrice, System.currentTimeMillis(), "fauxnance-sync");
+            MarketQuote quote = fauxnanceQuoteClient.fetchMarketQuote(symbol);
+            QuoteSnapshot snapshot = QuoteSnapshot.from(quote);
             quoteCache.upsert(snapshot);
             kafkaQuoteProducer.produce(snapshot);
-            return livePrice;
+            return quote;
         } catch (RuntimeException ex) {
             throw new IllegalArgumentException(
                 "Unable to verify execution price for symbol " + symbol + ": " + ex.getMessage(),
@@ -89,7 +94,8 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
             throw new IllegalArgumentException("Order does not contain an instrument ticker");
         }
 
-        String symbol = order.getInstrument().getTicker().trim();
+        String providerSymbol = order.getInstrument().getMarketDataSymbol();
+        String symbol = (providerSymbol == null ? order.getInstrument().getTicker() : providerSymbol).trim();
         if (symbol.isEmpty()) {
             throw new IllegalArgumentException("Order instrument ticker is blank");
         }

@@ -191,7 +191,7 @@ app.post("/register", async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     await client.query(
-      "INSERT INTO users (userid, username, salt, userhashedsaltedpassword) VALUES ($1, $2, $3, $4)",
+      "INSERT INTO users (userid, username, salt, userhashedsaltedpassword, registered_at_utc) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)",
       [nextUserId, username, "bcrypt", passwordHash]
     );
 

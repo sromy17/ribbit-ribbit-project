@@ -52,12 +52,7 @@ public class MarketDataController {
 
     private QuoteSnapshot fetchAndPublish(String symbol) {
         try {
-            QuoteSnapshot snapshot = new QuoteSnapshot(
-                symbol,
-                fauxnanceQuoteClient.fetchQuote(symbol),
-                System.currentTimeMillis(),
-                "fauxnance-postman"
-            );
+            QuoteSnapshot snapshot = QuoteSnapshot.from(fauxnanceQuoteClient.fetchMarketQuote(symbol));
             quoteCache.upsert(snapshot);
             kafkaQuoteProducer.produce(snapshot);
             return snapshot;

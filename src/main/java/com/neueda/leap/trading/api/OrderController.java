@@ -45,7 +45,8 @@ public class OrderController {
             request.ticker(),
             request.side(),
             request.quantity(),
-            null
+            null,
+            request.instrumentId()
         ));
     }
 

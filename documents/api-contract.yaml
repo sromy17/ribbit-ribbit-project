@@ -19,6 +19,7 @@ paths:
   /accounts:
     post:
       summary: Create a trading account
+      description: Optional currency is an explicit three-letter uppercase account currency; omission remains unknown, never USD by default.
   /accounts/{accountId}:
     get:
       summary: Fetch account details
@@ -81,6 +82,34 @@ paths:
             type: string
     post:
       summary: Create an order
+      description: >
+        Provide instrumentId (canonical) or ticker with side and quantity.
+        Ticker-only requests are supported only when unambiguous.
+        When both are supplied they must match. Duplicate tickers require a
+        qualified provider symbol configured against the selected instrument ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [side, quantity]
+              anyOf:
+                - required: [instrumentId]
+                - required: [ticker]
+              properties:
+                instrumentId:
+                  type: integer
+                  minimum: 1
+                ticker:
+                  type: string
+                  minLength: 1
+                side:
+                  type: string
+                  enum: [BUY, SELL]
+                quantity:
+                  type: integer
+                  minimum: 1
   /accounts/{accountId}/trades:
     get:
       summary: View trade history

@@ -42,6 +42,7 @@ public class UserController {
         User user = new User();
         user.setUserId((int) System.currentTimeMillis() % 1000000); // Simple ID generation
         user.setUsername(request.username());
+        user.setRegisteredAtUtc(java.time.Instant.now());
         user.setSalt("contract-salt");
         user.setUserHashedSaltedPassword(passwordEncoder.encode(request.password()));
         return UserResponse.from(userRepository.save(user));

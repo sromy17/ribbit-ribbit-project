@@ -3,6 +3,7 @@ package com.neueda.leap.trading.service.impl.marketdata;
 import tools.jackson.core.JacksonException;
 import org.jspecify.annotations.Nullable;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -62,7 +63,9 @@ public class FauxnanceQuoteClient {
             }
 
             QuoteData data = response.data();
-            return new MarketQuote(normalized, data.price(), data.change(), data.changePercent());
+            return new MarketQuote(normalized, data.price(), data.change(), data.changePercent(),
+                data.source() == null ? "fauxnance" : data.source(),
+                data.timestamp(), Instant.now(), data.currency(), data.priceType());
         } catch (RestClientResponseException ex) {
             throw new IllegalArgumentException(extractErrorMessage(ex) + " for symbol " + normalized, ex);
         }
@@ -107,7 +110,8 @@ public class FauxnanceQuoteClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record QuoteData(BigDecimal price, BigDecimal change, BigDecimal changePercent) {
+    private record QuoteData(BigDecimal price, BigDecimal change, BigDecimal changePercent,
+                             String source, Instant timestamp, String currency, String priceType) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

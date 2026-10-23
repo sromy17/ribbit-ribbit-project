@@ -1,6 +1,5 @@
 package com.neueda.leap.trading.service.impl.marketdata;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -49,7 +48,7 @@ public class MarketDataKafkaPoller {
             return;
         }
 
-        publishQuotes(prioritySymbols, "fauxnance-priority");
+        publishQuotes(prioritySymbols);
     }
 
     @Scheduled(fixedDelayString = "${market-data.refresh.secondary-poll-ms:300000}")
@@ -70,14 +69,13 @@ public class MarketDataKafkaPoller {
             .distinct()
             .toList();
 
-        publishQuotes(secondarySymbols, "fauxnance-secondary");
+        publishQuotes(secondarySymbols);
     }
 
-    private void publishQuotes(List<String> symbols, String source) {
+    private void publishQuotes(List<String> symbols) {
         for (String symbol : symbols) {
             try {
-                BigDecimal price = fauxnanceQuoteClient.fetchQuote(symbol);
-                QuoteSnapshot snapshot = new QuoteSnapshot(symbol, price, System.currentTimeMillis(), source);
+                QuoteSnapshot snapshot = QuoteSnapshot.from(fauxnanceQuoteClient.fetchMarketQuote(symbol));
                 quoteCache.upsert(snapshot);
                 kafkaQuotePublisher.produce(snapshot);
             } catch (RuntimeException ex) {
