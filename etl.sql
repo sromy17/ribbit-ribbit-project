@@ -11,9 +11,9 @@ INSERT INTO bank_info (
 SELECT
     b.bankid, b.accountid, u.userid, u.username, u.first_name, u.last_name,
     b.accountname, b.routing_number, b.account_number, b.balance
-FROM bank b
-JOIN accounts a ON a.accountid = b.accountid
-JOIN users u ON u.userid = a.userid;
+FROM etl_source.bank b
+JOIN etl_source.accounts a ON a.accountid = b.accountid
+JOIN etl_source.users u ON u.userid = a.userid;
 
 INSERT INTO bank_movement_facts (
     movement_id, bankid, accountid, userid, username, first_name, last_name,
@@ -22,10 +22,10 @@ INSERT INTO bank_movement_facts (
 SELECT
     bm.movement_id, bm.bankid, b.accountid, u.userid, u.username,
     u.first_name, u.last_name, bm.amount, bm.movement_type, bm.movement_date
-FROM bank_movement bm
-JOIN bank b ON b.bankid = bm.bankid
-JOIN accounts a ON a.accountid = b.accountid
-JOIN users u ON u.userid = a.userid;
+FROM etl_source.bank_movement bm
+JOIN etl_source.bank b ON b.bankid = bm.bankid
+JOIN etl_source.accounts a ON a.accountid = b.accountid
+JOIN etl_source.users u ON u.userid = a.userid;
 
 INSERT INTO accounts_info (
     accountid,
@@ -46,8 +46,8 @@ SELECT
     a.availablefunds,
     a.creationdate,
     a.account_type
-FROM accounts a
-JOIN users u ON u.userid = a.userid;
+FROM etl_source.accounts a
+JOIN etl_source.users u ON u.userid = a.userid;
 
 INSERT INTO trade_facts (
     requestid,
@@ -133,15 +133,15 @@ SELECT
         ELSE 'PENDING'
     END,
     CURRENT_TIMESTAMP
-FROM trade_request tr
-JOIN accounts a ON a.accountid = tr.accountid
-JOIN users u ON u.userid = a.userid
-JOIN instruments i ON i.instrumentid = tr.instrumentid
-LEFT JOIN trades_executed te ON te.requestid = tr.requestid
-LEFT JOIN canceled_order co ON co.request_id = tr.requestid
-LEFT JOIN rejected_orders ro ON ro.request_id = tr.requestid
-LEFT JOIN disputed_orders d ON d.requestid = tr.requestid
-LEFT JOIN employees e ON e.employeeid = d.employeeid
+FROM etl_source.trade_request tr
+JOIN etl_source.accounts a ON a.accountid = tr.accountid
+JOIN etl_source.users u ON u.userid = a.userid
+JOIN etl_source.instruments i ON i.instrumentid = tr.instrumentid
+LEFT JOIN etl_source.trades_executed te ON te.requestid = tr.requestid
+LEFT JOIN etl_source.canceled_order co ON co.request_id = tr.requestid
+LEFT JOIN etl_source.rejected_orders ro ON ro.request_id = tr.requestid
+LEFT JOIN etl_source.disputed_orders d ON d.requestid = tr.requestid
+LEFT JOIN etl_source.employees e ON e.employeeid = d.employeeid
 GROUP BY
     tr.requestid, tr.accountid, a.userid, tr.instrumentid, tr.side,
     tr.quantity, tr.bidprice, tr.date_request, co.cancel_id, co.reason,
@@ -178,7 +178,7 @@ SELECT
     e.employeeusername,
     e.employeeRoles,
     st.closed_at
-FROM support_ticket st
-JOIN accounts a ON a.accountid = st.accountid
-JOIN users u ON u.userid = a.userid
-LEFT JOIN employees e ON e.employeeid = st.assigned_to;
+FROM etl_source.support_ticket st
+JOIN etl_source.accounts a ON a.accountid = st.accountid
+JOIN etl_source.users u ON u.userid = a.userid
+LEFT JOIN etl_source.employees e ON e.employeeid = st.assigned_to;
