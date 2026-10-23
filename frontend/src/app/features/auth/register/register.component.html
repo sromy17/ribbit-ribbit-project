@@ -8,16 +8,32 @@
 
     <form (ngSubmit)="register()">
       <div class="form-group">
+        <label for="firstName">First name</label>
+        <input id="firstName" type="text" [(ngModel)]="firstName" name="firstName" required autocomplete="given-name" />
+      </div>
+
+      <div class="form-group">
+        <label for="lastName">Last name</label>
+        <input id="lastName" type="text" [(ngModel)]="lastName" name="lastName" required autocomplete="family-name" />
+      </div>
+
+      <div class="form-group">
         <label for="username">Username</label>
         <input id="username" type="text" [(ngModel)]="username" name="username" required autocomplete="username" />
       </div>
 
       <div class="form-group">
         <label for="password">Password</label>
-        <input id="password" type="password" [(ngModel)]="password" name="password" required autocomplete="new-password" />
+        <input id="password" type="password" [(ngModel)]="password" name="password" required minlength="12" autocomplete="new-password" />
       </div>
 
       <div *ngIf="error" class="error">{{ error }}</div>
+
+      <div class="password-requirement-slot">
+        <p *ngIf="password.length < 12" class="password-requirement" aria-live="polite">
+          Password must be 12 characters long
+        </p>
+      </div>
 
       <button type="submit" [disabled]="loading" class="btn-login">
         {{ loading ? 'Creating...' : 'Create profile' }}

@@ -4,4 +4,104 @@
   height: 100vh;
   min-height: 0;
   overflow: hidden;
+.session-warning-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 28, 24, 0.58);
+  backdrop-filter: blur(6px);
+}
+
+.session-warning {
+  width: min(100%, 420px);
+  padding: 28px;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 20px;
+  background: var(--md-surface);
+  color: var(--md-on-surface);
+  box-shadow: 0 16px 36px var(--md-shadow);
+}
+
+.session-warning h2 {
+  margin: 0 0 10px;
+  color: var(--md-primary);
+  font-size: 1.25rem;
+}
+
+.session-warning p {
+  margin: 0;
+  color: var(--md-on-surface-variant);
+  line-height: 1.5;
+}
+
+.session-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.session-warning-actions button {
+  padding: 10px 20px;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.session-warning-primary {
+  border: 1px solid var(--md-primary);
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+}
+
+.session-warning-secondary {
+  border: 1px solid var(--md-outline);
+  background: transparent;
+  color: var(--md-primary);
+}
+
+.session-expired-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 28, 24, 0.58);
+  backdrop-filter: blur(8px);
+}
+
+.session-expired {
+  width: min(100%, 420px);
+  padding: 28px;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 20px;
+  background: var(--md-surface);
+  color: var(--md-on-surface);
+  text-align: center;
+  box-shadow: 0 16px 36px var(--md-shadow);
+}
+
+.session-expired h2 {
+  margin: 0 0 10px;
+  color: var(--md-primary);
+  font-size: 1.25rem;
+}
+
+.session-expired p {
+  margin: 0 0 24px;
+  color: var(--md-on-surface-variant);
+  line-height: 1.5;
+}
+
+.session-expired .session-warning-primary {
+  padding: 10px 20px;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }

@@ -2,8 +2,7 @@ package com.neueda.leap.trading.security;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.time.Instant;
 
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -13,8 +12,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.neueda.leap.trading.domain.Session;
-import com.neueda.leap.trading.repository.jpa.SessionRepository;
+import com.neueda.leap.trading.domain.AccessToken;
+import com.neueda.leap.trading.repository.jpa.AccessTokenRepository;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -23,10 +22,10 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class SessionTokenValidationFilter extends OncePerRequestFilter {
-    private final SessionRepository sessionRepository;
+    private final AccessTokenRepository accessTokenRepository;
 
-    public SessionTokenValidationFilter(SessionRepository sessionRepository) {
-        this.sessionRepository = sessionRepository;
+    public SessionTokenValidationFilter(AccessTokenRepository accessTokenRepository) {
+        this.accessTokenRepository = accessTokenRepository;
     }
 
     @Override
@@ -46,25 +45,24 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
         }
 
         Jwt jwt = jwtAuthenticationToken.getToken();
-        Number userIdClaim = jwt.getClaim("uid");
-        Integer userId = userIdClaim == null ? null : userIdClaim.intValue();
-        Instant issuedAt = jwt.getIssuedAt();
-
-        if (userId == null || issuedAt == null) {
+        String rawToken = jwt.getTokenValue();
+        if (rawToken == null || rawToken.isBlank()) {
             reject(response, "Session is invalid");
             return;
         }
 
-        Session session = sessionRepository.findById(userId).orElse(null);
-        if (session == null || session.getDateIssued() == null) {
+        AccessToken accessToken = accessTokenRepository
+            .findByAccessTokenHashAndRevokedFalseAndDateExpiresAfter(
+                TokenHash.sha256(rawToken),
+                Instant.now()
+            )
+            .orElse(null);
+        if (accessToken == null) {
             reject(response, "Session is invalid");
             return;
         }
 
-        LocalDate minIssueDate = session.getDateIssued();
-        Instant minIssueInstant = minIssueDate.atStartOfDay().toInstant(ZoneOffset.UTC);
-
-        if (issuedAt.isBefore(minIssueInstant)) {
+        if (accessToken.getDateIssued() == null || accessToken.getDateExpires() == null) {
             reject(response, "Session is invalid");
             return;
         }

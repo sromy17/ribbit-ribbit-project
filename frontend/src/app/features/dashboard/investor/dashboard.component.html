@@ -172,7 +172,7 @@
             <div class="form-group">
               <div class="form-field">
                 <label>Side</label>
-                <select [(ngModel)]="orderForm.side" [disabled]="loading">
+                <select [(ngModel)]="orderForm.side" (ngModelChange)="onOrderFormChange()" [disabled]="loading">
                   <option>BUY</option>
                   <option>SELL</option>
                 </select>
@@ -188,6 +188,7 @@
                   inputmode="numeric"
                   (keydown)="blockInvalidNumberKey($event, false)"
                   (paste)="sanitizeNumberPaste($event, false)"
+                  (ngModelChange)="onOrderFormChange()"
                   [disabled]="loading" />
                 <span class="error-text" *ngIf="orderFormErrors['quantity']">{{ orderFormErrors['quantity'] }}</span>
               </div>
@@ -271,6 +272,10 @@
       </div>
 
       <div *ngIf="activeView === 'wallet'" class="wallet-view">
+        <div *ngIf="walletSuccessMessage" class="wallet-success-message" role="status">
+          {{ walletSuccessMessage }}
+          <button type="button" (click)="walletSuccessMessage = ''" aria-label="Dismiss success message">✕</button>
+        </div>
         <div class="wallet-header">
           <div>
             <h2>My Wallet</h2>
@@ -300,7 +305,7 @@
               <div>
                 <h2>Connected bank accounts</h2>
               </div>
-              <button type="button" class="wallet-add-button" (click)="openBankAccountModal()" aria-label="Add bank account">＋</button>
+              <button type="button" class="wallet-add-button" [disabled]="submittingBankAccount" (click)="openBankAccountModal()" aria-label="Add bank account">＋</button>
             </div>
             <div *ngIf="bankAccounts.length === 0" class="wallet-empty-state">
               <strong>No bank accounts connected</strong>
@@ -418,16 +423,16 @@
           </div>
 
           <form *ngIf="showBankAccountModal" class="wallet-form" (ngSubmit)="addBankAccount()">
-            <p class="description">Your details are stored locally for this frontend preview.</p>
             <label>Account nickname<input name="nickname" [(ngModel)]="bankAccountForm.nickname" placeholder="e.g. Main checking" required /></label>
             <label>Routing number<input name="routingNumber" [(ngModel)]="bankAccountForm.routingNumber" inputmode="numeric" maxlength="9" placeholder="9 digits" required /></label>
             <label>Account number<input name="accountNumber" [(ngModel)]="bankAccountForm.accountNumber" inputmode="numeric" maxlength="17" placeholder="Account number" required /></label>
             <span class="error-text" *ngIf="walletFormError">{{ walletFormError }}</span>
-            <button type="submit" class="btn-primary btn-full-width">Connect bank account</button>
+            <button type="submit" class="btn-primary btn-full-width" [disabled]="submittingBankAccount">
+              {{ submittingBankAccount ? 'Connecting...' : 'Connect bank account' }}
+            </button>
           </form>
 
           <form *ngIf="showWalletTransactionModal" class="wallet-form" (ngSubmit)="submitWalletTransaction()">
-            <p class="description">This frontend-only action updates the displayed balance and activity.</p>
             <label>Bank account
               <select name="bankAccountId" [(ngModel)]="walletTransactionForm.bankAccountId">
                 <option *ngFor="let account of bankAccounts" [ngValue]="account.id">{{ account.nickname }} · {{ maskBankAccount(account.accountNumber) }}</option>
@@ -447,7 +452,9 @@
                 required />
             </label>
             <span class="error-text" *ngIf="walletFormError">{{ walletFormError }}</span>
-            <button type="submit" class="btn-primary btn-full-width">{{ walletTransactionType }} {{ walletTransactionType === 'Deposit' ? 'cash' : 'funds' }}</button>
+            <button type="submit" class="btn-primary btn-full-width" [disabled]="submittingWalletTransaction">
+              {{ submittingWalletTransaction ? 'Processing...' : walletTransactionType + ' ' + (walletTransactionType === 'Deposit' ? 'cash' : 'funds') }}
+            </button>
           </form>
         </div>
       </div>

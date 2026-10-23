@@ -2,6 +2,8 @@ DROP TABLE IF EXISTS trade_facts cascade;
 DROP TABLE IF EXISTS accounts_info cascade;
 DROP TABLE IF EXISTS employees_info cascade;
 DROP TABLE IF EXISTS holdings_info cascade;
+DROP TABLE IF EXISTS bank_movement_facts cascade;
+DROP TABLE IF EXISTS bank_info cascade;
 
 -- cash money ap!!!!
 CREATE TABLE if NOT EXISTS trade_facts
@@ -13,35 +15,37 @@ CREATE TABLE if NOT EXISTS trade_facts
     side CHAR(5),
     quantity_requested INT,
     bidprice NUMERIC,
-    date_request DATE,
+    date_request TIMESTAMPTZ,
     executeid INT,
     execution_count INT,
     last_execution_price NUMERIC,
-    first_execution_date DATE,
-    last_execution_date DATE,
+    first_execution_date TIMESTAMPTZ,
+    last_execution_date TIMESTAMPTZ,
     quantity_executed INT,
     cancel_id INT,
     cancel_reason VARCHAR(50),
-    cancel_date DATE,
+    cancel_date TIMESTAMPTZ,
     reject_id INT,
     reject_reason VARCHAR(50),
-    reject_date DATE,
+    reject_date TIMESTAMPTZ,
     disputeid INT,
     dispute_status VARCHAR(20),
     dispute_category VARCHAR(20),
     dispute_reason VARCHAR(75),
     dispute_employee_id INT,
     availablefunds NUMERIC,
-    creationdate DATE,
+    creationdate TIMESTAMPTZ,
     account_type VARCHAR(20),
     username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
     ticker VARCHAR(25),
     instrumentname VARCHAR(25),
     dispute_employeeusername VARCHAR(50),
     dispute_employeeRoles VARCHAR(20),
     order_status VARCHAR(20),
     lifecycle_status VARCHAR(20),
-    last_synced_at TIMESTAMP
+    last_synced_at TIMESTAMPTZ
     );
 --Wyclef jean was a good guy
 CREATE TABLE if NOT EXISTS accounts_info
@@ -49,8 +53,10 @@ CREATE TABLE if NOT EXISTS accounts_info
     accountid INT PRIMARY KEY,
     userid INT,
     username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
     availablefunds NUMERIC,
-    creationdate DATE,
+    creationdate TIMESTAMPTZ,
     account_type VARCHAR(20)
     );
 -- rain drop
@@ -59,13 +65,15 @@ CREATE TABLE if NOT EXISTS employees_info
     ticket_id INT PRIMARY KEY,
     accountid INT,
     username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
     support_reason VARCHAR(75),
-    created_at TIMESTAMP,
+    created_at TIMESTAMPTZ,
     status VARCHAR(20),
     assigned_to INT,
     employeeusername VARCHAR(50),
     employee_roles VARCHAR(20),
-    closed_at TIMESTAMP
+    closed_at TIMESTAMPTZ
     );
 
 -- TYBG
@@ -74,11 +82,41 @@ CREATE TABLE if NOT EXISTS holdings_info
     accountid INT NOT NULL,
     userid INT,
     username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
     instrumentid INT,
     ticker VARCHAR(25),
     instrumentname VARCHAR(25),
     quantity INT,
-    as_of_date DATE,
-    last_synced_at TIMESTAMP,
+    as_of_date TIMESTAMPTZ,
+    last_synced_at TIMESTAMPTZ,
     PRIMARY KEY (accountid, instrumentid)
     );
+
+CREATE TABLE IF NOT EXISTS bank_info
+(
+    bankid INT PRIMARY KEY,
+    accountid INT NOT NULL,
+    userid INT,
+    username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    accountname VARCHAR(50),
+    routing_number VARCHAR(9),
+    account_number VARCHAR(17),
+    balance NUMERIC
+);
+
+CREATE TABLE IF NOT EXISTS bank_movement_facts
+(
+    movement_id INT PRIMARY KEY,
+    bankid INT NOT NULL,
+    accountid INT NOT NULL,
+    userid INT,
+    username VARCHAR(50),
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    amount NUMERIC NOT NULL,
+    movement_type VARCHAR(10) NOT NULL,
+    movement_date TIMESTAMPTZ NOT NULL
+);

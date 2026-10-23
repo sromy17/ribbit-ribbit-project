@@ -1,7 +1,7 @@
 package com.neueda.leap.trading.domain;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -31,7 +31,7 @@ public class Trade {
     private BigDecimal executionPrice;
 
     @Column(name = "date_execution", nullable = false)
-    private LocalDate executedAt;
+    private Instant executedAt;
 
     @Column(name = "quantity_executed", nullable = false)
     private Integer executedQuantity;
@@ -72,11 +72,11 @@ public class Trade {
         this.executionPrice = executionPrice;
     }
 
-    public LocalDate getExecutedAt() {
+    public Instant getExecutedAt() {
         return executedAt;
     }
 
-    public void setExecutedAt(LocalDate executedAt) {
+    public void setExecutedAt(Instant executedAt) {
         this.executedAt = executedAt;
     }
 

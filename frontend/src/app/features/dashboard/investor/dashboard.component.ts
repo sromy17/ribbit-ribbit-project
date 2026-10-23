@@ -6,7 +6,7 @@ import { Subject, Subscription, from, of, timer, takeUntil } from 'rxjs';
 import { catchError, timeout } from 'rxjs/operators';
 import { concatMap, toArray } from 'rxjs/operators';
 import { AuthService, User } from '../../../core/services/auth.service';
-import { ApiService, Holding, MarketInstrument, Order, Trade, SymbolTrend, TradingAccount } from '../../../core/services/api.service';
+import { ApiService, Holding, MarketInstrument, Order, Trade, SymbolTrend, TradingAccount, WalletBankAccount as ApiWalletBankAccount, WalletActivity as ApiWalletActivity } from '../../../core/services/api.service';
 import { HeatmapStock, StockHeatmapComponent } from '../../../shared/heatmap/stock-heatmap.component';
 import { FinnhubNewsArticle, FinnhubNewsCategory, FinnhubNewsService } from '../../../core/services/finnhub-news.service';
 import { PortfolioHistoryPoint, PortfolioHistoryRange, PortfolioService } from '../../../core/services/portfolio.service';
@@ -75,7 +75,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   bankAccountForm = { nickname: '', routingNumber: '', accountNumber: '' };
   walletTransactionForm = { amount: 1, bankAccountId: 0 };
   walletFormError = '';
-  private nextWalletItemId = 1;
+  walletSuccessMessage = '';
+  submittingBankAccount = false;
+  submittingWalletTransaction = false;
 
   orderForm = { symbol: '', side: 'BUY', quantity: 1 };
   orderFormErrors: { [key: string]: string } = {};
@@ -416,6 +418,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.currentChange = quote.change ?? null;
         this.currentChangePercent = quote.changePercent ?? null;
         this.loadingQuote = false;
+        this.onOrderFormChange();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -621,32 +624,51 @@ export class DashboardComponent implements OnInit, OnDestroy {
   openBankAccountModal(): void {
     this.bankAccountForm = { nickname: '', routingNumber: '', accountNumber: '' };
     this.walletFormError = '';
+    this.walletSuccessMessage = '';
     this.showBankAccountModal = true;
   }
 
-  closeWalletModal(): void {
+  closeWalletModal(force = false): void {
+    if (!force && (this.submittingBankAccount || this.submittingWalletTransaction)) {
+      return;
+    }
     this.showBankAccountModal = false;
     this.showWalletTransactionModal = false;
     this.walletFormError = '';
   }
 
   addBankAccount(): void {
+    if (this.submittingBankAccount) {
+      return;
+    }
     const { nickname, routingNumber, accountNumber } = this.bankAccountForm;
     if (!nickname.trim() || !/^\d{9}$/.test(routingNumber) || !/^\d{4,17}$/.test(accountNumber)) {
       this.walletFormError = 'Enter a nickname, a 9-digit routing number, and an account number up to 17 digits.';
       return;
     }
 
-    this.bankAccounts = [
-      ...this.bankAccounts,
-      {
-        id: this.nextWalletItemId++,
-        nickname: nickname.trim(),
-        routingNumber,
-        accountNumber
+    this.submittingBankAccount = true;
+    this.api.createWalletBank(this.accountId, {
+      nickname: nickname.trim(),
+      routingNumber,
+      accountNumber
+    }).subscribe({
+      next: (account) => {
+        this.bankAccounts = [...this.bankAccounts, this.mapBankAccount(account)];
+        this.submittingBankAccount = false;
+        this.walletSuccessMessage = 'Bank account connected successfully.';
+        this.closeWalletModal(true);
+        this.loadWalletData();
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.walletFormError = error.status === 409
+          ? 'This bank account is already connected.'
+          : 'Unable to connect this bank account.';
+        this.submittingBankAccount = false;
+        this.cdr.detectChanges();
       }
-    ];
-    this.closeWalletModal();
+    });
   }
 
   openWalletTransaction(type: 'Deposit' | 'Withdrawal'): void {
@@ -656,10 +678,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       bankAccountId: this.bankAccounts[0]?.id ?? 0
     };
     this.walletFormError = '';
+    this.walletSuccessMessage = '';
     this.showWalletTransactionModal = true;
   }
 
   submitWalletTransaction(): void {
+    if (this.submittingWalletTransaction) {
+      return;
+    }
     const amount = Number(this.walletTransactionForm.amount);
     const bankAccount = this.bankAccounts.find((account) => account.id === this.walletTransactionForm.bankAccountId);
     if (!bankAccount || amount <= 0) {
@@ -671,16 +697,37 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.portfolio.cash += this.walletTransactionType === 'Deposit' ? amount : -amount;
-    this.walletActivity = [{
-      id: this.nextWalletItemId++,
-      type: this.walletTransactionType,
-      amount,
-      bankNickname: bankAccount.nickname,
-      date: new Date()
-    }, ...this.walletActivity];
-    this.updateTotalValue();
-    this.closeWalletModal();
+    const request = this.walletTransactionType === 'Deposit'
+      ? this.api.depositToWallet(this.accountId, bankAccount.id, amount)
+      : this.api.withdrawFromWallet(this.accountId, bankAccount.id, amount);
+    this.submittingWalletTransaction = true;
+    request.subscribe({
+      next: (transaction) => {
+        this.portfolio.cash = transaction.cashBalance ?? (
+          this.walletTransactionType === 'Deposit' ? this.portfolio.cash + amount : this.portfolio.cash - amount
+        );
+        this.walletActivity = [{
+          id: transaction.movementId,
+          type: transaction.movementType === 'DEPOSIT' ? 'Deposit' : 'Withdrawal',
+          amount: transaction.amount,
+          bankNickname: bankAccount.nickname,
+          date: new Date(transaction.movementDate)
+        }, ...this.walletActivity];
+        this.updateTotalValue();
+        this.submittingWalletTransaction = false;
+        this.walletSuccessMessage = `${this.walletTransactionType} completed successfully.`;
+        this.closeWalletModal(true);
+        this.loadWalletData();
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.walletFormError = error.status === 400
+          ? 'The transaction could not be completed with the available balance.'
+          : 'Unable to complete the wallet transaction.';
+        this.submittingWalletTransaction = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   maskBankAccount(accountNumber: string): string {
@@ -733,9 +780,103 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         }
       });
+  private loadWalletData(): void {
+    forkJoin({
+      accounts: this.api.getWalletBanks(this.accountId),
+      activity: this.api.getWalletActivity(this.accountId)
+    }).subscribe({
+      next: ({ accounts, activity }) => {
+        this.bankAccounts = accounts.map((account) => this.mapBankAccount(account));
+        this.walletActivity = activity.map((item) => ({
+          id: item.movementId,
+          type: item.movementType === 'DEPOSIT' ? 'Deposit' : 'Withdrawal',
+          amount: item.amount,
+          bankNickname: this.bankAccounts.find((bank) => bank.id === item.bankId)?.nickname ?? 'Bank account',
+          date: new Date(item.movementDate)
+        }));
+      },
+      error: () => {
+        this.walletFormError = 'Unable to load wallet data.';
+      }
+    });
+  }
+
+  private mapBankAccount(account: ApiWalletBankAccount): WalletBankAccount {
+    return {
+      id: account.bankId,
+      nickname: account.accountName,
+      routingNumber: account.routingNumber,
+      accountNumber: account.accountNumber
+    };
+  }
+
+  loadDashboardData() {
+    this.loadingBalance = true;
+    this.loadingHoldings = true;
+    this.loadingOrders = true;
+    this.error = '';
+
+    // Load balance
+    this.api.getAccountBalance(this.accountId).subscribe({
+      next: (balance) => {
+        this.portfolio.cash = balance.cashBalance;
+        this.updateTotalValue();
+        this.loadingBalance = false;
+        this.onOrderFormChange();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading balance:', err);
+        this.error = 'Failed to load account balance';
+        this.loadingBalance = false;
+        this.cdr.detectChanges();
+      }
+    });
+
+    // Load holdings
+    this.api.getHoldings(this.accountId).subscribe({
+      next: (holdings) => {
+        this.portfolio.holdings = holdings.filter((holding) => holding.quantity > 0);
+        this.updateTotalValue();
+        this.loadingHoldings = false;
+        this.onOrderFormChange();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading holdings:', err);
+        this.error = 'Failed to load holdings';
+        this.loadingHoldings = false;
+        this.cdr.detectChanges();
+      }
+    });
+
+    // Load orders
+    this.api.getOrders(this.accountId).subscribe({
+      next: (orders) => {
+        this.orders = orders;
+        this.loadingOrders = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading orders:', err);
+        this.error = 'Failed to load orders';
+        this.loadingOrders = false;
+        this.cdr.detectChanges();
+      }
+    });
+
+    // Market trend data is not exposed by the current backend contract.
+    this.symbolTrends = [];
+    this.loadWalletData();
   }
 
   // Form Validation Methods
+  onOrderFormChange(): void {
+    if (this.showOrderModal) {
+      this.validateOrderForm();
+    }
+  }
+
   validateOrderForm(): boolean {
     this.orderFormErrors = {};
 
@@ -749,6 +890,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.orderFormErrors['quantity'] = 'Quantity must be greater than 0';
     } else if (!Number.isInteger(this.orderForm.quantity)) {
       this.orderFormErrors['quantity'] = 'Quantity must be a whole number';
+    }
+
+    if (!this.orderFormErrors['quantity']) {
+      if (this.orderForm.side === 'BUY' && this.currentPrice !== null) {
+        const totalCost = this.getEstimatedTotal();
+        if (totalCost > this.portfolio.cash) {
+          this.orderFormErrors['quantity'] =
+            `This order costs $${totalCost.toFixed(2)}, but only $${this.portfolio.cash.toFixed(2)} is available.`;
+        }
+      }
+
+      if (this.orderForm.side === 'SELL') {
+        const holding = this.portfolio.holdings.find(
+          (item) => item.symbol.toUpperCase() === this.orderForm.symbol.toUpperCase()
+        );
+        const availableQuantity = holding?.quantity ?? 0;
+        if (this.orderForm.quantity > availableQuantity) {
+          this.orderFormErrors['quantity'] =
+            `You can only sell ${availableQuantity} share${availableQuantity === 1 ? '' : 's'} of ${this.orderForm.symbol.toUpperCase()}.`;
+        }
+      }
     }
 
     return Object.keys(this.orderFormErrors).length === 0;
