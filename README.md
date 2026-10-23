@@ -70,6 +70,11 @@ mvn spring-boot:run
 
 Both services must share the same `JWT_SHARED_SECRET` value.
 
+The primary datasource and default `transactionManager` serve OLTP JPA operations
+(accounts, wallets, and orders). The ETL uses its separate OLAP datasource and
+explicitly selects `olapTransactionManager`; it must not replace the default JPA
+transaction manager.
+
 ### Test account order creation
 ```bash
 curl -X POST http://localhost:8081/accounts/1/orders \

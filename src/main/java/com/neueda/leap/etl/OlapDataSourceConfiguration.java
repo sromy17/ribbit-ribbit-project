@@ -2,6 +2,8 @@ package com.neueda.leap.etl;
 
 import javax.sql.DataSource;
 
+import jakarta.persistence.EntityManagerFactory;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.context.annotation.Primary;
@@ -11,6 +13,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.lang.NonNull;
 
 @Configuration
@@ -75,5 +78,11 @@ public class OlapDataSourceConfiguration {
         @Qualifier("olapDataSource") @NonNull DataSource olapDataSource
     ) {
         return new DataSourceTransactionManager(olapDataSource);
+    }
+
+    @Bean(name = "transactionManager")
+    @Primary
+    PlatformTransactionManager transactionManager(@NonNull EntityManagerFactory entityManagerFactory) {
+        return new JpaTransactionManager(entityManagerFactory);
     }
 }
