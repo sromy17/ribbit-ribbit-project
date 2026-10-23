@@ -23,6 +23,7 @@ public class OltpToOlapEtlService {
     private final JdbcTemplate olapJdbcTemplate;
     private final TransactionTemplate olapTransactionTemplate;
     private final TransactionTemplate sourceTransactionTemplate;
+    private final TransactionTemplate runMetadataTransactionTemplate;
     private final AtomicBoolean refreshRunning = new AtomicBoolean();
 
     public OltpToOlapEtlService(
@@ -34,6 +35,8 @@ public class OltpToOlapEtlService {
         this.oltpJdbcTemplate = oltpJdbcTemplate;
         this.olapJdbcTemplate = olapJdbcTemplate;
         this.olapTransactionTemplate = new TransactionTemplate(olapTransactionManager);
+        this.runMetadataTransactionTemplate = new TransactionTemplate(olapTransactionManager);
+        this.runMetadataTransactionTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.sourceTransactionTemplate = new TransactionTemplate(new org.springframework.jdbc.datasource.DataSourceTransactionManager(sourceDataSource));
         this.sourceTransactionTemplate.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
         this.sourceTransactionTemplate.setReadOnly(true);
@@ -45,17 +48,23 @@ public class OltpToOlapEtlService {
         }
 
         String runId = UUID.randomUUID().toString();
-        boolean runStarted = false;
+        AtomicBoolean runStarted = new AtomicBoolean();
         try {
             ensureRefreshRunsTable();
             InstantHolder sourceWatermark = sourceWatermark();
-            startRun(runId, sourceWatermark.value());
-            runStarted = true;
+
             logConnection("OLTP", oltpJdbcTemplate);
             logConnection("OLAP", olapJdbcTemplate);
             sourceTransactionTemplate.executeWithoutResult(source -> olapTransactionTemplate.executeWithoutResult(status -> {
                 Boolean locked = olapJdbcTemplate.queryForObject("SELECT pg_try_advisory_xact_lock(738291)", Boolean.class);
                 if (!Boolean.TRUE.equals(locked)) throw new IllegalStateException("Another process is publishing reporting data");
+                // The exclusive publisher lock proves that another RUNNING row has no active publisher.
+                // Commit job state separately so a process crash leaves recoverable evidence.
+                runMetadataTransactionTemplate.executeWithoutResult(metadata -> {
+                    olapJdbcTemplate.update("UPDATE etl_refresh_runs SET status='ABANDONED', error_message='Publisher stopped before publication; recovered by next refresh' WHERE status='RUNNING'");
+                    startRun(runId, sourceWatermark.value());
+                });
+                runStarted.set(true);
                 // DELETE preserves MVCC snapshots for in-flight repeatable-read reports.
                 // Reports are retained separately and are never refreshed or deleted here.
                 for (String table : List.of("trade_facts", "accounts_info", "instruments_info",
@@ -79,7 +88,7 @@ public class OltpToOlapEtlService {
             }));
             return runId;
         } catch (RuntimeException ex) {
-            if (runStarted) {
+            if (runStarted.get()) {
                 failRun(runId, ex);
             }
             throw ex;
@@ -169,6 +178,27 @@ public class OltpToOlapEtlService {
                 throw new IllegalStateException("Fact/dimension reconciliation failed for " + target);
             }
         }
+        for (String fact : List.of("fill_facts", "lifecycle_event_facts", "cash_movement_facts", "holding_movement_facts")) {
+            Long orphaned=olapJdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + fact +
+                " f LEFT JOIN order_facts o ON o.requestid=f.requestid WHERE o.requestid IS NULL OR o.accountid IS DISTINCT FROM f.accountid",Long.class);
+            if(orphaned!=null && orphaned>0) throw new IllegalStateException("Unattributed or inconsistent order evidence in " + fact);
+        }
+        // Reconcile independently at instrument/currency/unit grain; never publish a mixed-unit total.
+        var sourceAmounts=oltpJdbcTemplate.queryForList("""
+            SELECT o.instrumentid,t.execution_currency,t.fee_currency,t.quantity_unit,
+                SUM(t.quantity_executed)::numeric AS quantity,SUM(t.askprice*t.quantity_executed*t.contract_multiplier) AS notional,SUM(t.fee) AS fees
+            FROM trades_executed t JOIN trade_request o ON o.requestid=t.requestid
+            GROUP BY o.instrumentid,t.execution_currency,t.fee_currency,t.quantity_unit
+            ORDER BY o.instrumentid,t.execution_currency NULLS FIRST,t.fee_currency NULLS FIRST,t.quantity_unit NULLS FIRST
+            """);
+        var targetAmounts=olapJdbcTemplate.queryForList("""
+            SELECT instrumentid,execution_currency,fee_currency,quantity_unit,
+                SUM(executed_quantity)::numeric AS quantity,SUM(execution_price*executed_quantity*contract_multiplier) AS notional,SUM(fee) AS fees
+            FROM fill_facts GROUP BY instrumentid,execution_currency,fee_currency,quantity_unit
+            ORDER BY instrumentid,execution_currency NULLS FIRST,fee_currency NULLS FIRST,quantity_unit NULLS FIRST
+            """);
+        if(!normalizedAmounts(sourceAmounts).equals(normalizedAmounts(targetAmounts)))
+            throw new IllegalStateException("Fill quantity/notional/fee reconciliation failed");
         Long invalidSegments = olapJdbcTemplate.queryForObject("""
             SELECT COUNT(*) FROM client_segment_history a
             WHERE (a.effective_to_utc IS NOT NULL AND a.effective_to_utc <= a.effective_from_utc)
@@ -182,6 +212,14 @@ public class OltpToOlapEtlService {
         if (invalidSegments != null && invalidSegments > 0) {
             throw new IllegalStateException("Invalid or overlapping client segment history");
         }
+    }
+
+    private List<Map<String,Object>> normalizedAmounts(List<Map<String,Object>> rows) {
+        return rows.stream().map(row -> {
+            Map<String,Object> normalized=new java.util.LinkedHashMap<>();
+            row.forEach((key,value)->normalized.put(key,value instanceof java.math.BigDecimal decimal ? decimal.stripTrailingZeros() : value));
+            return normalized;
+        }).toList();
     }
 
     private record InstantHolder(java.time.Instant value) {

@@ -16,10 +16,12 @@ public class QuoteCache {
     private final ConcurrentMap<String, QuoteSnapshot> quotesBySymbol = new ConcurrentHashMap<>();
 
     public void upsert(QuoteSnapshot snapshot) {
-        if (snapshot == null || snapshot.symbol() == null || snapshot.symbol().isBlank() || snapshot.price() == null) {
+        if (snapshot == null || snapshot.symbol() == null || snapshot.symbol().isBlank() || snapshot.price() == null || snapshot.price().signum() <= 0
+                || snapshot.eventEpochMillis() <= 0 || snapshot.eventEpochMillis() > System.currentTimeMillis()) {
             return;
         }
-        quotesBySymbol.put(normalize(snapshot.symbol()), snapshot);
+        quotesBySymbol.compute(normalize(snapshot.symbol()), (symbol, previous) ->
+            previous == null || snapshot.eventEpochMillis() > previous.eventEpochMillis() ? snapshot : previous);
     }
 
     public Optional<BigDecimal> getFreshPrice(String symbol, Duration maxAge) {
@@ -38,7 +40,7 @@ public class QuoteCache {
         }
 
         long ageMs = System.currentTimeMillis() - snapshot.eventEpochMillis();
-        if (ageMs > maxAge.toMillis()) {
+        if (ageMs < 0 || ageMs > maxAge.toMillis()) {
             return Optional.empty();
         }
 

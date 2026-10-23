@@ -157,3 +157,7 @@ Apply `scripts/analytics-reporting-migration.sql` to the reporting database befo
 deployment and run ETL. See [analytics implementation and verification](documents/analytics-implementation.md)
 for endpoint parameters, report amendments, limits and local mixed-load measurements.
 Metrics and segment-source approval remain pending; screens label the definitions PROPOSED.
+
+Segment analysis is withheld by default because no disclosure policy is approved.
+See the [release checklist](documents/analytics-release-checklist.md) for gates,
+new regression coverage, durable ID counters and backup/restore verification.

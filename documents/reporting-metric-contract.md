@@ -88,8 +88,9 @@ event time, with `effective_from_utc <= event_time < effective_to_utc`; null end
 means open-ended. For rejection cohorts, use submission-time membership for
 numerator and denominator, not the segment at the rejection date.
 
-The segment source/values remain pending. The user-authorized exploratory segment
-view shows recorded memberships and UNKNOWN, with a pending-approval warning. NEW (<30 elapsed days), ESTABLISHED (>=30 days) and UNKNOWN
+The segment source/values remain pending. The synthetic test view evaluates recorded memberships and UNKNOWN. Production
+segment endpoints, filters and retained reports containing segment rows are now
+withheld by default because no disclosure policy is approved. NEW (<30 elapsed days), ESTABLISHED (>=30 days) and UNKNOWN
 remain an unapproved tenure proposal requiring trustworthy registration times.
 Do not derive registration from account creation or first trade.
 

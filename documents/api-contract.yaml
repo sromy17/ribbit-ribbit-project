@@ -143,6 +143,7 @@ paths:
         - {name: from, in: query, required: true, schema: {type: string, format: date}}
         - {name: to, in: query, required: true, schema: {type: string, format: date}}
         - {name: timezone, in: query, schema: {type: string, default: UTC}}
+        - {name: datasetId, in: query, schema: {type: string, format: uuid}}
         - {name: instrumentId, in: query, schema: {type: integer, minimum: 1}}
         - {name: side, in: query, schema: {type: string, enum: [BUY, SELL]}}
         - {name: segment, in: query, schema: {type: string, maxLength: 60}}
@@ -156,6 +157,7 @@ paths:
         '400': {description: Invalid query or date span exceeds 366 days}
         '401': {description: Sign-in required}
         '403': {description: Server-side PERM_REPORTING required}
+        '409': {description: Dataset token expired; refresh the analysis}
         '503': {description: Reporting unavailable or timed out; no OLTP fallback}
   /api/analytics/activity:
     get:
@@ -166,6 +168,7 @@ paths:
         - {name: from, in: query, required: true, schema: {type: string, format: date}}
         - {name: to, in: query, required: true, schema: {type: string, format: date}}
         - {name: timezone, in: query, schema: {type: string, default: UTC}}
+        - {name: datasetId, in: query, schema: {type: string, format: uuid}}
         - {name: instrumentId, in: query, schema: {type: integer, minimum: 1}}
         - {name: side, in: query, schema: {type: string, enum: [BUY, SELL]}}
         - {name: segment, in: query, schema: {type: string, maxLength: 60}}
@@ -179,6 +182,7 @@ paths:
         '400': {description: Invalid query or date span exceeds 366 days}
         '401': {description: Sign-in required}
         '403': {description: Server-side PERM_REPORTING required}
+        '409': {description: Dataset token expired; refresh the analysis}
         '503': {description: Reporting unavailable or timed out; no OLTP fallback}
   /api/analytics/instruments:
     get:
@@ -189,6 +193,7 @@ paths:
         - {name: from, in: query, required: true, schema: {type: string, format: date}}
         - {name: to, in: query, required: true, schema: {type: string, format: date}}
         - {name: timezone, in: query, schema: {type: string, default: UTC}}
+        - {name: datasetId, in: query, schema: {type: string, format: uuid}}
         - {name: instrumentId, in: query, schema: {type: integer, minimum: 1}}
         - {name: side, in: query, schema: {type: string, enum: [BUY, SELL]}}
         - {name: segment, in: query, schema: {type: string, maxLength: 60}}
@@ -202,6 +207,7 @@ paths:
         '400': {description: Invalid query or date span exceeds 366 days}
         '401': {description: Sign-in required}
         '403': {description: Server-side PERM_REPORTING required}
+        '409': {description: Dataset token expired; refresh the analysis}
         '503': {description: Reporting unavailable or timed out; no OLTP fallback}
   /api/analytics/client-segments:
     get:
@@ -212,6 +218,7 @@ paths:
         - {name: from, in: query, required: true, schema: {type: string, format: date}}
         - {name: to, in: query, required: true, schema: {type: string, format: date}}
         - {name: timezone, in: query, schema: {type: string, default: UTC}}
+        - {name: datasetId, in: query, schema: {type: string, format: uuid}}
         - {name: instrumentId, in: query, schema: {type: integer, minimum: 1}}
         - {name: side, in: query, schema: {type: string, enum: [BUY, SELL]}}
         - {name: segment, in: query, schema: {type: string, maxLength: 60}}
@@ -225,6 +232,7 @@ paths:
         '400': {description: Invalid query or date span exceeds 366 days}
         '401': {description: Sign-in required}
         '403': {description: Server-side PERM_REPORTING required}
+        '409': {description: Dataset token expired; refresh the analysis}
         '503': {description: Reporting unavailable or timed out; no OLTP fallback}
   /api/analytics/data-status:
     get:
@@ -252,6 +260,7 @@ paths:
                 side: {type: string, enum: [BUY, SELL]}
                 segment: {type: string, maxLength: 60}
                 idempotencyKey: {type: string, minLength: 1, maxLength: 100}
+                datasetId: {type: string, format: uuid}
                 amendsReportId: {type: string, format: uuid}
                 amendmentReason: {type: string, maxLength: 500}
       responses:

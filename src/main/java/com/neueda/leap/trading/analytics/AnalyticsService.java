@@ -20,7 +20,10 @@ public class AnalyticsService {
     private final JdbcTemplate db;
     private final NamedParameterJdbcTemplate sql;
     private final ObjectMapper json;
-    public AnalyticsService(@Qualifier("olapJdbcTemplate") JdbcTemplate db, ObjectMapper json) {
+    private final boolean segmentDisclosureApproved;
+    public AnalyticsService(@Qualifier("olapJdbcTemplate") JdbcTemplate db, ObjectMapper json,
+        @org.springframework.beans.factory.annotation.Value("${analytics.segment-disclosure-approved:false}") boolean segmentDisclosureApproved) {
+        this.segmentDisclosureApproved=segmentDisclosureApproved;
         this.db=db; this.sql=new NamedParameterJdbcTemplate(db); this.json=json;
     }
     private void bound() {
@@ -30,6 +33,7 @@ public class AnalyticsService {
     }
     @Transactional(transactionManager="olapTransactionManager", readOnly=true, isolation=Isolation.REPEATABLE_READ, timeout=15)
     public Map<String,Object> read(String kind, AnalyticsQuery q) {
+        enforceSegmentPolicy(kind,q);
         bound();
         var meta=metadata(q);
         Object data = switch(kind) {
@@ -40,6 +44,21 @@ public class AnalyticsService {
         if(kind.equals("overview")) outcomeCoverage(meta,cast(data));
         meta.put("data",data);
         return meta;
+    }
+    private void enforceSegmentPolicy(String kind,AnalyticsQuery q) {
+        if(!segmentDisclosureApproved && (kind.equals("client-segments") || q.segment()!=null))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Segment analysis is withheld pending an approved disclosure policy");
+    }
+    @Transactional(transactionManager="olapTransactionManager", readOnly=true, isolation=Isolation.REPEATABLE_READ, timeout=15)
+    public Map<String,Object> readPinned(String kind,AnalyticsQuery q,String expectedDatasetId) {
+        enforceSegmentPolicy(kind,q);
+        bound();
+        if(expectedDatasetId!=null) {
+            var current=db.queryForList("SELECT run_id FROM etl_refresh_runs WHERE status='SUCCEEDED' ORDER BY published_at DESC,run_id DESC LIMIT 1");
+            if(current.isEmpty() || !expectedDatasetId.equals(current.get(0).get("run_id")))
+                throw new ResponseStatusException(HttpStatus.CONFLICT,"Dataset changed; refresh the analysis before continuing");
+        }
+        return read(kind,q);
     }
     @Transactional(transactionManager="olapTransactionManager", readOnly=true, isolation=Isolation.REPEATABLE_READ, timeout=15)
     public Map<String,Object> status() {
@@ -72,6 +91,7 @@ public class AnalyticsService {
         m.put("filters",filters(q));
         var coverage=one(q,"""
             SELECT (SELECT COUNT(*) FROM fills WHERE executed_at_utc IS NULL) AS unassigned_fill_time,
+              (SELECT COUNT(*) FROM fill_facts f JOIN orders o ON o.requestid=f.requestid WHERE f.executed_at_utc > (SELECT source_watermark FROM cutoff)) AS future_fill_time,
               (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND client_id IS NULL) AS unattributed_fills,
               (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND NOT valued) AS unvalued_fills,
               (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND quantity_unit IS NULL) AS unknown_quantity_unit,
@@ -80,12 +100,14 @@ public class AnalyticsService {
               (SELECT COUNT(*) FROM cash WHERE occurred_at_utc >= :start AND occurred_at_utc < :end AND (currency IS NULL OR currency_source IS NULL)) AS unverified_cash_currency,
               (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND segment_code='UNKNOWN') AS unknown_segment_fills
             """);
+        if(!segmentDisclosureApproved) coverage.remove("unknown_segment_fills");
         m.put("sourceCoverage",coverage);
         var refresh=db.queryForList("SELECT status FROM etl_refresh_runs ORDER BY started_at DESC,run_id DESC LIMIT 1");
         String refreshStatus=refresh.isEmpty()?"UNAVAILABLE":refresh.get(0).get("status").toString();
         m.put("latestRefreshStatus",refreshStatus);
         var warnings=new ArrayList<String>();
         if(refreshStatus.equals("FAILED")) warnings.add("Latest refresh failed; this is the last successfully published dataset.");
+        if(!segmentDisclosureApproved) warnings.add("Segment breakdowns are withheld pending an approved disclosure policy.");
         warnings.add("Metric definitions and segment source/values await stakeholder approval.");
         warnings.add("Source cutoff identifies the committed extraction snapshot; it does not certify upstream completeness.");
         warnings.add("Instrument attributes are current metadata; fill currencies, units and conventions are execution snapshots.");
@@ -160,7 +182,7 @@ public class AnalyticsService {
             SELECT COUNT(*) AS cohort_orders, COUNT(*) FILTER(WHERE rejected) AS rejected_orders,
                 COUNT(*) FILTER(WHERE NOT rejected AND NOT filled AND NOT cancelled AND accepted AND order_status='PENDING') AS pending_orders,
                 COUNT(*) FILTER(WHERE NOT rejected AND NOT filled AND NOT cancelled AND NOT (accepted AND order_status='PENDING')) AS unknown_outcome_orders,
-                COUNT(*) FILTER(WHERE (rejected AND (filled OR cancelled)) OR (filled AND cancelled)) AS conflicting_outcome_orders,
+                COUNT(*) FILTER(WHERE (rejected AND (filled OR cancelled)) ) AS conflicting_outcome_orders,
                 100.0 * COUNT(*) FILTER(WHERE rejected) / NULLIF(COUNT(*),0) AS rejection_rate_percent FROM outcomes
             """);
         r.putAll(cohort);
@@ -195,11 +217,14 @@ public class AnalyticsService {
     @Transactional(transactionManager="olapTransactionManager", isolation=Isolation.REPEATABLE_READ, timeout=30)
     public Map<String,Object> issue(AnalyticsReportRequest request) {
         var q=request.query();
+        enforceSegmentPolicy("overview",q);
         if(!q.from().equals(q.from().withDayOfMonth(1)) || !q.to().equals(q.from().withDayOfMonth(q.from().lengthOfMonth())))
             throw new IllegalArgumentException("Issued reports require one complete calendar month");
         bound();
         String actor=SecurityContextHolder.getContext().getAuthentication().getName();
-        String signature=json.writeValueAsString(Arrays.asList(q.from().toString(),q.to().toString(),q.timezone(),q.instrumentId(),q.side(),q.segment(),request.amendsReportId(),request.amendmentReason()));
+        var signatureParts=new ArrayList<Object>(Arrays.asList(q.from().toString(),q.to().toString(),q.timezone(),q.instrumentId(),q.side(),q.segment(),request.amendsReportId(),request.amendmentReason()));
+        if(request.datasetId()!=null) signatureParts.add(request.datasetId());
+        String signature=json.writeValueAsString(signatureParts);
         var existing=db.queryForList("SELECT report_id,snapshot,request_signature FROM analytics_reports WHERE issued_by=? AND idempotency_key=?",actor,request.idempotencyKey());
         if(!existing.isEmpty()) return replay(existing.get(0),signature);
         int version=1;
@@ -213,10 +238,12 @@ public class AnalyticsService {
             version=((Number)previous.get("version")).intValue()+1;
         }
         var snapshot=metadata(q);
+        if(request.datasetId()!=null && !request.datasetId().equals(snapshot.get("datasetId")))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Dataset changed; refresh the analysis before issuing a report");
         var totals=overview(q);
         outcomeCoverage(snapshot,totals);
         snapshot.put("overview",totals);
-        for(String kind:List.of("activity","instruments","client-segments")) snapshot.put(kind,groups(q,kind,true));
+        for(String kind:List.of("activity","instruments","client-segments")) snapshot.put(kind,kind.equals("client-segments") && !segmentDisclosureApproved ? Map.of("availability","WITHHELD","reason","No approved segment disclosure policy","items",List.of(),"total",0) : groups(q,kind,true));
         String id=UUID.randomUUID().toString();
         db.update("INSERT INTO analytics_reports(report_id,issued_by,idempotency_key,request_signature,version,amends_report_id,amendment_reason,snapshot) VALUES(?,?,?,?,?,?,?,?::jsonb)",
             id,actor,request.idempotencyKey(),signature,version,request.amendsReportId(),request.amendmentReason(),json.writeValueAsString(snapshot));
@@ -238,6 +265,11 @@ public class AnalyticsService {
         var row=rows.get(0); var r=new LinkedHashMap<String,Object>();
         r.put("reportId",row.get("report_id"));r.put("version",row.get("version"));r.put("amendsReportId",row.get("amends_report_id"));
         r.put("amendmentReason",row.get("amendment_reason"));r.put("issuedAt",instant(row.get("issued_at")));
-        r.put("snapshot",json.readerFor(Map.class).with(tools.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS).readValue(row.get("snapshot").toString())); return r;
+        r.put("snapshot",json.readerFor(Map.class).with(tools.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS).readValue(row.get("snapshot").toString()));
+        var snapshot=cast(r.get("snapshot"));
+        if(!segmentDisclosureApproved && (!((List<?>)cast(snapshot.get("client-segments")).getOrDefault("items",List.of())).isEmpty()
+            || cast(snapshot.get("filters")).get("segment")!=null))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"This saved report contains segment data; disclosure policy approval is required");
+        return r;
     }
 }

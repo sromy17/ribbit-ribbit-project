@@ -153,6 +153,8 @@ class AnalyticsPostgresTest {
 
             AnalyticsAssertions.verify(context, source, reporting);
             PersonaLoadAssertions.verify(context, source, reporting);
+            AnalyticsReleaseAssertions.verify(context, source, reporting);
+            long failuresBefore=reporting.queryForObject("SELECT COUNT(*) FROM etl_refresh_runs WHERE status='FAILED'",Long.class);
             runId=reporting.queryForObject("SELECT DISTINCT dataset_run_id FROM fill_facts",String.class);
 
             // Publication failure must not replace the previous consistent dataset.
@@ -163,7 +165,7 @@ class AnalyticsPostgresTest {
             assertThrows(IllegalStateException.class, etl::runFullLoad);
             assertEquals(runId, reporting.queryForObject("SELECT DISTINCT dataset_run_id FROM fill_facts", String.class));
             assertEquals(2L, reporting.queryForObject("SELECT COUNT(*) FROM client_segment_history", Long.class));
-            assertEquals(1L, reporting.queryForObject("SELECT COUNT(*) FROM etl_refresh_runs WHERE status='FAILED'", Long.class));
+            assertEquals(failuresBefore+1, reporting.queryForObject("SELECT COUNT(*) FROM etl_refresh_runs WHERE status='FAILED'", Long.class));
             savedId=reporting.queryForObject("SELECT report_id FROM analytics_reports WHERE version=1",String.class);
             savedPayload=reporting.queryForObject("SELECT snapshot::text FROM analytics_reports WHERE report_id=?",String.class,savedId);
             replayId=source.queryForObject("SELECT MAX(requestid) FROM trades_executed",Integer.class);
@@ -189,6 +191,6 @@ class AnalyticsPostgresTest {
                 "--app.datasource.olap.url=" + reportingUrl, "--app.datasource.olap.username=postgres",
                 "--app.datasource.olap.password=admin-test-only",
                 "--market-data.kafka.enabled=false", "--market-data.execution.kafka.enabled=false",
-                "--etl.schedule.cron=-");
+                "--analytics.segment-disclosure-approved=true", "--etl.schedule.cron=-");
     }
 }

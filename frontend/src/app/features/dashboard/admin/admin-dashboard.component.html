@@ -557,6 +557,11 @@
             Lifecycle evidence is missing. This record cannot be presented as a complete
             investigation.
           </p>
+          <section *ngIf="data['coverage'] as coverage" class="notice-box" aria-label="Evidence coverage">
+            <strong>Evidence coverage: {{ coverage.status }}</strong>
+            <p>{{ coverage.scope }}</p>
+            <ul><li *ngFor="let warning of coverage.warnings">{{ warning }}</li></ul>
+          </section>
           <h3 class="mt-7">Lifecycle timeline</h3>
           <ol class="timeline">
             <li *ngFor="let event of data['events']">

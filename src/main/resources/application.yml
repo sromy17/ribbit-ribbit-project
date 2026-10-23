@@ -1,4 +1,7 @@
 spring:
+  jackson:
+    deserialization:
+      accept-float-as-int: false
   datasource:
     url: ${DB_OLTP_URL:${DB_URL:jdbc:h2:mem:trading;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}}
     username: ${DB_USER:sa}

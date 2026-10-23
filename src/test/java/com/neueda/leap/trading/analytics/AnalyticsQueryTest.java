@@ -23,4 +23,13 @@ class AnalyticsQueryTest {
         assertThrows(IllegalArgumentException.class,()->new AnalyticsQuery(LocalDate.now(),LocalDate.now(),"UTC",null,"BUY OR TRUE",null,0,25,"fills","desc"));
         assertThrows(IllegalArgumentException.class,()->new AnalyticsQuery(LocalDate.now(),LocalDate.now(),"UTC",null,null,null,0,101,"fills","desc"));
     }
+    @Test void indiaYearBoundaryAndCryptoWeekendAreCalendarPeriodsNotInventedMarketSessions() {
+        var india=new AnalyticsQuery(LocalDate.parse("2026-12-31"),LocalDate.parse("2026-12-31"),"Asia/Kolkata",null,null,null,0,25,"period","asc");
+        assertEquals(Instant.parse("2026-12-30T18:30:00Z"),india.start());
+        assertEquals(Instant.parse("2026-12-31T18:30:00Z"),india.end());
+        var weekend=day("2026-10-25");assertEquals(24,Duration.between(weekend.start(),weekend.end()).toHours());
+        var holiday=new AnalyticsQuery(LocalDate.parse("2026-12-25"),LocalDate.parse("2026-12-25"),"Europe/London",null,null,null,0,25,"period","asc");
+        assertEquals(24,Duration.between(holiday.start(),holiday.end()).toHours());
+    }
+
 }

@@ -57,10 +57,11 @@ public class AdminInvestigationController {
         var orders = db.queryForList("SELECT r.*, i.ticker FROM trade_request r JOIN instruments i ON i.instrumentid=r.instrumentid WHERE r.requestid=?", id);
         if (orders.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
         var events = db.queryForList("SELECT * FROM order_lifecycle_events WHERE order_id=? ORDER BY event_sequence, event_id", id);
-        return Map.of("order", orders.get(0), "events", events,
-            "fills", db.queryForList("SELECT * FROM trades_executed WHERE requestid=? ORDER BY executed_at_utc, executeid", id),
-            "cash", db.queryForList("SELECT * FROM cash_movements WHERE order_id=? ORDER BY occurred_at_utc, movement_id", id),
-            "holdings", db.queryForList("SELECT * FROM holding_movements WHERE order_id=? ORDER BY occurred_at_utc, movement_id", id),
-            "asOf", Instant.now().toString(), "source", "OPERATIONAL", "evidenceAvailable", !events.isEmpty());
+        var fills=db.queryForList("SELECT * FROM trades_executed WHERE requestid=? ORDER BY executed_at_utc, executeid", id);
+        var cash=db.queryForList("SELECT * FROM cash_movements WHERE order_id=? ORDER BY occurred_at_utc, movement_id", id);
+        var holdings=db.queryForList("SELECT * FROM holding_movements WHERE order_id=? ORDER BY occurred_at_utc, movement_id", id);
+        return Map.of("order",orders.get(0),"events",events,"fills",fills,"cash",cash,"holdings",holdings,
+            "asOf",Instant.now().toString(),"source","OPERATIONAL","evidenceAvailable",!events.isEmpty(),
+            "coverage",com.neueda.leap.trading.service.impl.InvestigationCoverage.assess(orders.get(0),events,fills,cash,holdings));
     }
 }

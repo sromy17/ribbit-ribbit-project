@@ -58,7 +58,8 @@
         <p *ngIf="tab === 'client-segments'">Membership is evaluated at fill execution time. UNKNOWN includes missing history. Segment-source approval is pending. Clients can appear in more than one segment; do not sum distinct-client counts.</p>
         <p *ngIf="tab === 'activity'">Daily recorded fill counts in {{ meta.period.timezone }}. Dates without recorded fills are omitted. Active clients and executed orders are distinct within each day; daily counts are not additive.</p>
         <p *ngIf="tab === 'instruments' || tab === 'heatmap'">Ranked by fill count, with stable instrument ID as tie-break. Quantities retain their recorded units. Buy/sell counts describe internal fills only.</p>
-        <p *ngIf="!rows.length" role="status">Zero recorded activity for this selection. See coverage for missing evidence.</p>
+        <p *ngIf="table['availability'] === 'WITHHELD'" role="status">{{ table['reason'] }}</p>
+        <p *ngIf="!rows.length && table['availability'] !== 'WITHHELD'" role="status">Zero recorded activity for this selection. See coverage for missing evidence.</p>
         <div class="bar-chart" *ngIf="tab !== 'heatmap' && rows.length" role="img" aria-label="Fill counts. Exact values are provided in the following table.">
           <div *ngFor="let row of rows"><span>{{ label(row) }}</span><div class="bar" [style.width.%]="100 * row['fill_count'] / maxFills"></div><strong>{{ row['fill_count'] }} fills</strong></div>
         </div>

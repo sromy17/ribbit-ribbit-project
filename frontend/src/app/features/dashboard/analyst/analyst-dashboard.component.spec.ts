@@ -24,7 +24,7 @@ describe('Priya analytics workspace',()=>{
   api.read.mockImplementation((kind:string)=>of({...meta,datasetId:kind==='activity'?'dataset-2':'dataset-1',data:kind==='overview'?overview:group}));const f=TestBed.createComponent(AnalystDashboardComponent);f.detectChanges();expect(f.componentInstance.meta).toBeNull();expect(f.componentInstance.error).toContain('dataset changed');
  });
  it('has a unit-labelled chart table and server pagination',()=>{
-  const f=TestBed.createComponent(AnalystDashboardComponent);f.detectChanges();const c=f.componentInstance;f.nativeElement.querySelectorAll('nav.tabs button')[2].click();f.detectChanges();expect(f.nativeElement.querySelector('table').textContent).toContain('10 SHARE');expect(f.nativeElement.querySelector('[role="img"]')).toBeTruthy();c.page('instruments',1);expect(api.read).toHaveBeenLastCalledWith('instruments',expect.any(Object),1,'fills','desc');
+  const f=TestBed.createComponent(AnalystDashboardComponent);f.detectChanges();const c=f.componentInstance;f.nativeElement.querySelectorAll('nav.tabs button')[2].click();f.detectChanges();expect(f.nativeElement.querySelector('table').textContent).toContain('10 SHARE');expect(f.nativeElement.querySelector('[role="img"]')).toBeTruthy();c.page('instruments',1);expect(api.read).toHaveBeenLastCalledWith('instruments',expect.any(Object),1,'fills','desc','dataset-1');
  });
  it('opens frozen values without recalculation',()=>{
   const f=TestBed.createComponent(AnalystDashboardComponent);f.detectChanges();const calls=api.read.mock.calls.length;api.report.mockReturnValue(of({reportId:'saved',version:1,snapshot:{...meta,overview:{...overview,fill_count:99},activity:group,instruments:group,'client-segments':group}}));f.componentInstance.reportId='saved';f.componentInstance.openReport();f.detectChanges();expect(f.componentInstance.overview['fill_count']).toBe(99);expect(api.read.mock.calls.length).toBe(calls);expect(f.nativeElement.textContent).toContain('Issued report');
@@ -32,4 +32,19 @@ describe('Priya analytics workspace',()=>{
  it('reuses the issue key after failure',()=>{
   const f=TestBed.createComponent(AnalystDashboardComponent);f.detectChanges();api.issue.mockReturnValue(throwError(()=>({status:503})));f.componentInstance.issue();f.componentInstance.issue();expect(api.issue.mock.calls[0][1]).toBe(api.issue.mock.calls[1][1]);
  });
+ it('labels withheld segment data without turning it into zero activity',()=>{
+  api.read.mockImplementation((kind:string)=>kind==='client-segments'?throwError(()=>({status:403,error:{message:'No approved disclosure policy'}})):of({...meta,data:kind==='overview'?overview:group}));
+  const f=TestBed.createComponent(AnalystDashboardComponent);f.detectChanges();expect(f.componentInstance.meta?.datasetId).toBe('dataset-1');
+  f.nativeElement.querySelectorAll('nav.tabs button')[3].click();f.detectChanges();expect(f.nativeElement.textContent).toContain('No approved disclosure policy');expect(f.nativeElement.textContent).not.toContain('Zero recorded activity');
+ });
+ it('unsubscribes a superseded filter request',()=>{
+  const old=new Subject<any>();api.read.mockReturnValueOnce(old);const f=TestBed.createComponent(AnalystDashboardComponent);f.detectChanges();
+  f.componentInstance.month='2026-02';f.componentInstance.load();old.next({...meta,datasetId:'obsolete',data:overview});
+  expect(f.componentInstance.meta?.datasetId).toBe('dataset-1');expect(f.componentInstance.loading).toBe(false);
+ });
+ it('stops loading when new filters are invalid',()=>{
+  const old=new Subject<any>();api.read.mockReturnValueOnce(old);const f=TestBed.createComponent(AnalystDashboardComponent);f.detectChanges();
+  f.componentInstance.month='invalid';f.componentInstance.load();expect(f.componentInstance.loading).toBe(false);expect(f.componentInstance.error).toContain('valid month');
+ });
+
 });

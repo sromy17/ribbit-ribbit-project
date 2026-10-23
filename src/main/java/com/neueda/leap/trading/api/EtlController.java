@@ -18,6 +18,7 @@ public class EtlController {
     }
 
     @PostMapping("/run")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAuthority('PERM_ETL_TRIGGER')")
     public ResponseEntity<Map<String, String>> run() {
         String runId = etlService.runFullLoad();
         return ResponseEntity.ok(Map.of("status", "completed", "runId", runId));

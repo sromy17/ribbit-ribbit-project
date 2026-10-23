@@ -24,6 +24,8 @@ handler has an OLTP datasource or a live-query fallback.
 - Required inclusive calendar dates `from`, `to`; at most 366 days.
 - `timezone` (IANA zone, default UTC), converted to half-open UTC instants, including DST.
 - Optional positive `instrumentId`, `side` (BUY/SELL), exact `segment` code.
+- Optional `datasetId` token: a replaced dataset returns 409 instead of mixing versions.
+- Segment endpoints and segment filters default to withheld until an approved disclosure policy exists; see the release checklist.
 - `page` (0–10000), `size` (1–100, default 25), `sort`
   (fills/instrument/period/segment), `direction` (asc/desc).
 
@@ -54,7 +56,7 @@ These are configured implementation limits, **not approved production targets**.
 
 `POST /api/analytics/reports` accepts `from`, `to`, `timezone`, the same optional
 filters, and `idempotencyKey`. A report must cover exactly one calendar month.
-It freezes overview, complete activity/instrument/segment tables, coverage,
+It freezes overview, complete activity/instrument tables, permitted segment data (or an explicit WITHHELD section), coverage,
 warnings, dataset/cutoff, filters and metric version in OLAP JSONB. Issuance is
 bounded to 1000 groups per table and a 30-second transaction; oversized selections
 fail rather than silently truncating. Saved report retrieval does not require the
@@ -84,7 +86,7 @@ rows with transactional DELETE/INSERT rather than TRUNCATE, preserving MVCC
 snapshots for readers. ETL writers retain their advisory exclusion lock. The UI
 rejects responses with differing dataset IDs across its parallel queries, requiring
 a refresh rather than combining versions. Saved reports use one transaction and
-one dataset, regardless of later ETL refreshes.
+one dataset, regardless of later ETL refreshes. Panel/pagination tokens and optional report `datasetId` reject stale versions with 409.
 
 Order submission now commits accepted/rejected intent separately from execution.
 This fixes the prior self-invocation transaction boundary, where independently
@@ -115,3 +117,14 @@ behaviour and agreed latency/throughput/isolation limits. The trading model stil
 uses integer quantities; this change does not add fractional execution support.
 
 See [recorded local verification](analytics-local-verification.md) for the measured run.
+
+## Release hardening
+
+See [the release checklist](analytics-release-checklist.md) for explicit coverage and remaining gates.
+`analytics.segment-disclosure-approved` defaults to false; synthetic fixtures alone enable it.
+Retained reports containing segment data are withheld while that gate is closed.
+Apply `scripts/analytics-release-hardening-oltp.sql` to pre-provision durable ID counters.
+Runtime also initializes that additive table; retain it with source backups. Refresh recovery
+uses a separately committed job transaction while holding the exclusive publisher lock,
+so configure the OLAP connection pool with at least two connections. Old crashed RUNNING
+rows become ABANDONED when the next publisher acquires the lock.

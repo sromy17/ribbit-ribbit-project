@@ -2,7 +2,7 @@
 
 Verified with `mvn test`, `bash scripts/verify-admin-postgres.sh`,
 `npm test -- --watch=false`, and `NG_BUILD_MAX_WORKERS=2 npm run build`.
-53 backend tests and 10 frontend tests passed. The production frontend build passed.
+60 backend tests and 13 frontend tests passed. The production frontend build passed.
 The design preview was inspected for dataset labels, chart/table agreement and
 horizontal overflow; sample preview data is clearly labelled and cannot issue reports.
 
@@ -16,12 +16,12 @@ Latest observed workload output:
 ```text
 LOCAL FIXTURE ONLY; stakeholder limits NOT APPROVED
 10000 historical orders; 20 sequential HTTP submissions/executions concurrent with 20 analytics service queries and 3 refreshes.
-Order end-to-end p50 ms: 74.361417
-Order p95 ms: 124.858708
-Mixed workload throughput orders/sec: 9.574509208132715
-OLTP lock-wait samples: 0 of 156
-Source snapshot age after publication ms: 620
-Newest fill to final publication lag ms: 664
+Order end-to-end p50 ms: 55.779791
+Order p95 ms: 124.482125
+Mixed workload throughput orders/sec: 10.28985669155035
+OLTP lock-wait samples: 0 of 146
+Source snapshot age after publication ms: 532
+Newest fill to final publication lag ms: 566
 Isolation: analytics failure returned 503 while an order returned 201. Replay left balances and fill count unchanged.
 ```
 
@@ -36,3 +36,15 @@ These results are a local regression baseline. Production capacity, concurrent
 submitter load, infrastructure and broker/Kafka behaviour still require a
 representative workload and agreed limits. No stakeholder performance, freshness,
 metric, segment-source or legal-retention approval is asserted.
+
+Release-hardening verification also passed: simultaneous same-order replay and
+cross-account submissions, durable ID counters, executed-order cancellation
+rejection, post-rollback EXECUTION_FAILED evidence, orphan evidence rejection,
+abandoned-run recovery, publisher exclusion, default segment withholding,
+stale dataset-token rejection, fractional quantity rejection, restricted ETL/user
+lookup routes, quote ordering/clock skew and evidence-coverage warnings.
+
+Disposable source/reporting backups were restored into separate databases;
+financial records, lifecycle evidence, counters, OLAP facts and retained reports
+matched row-set checksums. This is a local restore test, not production RPO/RTO
+or a legal retention-policy approval. See [the release checklist](analytics-release-checklist.md).

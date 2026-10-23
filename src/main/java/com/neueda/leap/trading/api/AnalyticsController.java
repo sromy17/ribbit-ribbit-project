@@ -21,9 +21,9 @@ public class AnalyticsController {
         @RequestParam(required=false) Integer instrumentId, @RequestParam(required=false) String side,
         @RequestParam(required=false) String segment, @RequestParam(defaultValue="0") int page,
         @RequestParam(defaultValue="25") int size, @RequestParam(defaultValue="fills") String sort,
-        @RequestParam(defaultValue="desc") String direction) {
+        @RequestParam(defaultValue="desc") String direction, @RequestParam(required=false) String datasetId) {
         String kind = request.getRequestURI().substring(request.getRequestURI().lastIndexOf('/') + 1);
-        return service.read(kind, new AnalyticsQuery(from,to,timezone,instrumentId,side,segment,page,size,sort,direction));
+        return service.readPinned(kind, new AnalyticsQuery(from,to,timezone,instrumentId,side,segment,page,size,sort,direction),datasetId);
     }
     @GetMapping("/data-status") public Map<String,Object> status() { return service.status(); }
     @PostMapping("/reports") public Map<String,Object> issue(@Valid @RequestBody AnalyticsReportRequest request) { return service.issue(request); }

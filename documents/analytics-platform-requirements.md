@@ -9,6 +9,15 @@ read; persona/requirement/service-expectation pages 5–7 were also rendered and
 visually reviewed. Repository observations describe a targeted read of current
 source, not a complete compliance audit or a new test run.
 
+## Implementation evidence update
+
+The observations in section 4 record the original planning snapshot. Subsequent
+code and tests are tracked in [the release checklist](analytics-release-checklist.md)
+and [implementation notes](analytics-implementation.md). Those documents distinguish
+implemented behaviour from policy/production gates. The user confirmed on
+2026-10-23 that no small-segment disclosure policy is approved; segment analysis
+is now withheld by default. The original plan is retained below for traceability.
+
 ## 1. Scope and evidence labels
 
 - **BRS**: explicit outcome/priority in the PDF.

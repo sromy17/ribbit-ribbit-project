@@ -14,12 +14,13 @@ export interface IssuedReport { reportId: string; version: number; amendsReportI
 @Injectable({ providedIn: 'root' })
 export class AnalyticsService {
   private http = inject(HttpClient);
-  read(kind: string, selection: AnalyticsSelection, page = 0, sort = 'fills', direction = 'desc'): Observable<AnalyticsResponse> {
+  read(kind: string, selection: AnalyticsSelection, page = 0, sort = 'fills', direction = 'desc', datasetId?: string): Observable<AnalyticsResponse> {
     let params = new HttpParams({ fromObject: { ...selection, page, size: 25, sort, direction } });
+    if (datasetId) params = params.set('datasetId', datasetId);
     return this.http.get<AnalyticsResponse>(`/api/analytics/${kind}`, { params });
   }
-  issue(selection: AnalyticsSelection, key: string, amendsReportId?: string, amendmentReason?: string) {
-    return this.http.post<IssuedReport>('/api/analytics/reports', { ...selection, idempotencyKey: key, amendsReportId, amendmentReason });
+  issue(selection: AnalyticsSelection, key: string, amendsReportId?: string, amendmentReason?: string, datasetId?: string) {
+    return this.http.post<IssuedReport>('/api/analytics/reports', { ...selection, idempotencyKey: key, amendsReportId, amendmentReason, datasetId });
   }
   report(id: string) { return this.http.get<IssuedReport>(`/api/analytics/reports/${encodeURIComponent(id)}`); }
 }

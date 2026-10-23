@@ -170,7 +170,7 @@ class TradingOrderServiceTest {
         order.setOrderId(44);
         order.setStatus(OrderStatus.PENDING);
 
-        when(orderRepository.findById(44)).thenReturn(Objects.requireNonNull(Optional.of(order)));
+        when(orderRepository.findForUpdate(44)).thenReturn(Objects.requireNonNull(Optional.of(order)));
 
         tradingOrderService.cancelOrder(44);
 
@@ -256,12 +256,13 @@ class TradingOrderServiceTest {
         order.setStatus(OrderStatus.PENDING);
         order.setAccount(account);
         order.setInstrument(instrument);
-        when(orderRepository.findById(1)).thenReturn(Optional.of(order));
+        when(orderRepository.findForUpdate(1)).thenReturn(Optional.of(order));
+        when(accountRepository.findForUpdate(account.getAccountId())).thenReturn(Optional.of(account));
         when(marketDataVerificationService.verifyExecutionQuote(order)).thenReturn(
             new MarketQuote("ABC", BigDecimal.TEN, null, null, "feed", null, null, "GBP", null));
         assertThrows(IllegalArgumentException.class, () -> tradingOrderService.executeOrder(1));
         assertEquals(new BigDecimal("1000"), account.getAvailableFunds());
-        verifyNoInteractions(tradeRepository, accountRepository, holdingRepository);
+        verifyNoInteractions(tradeRepository, holdingRepository);
     }
 
     @Test
@@ -287,7 +288,8 @@ class TradingOrderServiceTest {
         order.setQuantity(4);
         order.setAccount(account);
         order.setInstrument(instrument);
-        when(orderRepository.findById(1)).thenReturn(Optional.of(order));
+        when(orderRepository.findForUpdate(1)).thenReturn(Optional.of(order));
+        when(accountRepository.findForUpdate(account.getAccountId())).thenReturn(Optional.of(account));
         when(orderRepository.save(order)).thenReturn(order);
         when(marketDataVerificationService.verifyExecutionQuote(order)).thenReturn(
             new MarketQuote("ABC", new BigDecimal("100"), null, null, "feed", null, null, "GBP", "ASK"));

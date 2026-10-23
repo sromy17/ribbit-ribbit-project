@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angula
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { forkJoin, Subscription } from 'rxjs';
+import { forkJoin, Subscription, switchMap, map, catchError, of } from 'rxjs';
 import { UI_COMPONENTS } from '../../../shared/ui';
 import { AuthService } from '../../../core/services/auth.service';
 import { AnalyticsService, AnalyticsResponse, AnalyticsRow, AnalyticsSelection, IssuedReport } from '../../../core/services/analytics.service';
@@ -38,10 +38,16 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy {
   load() {
     this.request?.unsubscribe(); this.error = ''; this.saved = null; this.meta = null;
     let selection: AnalyticsSelection;
-    try { selection = this.select(); } catch (e) { this.error = (e as Error).message; return; }
+    try { selection = this.select(); } catch (e) { this.error = (e as Error).message; this.loading = false; return; }
     this.loading = true;
-    this.request = forkJoin({ overview: this.api.read('overview', selection), activity: this.api.read('activity', selection, 0, 'period', 'asc'),
-      instruments: this.api.read('instruments', selection), segments: this.api.read('client-segments', selection) }).subscribe({
+    this.request = this.api.read('overview', selection).pipe(switchMap(overview => forkJoin({
+      activity: this.api.read('activity', selection, 0, 'period', 'asc', overview.datasetId),
+      instruments: this.api.read('instruments', selection, 0, 'fills', 'desc', overview.datasetId),
+      segments: this.api.read('client-segments', selection, 0, 'fills', 'desc', overview.datasetId).pipe(catchError(e => {
+        if(e.status !== 403) throw e;
+        return of({...overview, data:{items:[],total:0,availability:'WITHHELD',reason:e.error?.message || 'Segment analysis is withheld pending an approved disclosure policy.'}});
+      }))
+    }).pipe(map(panels => ({overview,...panels}))))).subscribe({
       next: r => {
         if (new Set([r.overview.datasetId, r.activity.datasetId, r.instruments.datasetId, r.segments.datasetId]).size !== 1) {
           this.error = 'The dataset changed during refresh. Reload to view a consistent version.';
@@ -57,14 +63,14 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy {
     if (!this.selection || this.loading) return;
     const current = kind === 'activity' ? this.activity : kind === 'instruments' ? this.instruments : this.segments;
     const page = current['page'] + delta; this.loading = true; this.error = '';
-    this.request = this.api.read(kind, this.selection, page, kind === 'activity' ? 'period' : 'fills', kind === 'activity' ? 'asc' : 'desc').subscribe({
+    this.request = this.api.read(kind, this.selection, page, kind === 'activity' ? 'period' : 'fills', kind === 'activity' ? 'asc' : 'desc', this.meta?.datasetId).subscribe({
       next: r => {
         if (r.datasetId !== this.meta?.datasetId) { this.error = 'Dataset changed. Reload all views before continuing.'; this.meta = null; }
         else if (kind === 'activity') this.activity = r.data;
         else if (kind === 'instruments') this.instruments = r.data;
         else this.segments = r.data;
         this.loading = false; this.cdr.detectChanges();
-      }, error: e => { this.error = e.error?.message || 'Page query failed.'; this.loading = false; this.cdr.detectChanges(); }
+      }, error: e => { this.error = e.error?.message || 'Page query failed.'; if(e.status === 409) this.meta = null; this.loading = false; this.cdr.detectChanges(); }
     });
   }
   issue(amend = false) {
@@ -75,10 +81,11 @@ export class AnalystDashboardComponent implements OnInit, OnDestroy {
       selection = { from: s.period.from, to: s.period.to, timezone: s.period.timezone, ...Object.fromEntries(Object.entries(s.filters).filter(([,v]) => v !== null)) };
     }
     const parent = amend ? this.saved?.reportId : undefined;
-    const signature = JSON.stringify([selection, parent, this.amendmentReason]);
+    const datasetId = amend ? undefined : this.meta.datasetId;
+    const signature = JSON.stringify([selection, parent, this.amendmentReason, datasetId]);
     if (signature !== this.issueSignature) { this.issueKey = crypto.randomUUID(); this.issueSignature = signature; }
     this.issuing = true; this.reportError = '';
-    this.reportRequest = this.api.issue(selection, this.issueKey, parent, amend ? this.amendmentReason : undefined).subscribe({
+    this.reportRequest = this.api.issue(selection, this.issueKey, parent, amend ? this.amendmentReason : undefined, datasetId).subscribe({
       next: r => { this.showReport(r); this.issuing = false; this.cdr.detectChanges(); },
       error: e => { this.reportError = e.error?.message || 'Report could not be issued. Retry uses the same request key.'; this.issuing = false; this.cdr.detectChanges(); }
     });

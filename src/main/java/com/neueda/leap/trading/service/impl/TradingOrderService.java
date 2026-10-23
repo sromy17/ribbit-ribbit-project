@@ -120,12 +120,24 @@ public class TradingOrderService implements OrderService {
     }
 
     @Override
-    @Transactional
     public ProcessOrderResponse executeOrder(Integer orderId) {
+        TradingOrderService transactions=transactionalSelf == null ? this : transactionalSelf;
+        try { return transactions.executeCommittedOrder(orderId); }
+        catch(RuntimeException failure) {
+            if(executionAttemptEvidenceService!=null) {
+                try { executionAttemptEvidenceService.failed(orderId,failure instanceof IllegalArgumentException ? failure.getMessage() : failure.getClass().getSimpleName()); }
+                catch(RuntimeException recordingFailure) { failure.addSuppressed(recordingFailure); }
+            }
+            throw failure;
+        }
+    }
+
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public ProcessOrderResponse executeCommittedOrder(Integer orderId) {
         if (orderId == null) {
             throw new IllegalArgumentException("Order ID cannot be null");
         }
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findForUpdate(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
 
         if (order.getStatus() != OrderStatus.PENDING) {
@@ -138,7 +150,9 @@ public class TradingOrderService implements OrderService {
                 order.getInstrument().getInstrumentId(), order.getCorrelationId(), order.getQuantity());
         }
 
-        TradingAccount account = order.getAccount();
+        TradingAccount account = accountRepository.findForUpdate(order.getAccount().getAccountId())
+            .orElseThrow(() -> new IllegalArgumentException("Account not found"));
+        order.setAccount(account);
         Instrument instrument = order.getInstrument();
         validateMarketDataIdentity(instrument);
         MarketQuote quote = marketDataVerificationService.verifyExecutionQuote(order);
@@ -271,6 +285,10 @@ public class TradingOrderService implements OrderService {
         );
     }
 
+    private FinancialIdAllocator idAllocator;
+    @Autowired
+    void setIdAllocator(FinancialIdAllocator allocator) { this.idAllocator=allocator; }
+
     private TradingOrderService transactionalSelf;
 
     @Autowired
@@ -307,7 +325,7 @@ public class TradingOrderService implements OrderService {
 
     private void saveRejection(Integer orderId, String reason) {
         RejectedOrder rejection = new RejectedOrder();
-        rejection.setRejectId(rejectedOrderRepository.findMaxRejectId() + 1);
+        rejection.setRejectId(idAllocator == null ? rejectedOrderRepository.findMaxRejectId() + 1 : idAllocator.next("REJECTION"));
         rejection.setRequestId(orderId);
         rejection.setReason(reason == null ? "Order rejected" : reason.substring(0, Math.min(reason.length(), 50)));
         rejection.setRejectDate(LocalDate.now());
@@ -337,8 +355,10 @@ public class TradingOrderService implements OrderService {
         if (orderId == null) {
             throw new IllegalArgumentException("Order ID cannot be null");
         }
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findForUpdate(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+        if (order.getStatus() == OrderStatus.CANCELLED) return;
+        if (order.getStatus() != OrderStatus.PENDING) throw new IllegalArgumentException("Only pending orders can be cancelled");
         order.cancel();
         orderRepository.save(order);
         if (evidenceService != null) {
@@ -432,11 +452,11 @@ public class TradingOrderService implements OrderService {
     }
 
     private Integer nextOrderId() {
-        return orderRepository.findMaxOrderId() + 1;
+        return idAllocator == null ? orderRepository.findMaxOrderId() + 1 : idAllocator.next("ORDER");
     }
 
     private Integer nextTradeId() {
-        return tradeRepository.findMaxTradeId() + 1;
+        return idAllocator == null ? tradeRepository.findMaxTradeId() + 1 : idAllocator.next("TRADE");
     }
 
     private Instrument resolveInstrument(Integer instrumentId, String ticker) {
