@@ -53,7 +53,7 @@ class AdminPostgresTest {
             db.execute("CREATE TABLE IF NOT EXISTS disputed_orders(disputeid INT PRIMARY KEY, requestid INT, employeeid INT, status VARCHAR(20), category VARCHAR(20), reason VARCHAR(75))");
             db.execute("CREATE TABLE IF NOT EXISTS canceled_order(cancel_id INT PRIMARY KEY, request_id INT, reason VARCHAR(50), cancel_date DATE)");
             db.execute("CREATE TABLE IF NOT EXISTS support_ticket(ticket_id INT PRIMARY KEY, accountid INT, reason VARCHAR(75), created_at TIMESTAMP, status VARCHAR(20), assigned_to INT, closed_at TIMESTAMP)");
-            db.update("INSERT INTO users(userid,username,salt,user_hashed_salted_password) VALUES (910001,'fixture-user','salt','hash')");
+            db.update("INSERT INTO users(userid,username,salt,userhashedsaltedpassword) VALUES (910001,'fixture-user','salt','hash')");
             db.update("INSERT INTO accounts(accountid,userid,availablefunds,creationdate,account_type) VALUES (910001,910001,1000,CURRENT_DATE,'TRADING')");
             db.update("INSERT INTO instruments(instrumentid,ticker,instrumentname,status) VALUES (910001,'FIXTURE','Fixture','ACTIVE')");
             db.update("INSERT INTO trade_request(requestid,accountid,instrumentid,side,quantity,bidprice,date_request,status,created_at_utc,correlation_id) VALUES (910001,910001,910001,'BUY',1,10,CURRENT_DATE,'EXECUTED',CURRENT_TIMESTAMP,'fixture-correlation')");
@@ -61,8 +61,8 @@ class AdminPostgresTest {
             // A large bounded history fixture to exercise actual PostgreSQL pagination.
             db.update("INSERT INTO trade_request(requestid,accountid,instrumentid,side,quantity,bidprice,date_request,status,created_at_utc,correlation_id) SELECT n,910001,910001,'BUY',1,10,CURRENT_DATE,'PENDING',CURRENT_TIMESTAMP,'history-' || n FROM generate_series(920000,929999) n");
             var password = context.getBean(org.springframework.security.crypto.password.PasswordEncoder.class).encode("fixture-password");
-            db.update("UPDATE users SET user_hashed_salted_password=? WHERE userid=910001", password);
-            db.update("INSERT INTO users(userid,username,salt,user_hashed_salted_password) VALUES (910002,'fixture-admin','salt',?)", password);
+            db.update("UPDATE users SET userhashedsaltedpassword=? WHERE userid=910001", password);
+            db.update("INSERT INTO users(userid,username,salt,userhashedsaltedpassword) VALUES (910002,'fixture-admin','salt',?)", password);
             db.update("INSERT INTO roles(rolename) VALUES ('PLATFORM_ADMINISTRATOR')");
             db.update("INSERT INTO user_roles(userid,roleid) SELECT 910002,roleid FROM roles WHERE rolename='PLATFORM_ADMINISTRATOR'");
             var login = context.getBean(AuthenticationService.class);
@@ -74,6 +74,18 @@ class AdminPostgresTest {
             assertEquals(401, client.send(java.net.http.HttpRequest.newBuilder(uri).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode());
             assertEquals(403, client.send(java.net.http.HttpRequest.newBuilder(uri).header("Authorization", "Bearer " + clientToken).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode());
             assertEquals(200, client.send(java.net.http.HttpRequest.newBuilder(uri).header("Authorization", "Bearer " + adminToken).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode());
+            // The merged customer/staff auth providers share this hashed token schema.
+            var rotating = login.login(new com.neueda.leap.trading.api.dto.LoginRequest("fixture-admin", "fixture-password"));
+            var rotated = login.refresh(rotating.refreshToken());
+            assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> login.refresh(rotating.refreshToken()));
+            assertEquals(401, client.send(java.net.http.HttpRequest.newBuilder(uri).header("Authorization", "Bearer " + rotating.accessToken()).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode());
+            assertEquals(200, client.send(java.net.http.HttpRequest.newBuilder(uri).header("Authorization", "Bearer " + rotated.accessToken()).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode());
+            login.logout(rotated.accessToken());
+            assertEquals(401, client.send(java.net.http.HttpRequest.newBuilder(uri).header("Authorization", "Bearer " + rotated.accessToken()).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode());
+            assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> login.refresh(rotated.refreshToken()));
+            var walletUri = java.net.URI.create("http://localhost:" + port + "/accounts/910001/wallet/banks");
+            assertEquals(200, client.send(java.net.http.HttpRequest.newBuilder(walletUri).header("Authorization", "Bearer " + clientToken).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode());
+            assertEquals(403, client.send(java.net.http.HttpRequest.newBuilder(walletUri).header("Authorization", "Bearer " + adminToken).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode(), "Staff cannot operate another user's banking wallet");
             var cases = context.getBean(DisputeCaseService.class);
             var submission = new DisputeSubmissionRequest("TRADE", "910001", "Investigate fee", "Fee concern", "retry-1", true);
             actor(910001);

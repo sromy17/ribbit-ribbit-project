@@ -1,9 +1,9 @@
 package com.neueda.leap.trading.domain;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -40,7 +40,7 @@ public class Holding {
     private BigDecimal averageCost;
 
     @Column(name = "as_of_date", nullable = false)
-    private Instant asOfDate;
+    private java.time.LocalDate asOfDate;
 
     public void updatePosition(boolean isBuy, int deltaQty) {
         if (deltaQty <= 0) {
@@ -74,14 +74,6 @@ public class Holding {
         this.averageCost = averageCost;
     }
 
-    public LocalDate getAsOfDate() {
-        return asOfDate;
-    }
-
-    public void setAsOfDate(LocalDate asOfDate) {
-        this.asOfDate = asOfDate;
-    }
-
     public Integer getHoldingId() {
         return holdingId;
     }
@@ -111,11 +103,11 @@ public class Holding {
         return instrument == null ? null : instrument.getTicker();
     }
 
-    public Instant getAsOfDate() {
+    public java.time.LocalDate getAsOfDate() {
         return asOfDate;
     }
 
-    public void setAsOfDate(Instant asOfDate) {
+    public void setAsOfDate(java.time.LocalDate asOfDate) {
         this.asOfDate = asOfDate;
     }
 }

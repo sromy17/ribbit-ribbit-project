@@ -30,10 +30,10 @@ public class User {
     public java.time.Instant getRegisteredAtUtc() { return registeredAtUtc; }
     public void setRegisteredAtUtc(java.time.Instant value) { registeredAtUtc = value; }
 
-    @Column(name = "first_name", nullable = false, length = 50)
+    @Column(name = "first_name", length = 50)
     private String firstName;
 
-    @Column(name = "last_name", nullable = false, length = 50)
+    @Column(name = "last_name", length = 50)
     private String lastName;
 
     @Column(name = "salt", nullable = false, length = 25)
@@ -41,7 +41,7 @@ public class User {
     private String salt;
 
     @JsonIgnore
-    @Column(name = "userHashedSaltedPassword", nullable = false, length = 64)
+    @Column(name = "userhashedsaltedpassword", nullable = false, length = 64)
     private String userHashedSaltedPassword;
 
     @JsonIgnore

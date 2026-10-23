@@ -13,7 +13,6 @@ import com.neueda.leap.trading.domain.DisputeCaseStatus;
 import com.neueda.leap.trading.repository.jpa.AuditRecordRepository;
 import com.neueda.leap.trading.repository.jpa.DisputeCaseRepository;
 import com.neueda.leap.trading.repository.jpa.RoleRepository;
-import com.neueda.leap.trading.repository.jpa.SessionRepository;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,20 +26,20 @@ public class StaffProvisioningService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final SessionRepository sessionRepository;
+    private final AuthenticationService authenticationService;
     private final AuditRecordRepository auditRecordRepository;
     private final DisputeCaseRepository disputeCaseRepository;
 
     public StaffProvisioningService(
         UserRepository userRepository,
         RoleRepository roleRepository,
-        SessionRepository sessionRepository,
+        AuthenticationService authenticationService,
         AuditRecordRepository auditRecordRepository,
         DisputeCaseRepository disputeCaseRepository
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
-        this.sessionRepository = sessionRepository;
+        this.authenticationService = authenticationService;
         this.auditRecordRepository = auditRecordRepository;
         this.disputeCaseRepository = disputeCaseRepository;
     }
@@ -59,7 +58,7 @@ public class StaffProvisioningService {
         user.getRoles().add(role);
         role.getUsers().add(user);
         userRepository.save(user);
-        sessionRepository.deleteByUserUserId(user.getUserId());
+        authenticationService.revokeUserSessions(user.getUserId());
         audit("STAFF_ROLE_GRANTED", "USER", user.getUserId().toString(), "SUCCESS");
         return new StaffRoleResponse(user.getUsername(), roleName);
     }
@@ -76,7 +75,7 @@ public class StaffProvisioningService {
         boolean stillAdmin = user.getRoles().stream().anyMatch(role ->
             java.util.Set.of("PLATFORM_ADMIN", "PLATFORM_ADMINISTRATOR").contains(role.getRoleName().toUpperCase(Locale.ROOT)));
         if (!stillAdmin) releaseAssignedCases(user.getUserId());
-        sessionRepository.deleteByUserUserId(user.getUserId());
+        authenticationService.revokeUserSessions(user.getUserId());
         audit("STAFF_ROLE_REVOKED", "USER", user.getUserId().toString(), "SUCCESS");
     }
 

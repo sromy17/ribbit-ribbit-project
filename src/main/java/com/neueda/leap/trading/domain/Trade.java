@@ -31,7 +31,7 @@ public class Trade {
     private BigDecimal executionPrice;
 
     @Column(name = "date_execution", nullable = false)
-    private Instant executedAt;
+    private java.time.LocalDate executedAt;
 
     @Column(name = "quantity_executed", nullable = false)
     private Integer executedQuantity;
@@ -108,11 +108,11 @@ public class Trade {
         this.executionPrice = executionPrice;
     }
 
-    public Instant getExecutedAt() {
+    public java.time.LocalDate getExecutedAt() {
         return executedAt;
     }
 
-    public void setExecutedAt(Instant executedAt) {
+    public void setExecutedAt(java.time.LocalDate executedAt) {
         this.executedAt = executedAt;
     }
 

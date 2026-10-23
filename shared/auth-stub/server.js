@@ -37,8 +37,13 @@ function hashToken(token) {
 }
 
 async function allocateId(table, column) {
-  const result = await pool.query(`SELECT COALESCE(MAX(${column}), 0) + 1 AS next_id FROM ${table}`);
-  return Number(result.rows[0].next_id);
+  const kinds = {refresh_tokens: "REFRESH_TOKEN", access_tokens: "ACCESS_TOKEN"};
+  const kind = kinds[table];
+  if (!kind) throw new Error("Unsupported token ID allocation");
+  await pool.query("CREATE TABLE IF NOT EXISTS financial_id_allocations (kind VARCHAR(20) PRIMARY KEY, last_id BIGINT NOT NULL)");
+  await pool.query("INSERT INTO financial_id_allocations(kind,last_id) VALUES($1,0) ON CONFLICT DO NOTHING", [kind]);
+  const result = await pool.query(`UPDATE financial_id_allocations SET last_id=GREATEST(last_id,(SELECT COALESCE(MAX(${column}),0) FROM ${table}))+1 WHERE kind=$1 RETURNING last_id`, [kind]);
+  return Number(result.rows[0].last_id);
 }
 
 function normalizeDbUrl(url) {
@@ -108,6 +113,7 @@ function issueToken(user) {
 
   return jwt.sign(payload, SHARED_SECRET, {
     algorithm: "HS256",
+    jwtid: crypto.randomUUID(),
     expiresIn: JWT_EXPIRATION_SECONDS
   });
 }

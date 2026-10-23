@@ -50,7 +50,7 @@ public class Order {
     private BigDecimal price;
 
     @Column(name = "date_request", nullable = false)
-    private Instant dateRequested;
+    private java.time.LocalDate dateRequested;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -123,11 +123,11 @@ public class Order {
         this.price = price;
     }
 
-    public Instant getDateRequested() {
+    public java.time.LocalDate getDateRequested() {
         return dateRequested;
     }
 
-    public void setDateRequested(Instant dateRequested) {
+    public void setDateRequested(java.time.LocalDate dateRequested) {
         this.dateRequested = dateRequested;
     }
 

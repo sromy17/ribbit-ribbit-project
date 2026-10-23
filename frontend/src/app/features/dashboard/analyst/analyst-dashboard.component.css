@@ -1,8 +1,9 @@
+@reference '../../../../styles.css';
 :host { display:block; }
-.panel { padding:1.25rem; border:1px solid var(--ui-line); border-radius:1rem; background:var(--ui-panel); }
+.panel { @apply rounded-2xl border border-line bg-panel p-5; }
 .filter-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); align-items:end; gap:1rem; }
-label { display:grid; gap:.4rem; font-size:.85rem; font-weight:600; }
-input,select { width:100%; min-height:42px; padding:.6rem; border:1px solid var(--ui-line); border-radius:.5rem; color:var(--ui-ink); background:var(--ui-panel); }
+label { @apply grid gap-1.5 text-sm font-semibold; }
+input,select { @apply min-h-11 w-full rounded-lg border border-line bg-panel p-2.5 text-ink; }
 .report-tools,.pagination { display:flex; flex-wrap:wrap; align-items:end; gap:1rem; }
 .report-tools label { flex:1; min-width:220px; }
 .dataset p { overflow-wrap:anywhere; font-size:.85rem; margin:.4rem 0; }

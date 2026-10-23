@@ -30,6 +30,8 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/accounts/{accountId}/wallet")
 public class WalletController {
+    private final com.neueda.leap.trading.security.AccountAccessService access;
+    private final com.neueda.leap.trading.service.impl.FinancialIdAllocator ids;
     private final BankRepository bankRepository;
     private final BankMovementRepository movementRepository;
     private final TradingAccountRepository accountRepository;
@@ -37,8 +39,12 @@ public class WalletController {
     public WalletController(
         BankRepository bankRepository,
         BankMovementRepository movementRepository,
-        TradingAccountRepository accountRepository
+        TradingAccountRepository accountRepository,
+        com.neueda.leap.trading.security.AccountAccessService access,
+        com.neueda.leap.trading.service.impl.FinancialIdAllocator ids
     ) {
+        this.access = access;
+        this.ids = ids;
         this.bankRepository = bankRepository;
         this.movementRepository = movementRepository;
         this.accountRepository = accountRepository;
@@ -52,11 +58,13 @@ public class WalletController {
 
     @PostMapping("/banks")
     @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
     public Bank createBankAccount(
         @PathVariable Integer accountId,
         @Valid @RequestBody CreateBankAccountRequest request
     ) {
         requireAccount(accountId);
+        accountRepository.findForUpdate(accountId).orElseThrow();
         if (bankRepository.existsByAccountIdAndRoutingNumberAndAccountNumber(
             accountId,
             request.routingNumber(),
@@ -109,7 +117,8 @@ public class WalletController {
         WalletTransactionRequest request,
         boolean deposit
     ) {
-        TradingAccount account = requireAccount(accountId);
+        requireAccount(accountId);
+        TradingAccount account = accountRepository.findForUpdate(accountId).orElseThrow();
         Bank bank = bankRepository.findById(request.bankId())
             .filter(candidate -> candidate.getAccountId().equals(accountId))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bank account not found"));
@@ -146,21 +155,16 @@ public class WalletController {
     }
 
     private TradingAccount requireAccount(Integer accountId) {
+        access.requireAccountOwner(accountId);
         return accountRepository.findById(accountId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
     }
 
     private Integer nextBankId() {
-        return bankRepository.findAll().stream()
-            .map(Bank::getBankId)
-            .max(Integer::compareTo)
-            .orElse(10000) + 1;
+        return ids.next("BANK");
     }
 
     private Integer nextMovementId() {
-        return movementRepository.findAll().stream()
-            .map(BankMovement::getMovementId)
-            .max(Integer::compareTo)
-            .orElse(11000) + 1;
+        return ids.next("BANK_MOVEMENT");
     }
 }

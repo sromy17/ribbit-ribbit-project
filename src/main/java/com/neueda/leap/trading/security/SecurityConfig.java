@@ -42,9 +42,10 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
+            .logout(logout -> logout.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                .requestMatchers("/login", "/logout").permitAll()
+                .requestMatchers("/login", "/logout", "/refresh").permitAll()
                 .requestMatchers("/users").permitAll()
                 .requestMatchers("/admin/**").hasAuthority("PERM_STAFF_ADMIN")
                 .requestMatchers("/etl/**").hasAuthority("PERM_ETL_TRIGGER")

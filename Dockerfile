@@ -8,6 +8,6 @@ RUN mvn -B clean package -DskipTests
 # Stage 2: run. A JRE (no compiler, no Maven, no build tools) 
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
-COPY target/team-skeleton.jar app.jar
+COPY --from=build /build/target/team-skeleton.jar app.jar
 EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "app.jar"]

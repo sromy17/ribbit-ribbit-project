@@ -23,7 +23,7 @@ final class PersonaLoadAssertions {
         var analytics=context.getBean(AnalyticsService.class);var etl=context.getBean(OltpToOlapEtlService.class);
         var cache=context.getBean(QuoteCache.class);var json=context.getBean(ObjectMapper.class);
         var auth=context.getBean(AuthenticationService.class);
-        source.update("INSERT INTO users(userid,username,salt,user_hashed_salted_password) SELECT 3,'david','salt',user_hashed_salted_password FROM users WHERE userid=1");
+        source.update("INSERT INTO users(userid,username,salt,userhashedsaltedpassword) SELECT 3,'david','salt',userhashedsaltedpassword FROM users WHERE userid=1");
         source.update("INSERT INTO roles(rolename) VALUES('OPERATIONS')");
         source.update("INSERT INTO user_roles(userid,roleid) SELECT 3,roleid FROM roles WHERE rolename='OPERATIONS'");
         String joanna=auth.login(new com.neueda.leap.trading.api.dto.LoginRequest("one","fixture-password")).accessToken();

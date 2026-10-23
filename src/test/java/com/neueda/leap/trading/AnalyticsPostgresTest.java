@@ -38,7 +38,7 @@ class AnalyticsPostgresTest {
                 source.execute(Files.readString(Path.of("scripts/analytics-oltp-migration.sql")));
                 reporting.execute(Files.readString(Path.of("scripts/analytics-olap-migration.sql")));
             }
-            source.update("INSERT INTO users(userid,username,salt,user_hashed_salted_password) VALUES (1,'one','salt','hash'),(2,'two','salt','hash')");
+            source.update("INSERT INTO users(userid,username,salt,userhashedsaltedpassword) VALUES (1,'one','salt','hash'),(2,'two','salt','hash')");
             source.update("""
                 INSERT INTO accounts(accountid,userid,availablefunds,creationdate,account_type,currency)
                 VALUES (1,1,10000,CURRENT_DATE,'TRADING','GBP'),(2,1,10000,CURRENT_DATE,'TRADING','USD'),

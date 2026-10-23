@@ -36,7 +36,7 @@ export class LoginComponent {
 
     this.loading = true;
 
-    this.auth.login(username, this.password).subscribe({
+    this.auth.login(username, this.password, this.staffLogin).subscribe({
       next: (user) => {
         const destination = user.role === 'admin' ? '/admin-dashboard' : user.role === 'analyst' ? '/analyst-dashboard' : '/accounts';
         this.router.navigate([destination]);

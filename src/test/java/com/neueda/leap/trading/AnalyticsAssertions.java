@@ -52,7 +52,7 @@ final class AnalyticsAssertions {
         assertThrows(IllegalArgumentException.class,()->new AnalyticsQuery(q.from(),q.to(),"UTC",null,null,null,0,25,"fills; DROP TABLE users","desc"));
         assertThrows(IllegalArgumentException.class,()->new AnalyticsQuery(q.from(),q.to(),"UTC",null,null,null,-1,1000,"fills","desc"));
         var password=context.getBean(org.springframework.security.crypto.password.PasswordEncoder.class).encode("fixture-password");
-        source.update("UPDATE users SET user_hashed_salted_password=?",password);
+        source.update("UPDATE users SET userhashedsaltedpassword=?",password);
         source.update("INSERT INTO roles(rolename) VALUES('ANALYST')");
         source.update("INSERT INTO user_roles(userid,roleid) SELECT 1,roleid FROM roles WHERE rolename='ANALYST'");
         var auth=context.getBean(AuthenticationService.class);

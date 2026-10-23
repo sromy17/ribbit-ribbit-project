@@ -884,3 +884,16 @@
     @apply max-sm:ml-0 max-sm:w-full max-sm:justify-between;
   }
 }
+
+@layer components {
+  .wallet-connected { @apply text-xs font-bold text-brand; }
+  .wallet-empty-state { @apply grid justify-items-center gap-2 px-5 py-10 text-center; }
+  .wallet-empty-state.compact { @apply pt-16; }
+  .wallet-empty-state p { @apply max-w-xs text-sm text-muted; }
+  .wallet-empty-icon { @apply mb-1 grid size-12 place-items-center rounded-full border border-dashed border-line text-2xl text-brand; }
+  .wallet-activity-icon.withdrawal { @apply bg-subtle text-ink; }
+  .wallet-negative { color: var(--ui-danger); }
+  .wallet-modal { @apply w-full max-w-md; }
+  .wallet-form label { @apply grid gap-1.5 text-sm font-semibold text-muted; }
+  .wallet-form input, .wallet-form select { @apply w-full rounded-lg border border-line bg-panel px-3 py-2.5 text-ink; }
+}

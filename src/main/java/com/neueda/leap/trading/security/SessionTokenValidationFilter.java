@@ -55,11 +55,10 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
             return;
         }
 
+        Object uid=jwt.getClaim("uid");
+        if(!(uid instanceof Number)) { reject(response,"Session is invalid"); return; }
         AccessToken accessToken = accessTokenRepository
-            .findByAccessTokenHashAndRevokedFalseAndDateExpiresAfter(
-                TokenHash.sha256(rawToken),
-                Instant.now()
-            )
+            .findValidToken(TokenHash.sha256(rawToken),((Number)uid).intValue(),Instant.now())
             .orElse(null);
         if (accessToken == null) {
             reject(response, "Session is invalid");
@@ -80,11 +79,4 @@ public class SessionTokenValidationFilter extends OncePerRequestFilter {
         response.getWriter().write("{\"message\":\"" + message + "\"}");
     }
 
-    private String extractBearerToken(String authorization) {
-        if (authorization == null || !authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
-            return null;
-        }
-        String token = authorization.substring(7).trim();
-        return token.isEmpty() ? null : token;
-    }
 }

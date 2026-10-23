@@ -21,7 +21,7 @@ public class AuthController {
     @PostMapping("/login")
     public Map<String, Object> login(@Valid @RequestBody LoginRequest request) {
         AuthenticationService.LoginResult result = authenticationService.login(request);
-        return Map.of("token", result.accessToken(), "expiresAt", result.expiresAt().toString(), "userId", result.userId(), "username", result.username());
+        return response(result);
     }
 
     @PostMapping("/logout")
@@ -29,4 +29,12 @@ public class AuthController {
         authenticationService.logout(request.accessToken());
         return Map.of("status", "revoked");
     }
+    @PostMapping("/refresh")
+    public Map<String,Object> refresh(@RequestBody Map<String,String> request) { return response(authenticationService.refresh(request.get("refreshToken"))); }
+    private Map<String,Object> response(AuthenticationService.LoginResult result) {
+        return Map.of("token",result.accessToken(),"expiresAt",result.expiresAt().toString(),"expiresInSeconds",result.expiresInSeconds(),
+            "userId",result.userId(),"username",result.username(),"firstName",result.firstName()==null?"":result.firstName(),
+            "lastName",result.lastName()==null?"":result.lastName(),"refreshToken",result.refreshToken(),"tokenType","Bearer");
+    }
+
 }

@@ -257,7 +257,7 @@ export class ApiService {
 
   getAccountsForUser(userId: string): Observable<TradingAccount[]> {
     return this.http.get<TradingAccount | TradingAccount[]>(`${this.apiUrl}/accounts/user/${userId}`).pipe(
-      map((response) => Array.isArray(response) ? response : [response])
+      map((response) => (Array.isArray(response) ? response : [response]).map(account => ({...account, accountId: String(account.accountId)})))
     );
   }
 

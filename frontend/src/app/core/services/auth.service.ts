@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Subject, Observable, map, tap, switchMap, of } from 'rxjs';
+import { BehaviorSubject, Subject, Observable, map, tap, switchMap, of, catchError, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { RegisterRequest } from './api.service';
 
@@ -38,38 +38,39 @@ export class AuthService {
   constructor(private http: HttpClient) {
     const saved = localStorage.getItem('currentUser');
     if (saved) {
-      this.currentUser.next(JSON.parse(saved));
-      this.scheduleSessionTimers();
+      try {
+        this.currentUser.next(JSON.parse(saved));
+        this.scheduleSessionTimers();
+      } catch { this.logout(); }
     }
   }
 
   login(username: string, password: string, staff = false): Observable<User> {
     return this.http.post<AuthResponse>(staff ? '/api/login' : '/auth/login', { username, password }).pipe(
-      tap((response) => {
-      localStorage.setItem('staffSession', String(staff));
-      localStorage.setItem('accessToken', response.token);
-      localStorage.setItem('refreshToken', String(response.refreshToken ?? ''));
+      switchMap(response => {
+        localStorage.setItem('staffSession', String(staff));
+        this.storeTokens(response);
+        return (staff ? this.http.get<{permissions: string[]}>('/api/admin/session') : of({permissions: [] as string[]})).pipe(
+          map(session => {
+            const permissions = session.permissions;
+            const admin = permissions.some(p => ['PERM_ORDER_INVESTIGATION', 'PERM_ACCOUNT_READ', 'PERM_DISPUTE_MANAGE', 'PERM_STAFF_ADMIN'].includes(p));
+            if (staff && !admin && !permissions.includes('PERM_REPORTING')) throw new Error('This account has no staff workspace permission.');
+            const user: User = {id: String(response.userId), username: response.username,
+              firstName: response.firstName ?? '', lastName: response.lastName ?? '',
+              role: staff ? (admin ? 'admin' : 'analyst') : 'investor', permissions};
+            this.currentUser.next(user);
+            localStorage.setItem('currentUser', JSON.stringify(user));
+            return user;
+          })
+        );
       }),
-      // The current auth stub supplies a mission-operator role. Until backend
-      // role claims are available, authenticated users use the investor flow.
-      tap((response) => {
-        const user = {
-          id: String(response.userId),
-          username: response.username,
-          firstName: response.firstName,
-          lastName: response.lastName,
-          role: 'investor' as const
-        };
-        this.currentUser.next(user);
-        localStorage.setItem('currentUser', JSON.stringify(user));
-      }),
-      map(() => this.currentUser.value as User)
+      catchError(error => { this.logout(); return throwError(() => error); })
     );
   }
 
   refreshSession(): Observable<AuthResponse> {
     const refreshToken = localStorage.getItem('refreshToken');
-    return this.http.post<AuthResponse>('/auth/refresh', {
+    return this.http.post<AuthResponse>(localStorage.getItem('staffSession') === 'true' ? '/api/refresh' : '/auth/refresh', {
       refreshToken
     }).pipe(
       tap((response) => {
@@ -99,8 +100,10 @@ export class AuthService {
 
   logout(): void {
     const token = localStorage.getItem('accessToken');
-    if (token && localStorage.getItem('staffSession') === 'true') {
-      this.http.post('/api/logout', {accessToken: token}, {headers: {Authorization: `Bearer ${token}`}}).subscribe({error: () => { /* Local logout still completes if the server is unavailable. */ }});
+    this.clearSessionTimers();
+    if (token) {
+      const url = localStorage.getItem('staffSession') === 'true' ? '/api/logout' : '/auth/logout';
+      this.http.post(url, {accessToken: token}).subscribe({error: () => { /* Local logout completes when offline. */ }});
     }
     localStorage.removeItem('staffSession');
     this.currentUser.next(null);

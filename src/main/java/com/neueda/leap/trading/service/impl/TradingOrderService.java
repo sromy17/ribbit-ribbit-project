@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -181,7 +182,7 @@ public class TradingOrderService implements OrderService {
         trade.setOrder(order);
         trade.setExecutionPrice(executionPrice);
         trade.setExecutedQuantity(order.getQuantity());
-        trade.setExecutedAt(Instant.now());
+        trade.setExecutedAt(LocalDate.now(java.time.ZoneOffset.UTC));
         trade.setExecutedAtUtc(Instant.now());
         trade.setFee(fee);
         trade.setExecutionCurrency(quote.currency() == null ? instrument.getQuoteCurrency() : quote.currency());
@@ -255,7 +256,7 @@ public class TradingOrderService implements OrderService {
 
         order.setOrderId(nextOrderId());
         order.setPrice(marketPrice);
-        order.setDateRequested(Instant.now());
+        order.setDateRequested(LocalDate.now(java.time.ZoneOffset.UTC));
         order.setCreatedAtUtc(Instant.now());
         order.setStatus(validation.isValid() ? OrderStatus.PENDING : OrderStatus.REJECTED);
         order = orderRepository.save(order);
@@ -435,13 +436,19 @@ public class TradingOrderService implements OrderService {
             });
 
         boolean isBuy = side == OrderSide.BUY;
-        holding.updatePosition(isBuy, quantity, executionPrice);
+        if (isBuy) {
+            BigDecimal priorCost = holding.getAverageCost() == null ? BigDecimal.ZERO : holding.getAverageCost();
+            holding.setAverageCost(priorCost.multiply(BigDecimal.valueOf(holding.getQuantity()))
+                .add(executionPrice.multiply(BigDecimal.valueOf(quantity)))
+                .divide(BigDecimal.valueOf((long) holding.getQuantity() + quantity), 10, java.math.RoundingMode.HALF_EVEN));
+        }
+        holding.updatePosition(isBuy, quantity);
         if (holding.getQuantity() == 0) {
             holdingRepository.delete(holding);
             return 0;
         }
 
-        holding.setAsOfDate(Instant.now());
+        holding.setAsOfDate(LocalDate.now(java.time.ZoneOffset.UTC));
         holdingRepository.save(holding);
         return holding.getQuantity();
     }

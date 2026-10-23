@@ -15,7 +15,7 @@ public class FinancialIdAllocator {
     @PostConstruct
     void initialize() {
         db.execute("CREATE TABLE IF NOT EXISTS financial_id_allocations (kind VARCHAR(20) PRIMARY KEY, last_id BIGINT NOT NULL)");
-        for(String kind:java.util.List.of("ORDER","TRADE","REJECTION")) {
+        for(String kind:java.util.List.of("ORDER","TRADE","REJECTION","ACCESS_TOKEN","REFRESH_TOKEN","BANK","BANK_MOVEMENT")) {
             try { db.update("INSERT INTO financial_id_allocations(kind,last_id) SELECT ?,0 WHERE NOT EXISTS (SELECT 1 FROM financial_id_allocations WHERE kind=?)",kind,kind); }
             catch(DuplicateKeyException concurrentStartup) { /* Another instance initialized this durable counter. */ }
         }
@@ -26,6 +26,10 @@ public class FinancialIdAllocator {
             case "ORDER" -> "SELECT COALESCE(MAX(requestid),0) FROM trade_request";
             case "TRADE" -> "SELECT COALESCE(MAX(executeid),0) FROM trades_executed";
             case "REJECTION" -> "SELECT COALESCE(MAX(reject_id),0) FROM rejected_orders";
+            case "ACCESS_TOKEN" -> "SELECT COALESCE(MAX(accesstokenid),0) FROM access_tokens";
+            case "REFRESH_TOKEN" -> "SELECT COALESCE(MAX(refreshtokenid),0) FROM refresh_tokens";
+            case "BANK" -> "SELECT COALESCE(MAX(bankid),0) FROM bank";
+            case "BANK_MOVEMENT" -> "SELECT COALESCE(MAX(movement_id),0) FROM bank_movement";
             default -> throw new IllegalArgumentException("Unknown financial ID kind");
         };
         Long allocated=db.queryForObject("SELECT last_id FROM financial_id_allocations WHERE kind=? FOR UPDATE",Long.class,kind);

@@ -20,7 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.neueda.leap.trading.api.dto.CreateUserRequest;
 import com.neueda.leap.trading.domain.User;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
-import com.neueda.leap.trading.repository.jpa.SessionRepository;
+import com.neueda.leap.trading.repository.jpa.AccessTokenRepository;
 import com.neueda.leap.trading.security.AccountAccessService;
 
 @WebMvcTest(UserController.class)
@@ -37,7 +37,7 @@ class UserControllerTest {
     private UserRepository userRepository;
 
     @MockitoBean
-    private SessionRepository sessionRepository;
+    private AccessTokenRepository accessTokenRepository;
 
     @MockitoBean
     private PasswordEncoder passwordEncoder;
