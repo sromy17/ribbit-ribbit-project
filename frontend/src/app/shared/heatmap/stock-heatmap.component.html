@@ -1,0 +1,136 @@
+<div class="heatmap-shell">
+  <div class="heatmap-pane">
+  <div class="heatmap-skeleton" *ngIf="loading && tiles.length === 0" aria-label="Loading market heatmap">
+    <span *ngFor="let block of skeletonBlocks"></span>
+  </div>
+
+  <div class="heatmap-treemap" *ngIf="tiles.length > 0; else emptyState" aria-label="Top 50 stock market heatmap">
+    <article
+      *ngFor="let tile of tiles; trackBy: trackByTicker"
+      class="tile"
+      [class.tile-large]="tile.textMode === 'large'"
+      [class.tile-medium]="tile.textMode === 'medium'"
+      [class.tile-small]="tile.textMode === 'small'"
+      [class.tile-micro]="tile.textMode === 'micro'"
+      [class.tile-selected]="selectedStock?.ticker === tile.ticker"
+      [style.background-color]="tile.color"
+      [style.left.%]="tile.left / layoutWidth * 100"
+      [style.top.%]="tile.top / layoutHeight * 100"
+      [style.width.%]="tile.width / layoutWidth * 100"
+      [style.height.%]="tile.height / layoutHeight * 100"
+      tabindex="0"
+      [attr.aria-label]="tile.ticker + ' ' + formatChange(tile.dailyChange)"
+      [attr.aria-pressed]="selectedStock?.ticker === tile.ticker"
+      role="button"
+      (click)="selectStock(tile)"
+      (keydown.enter)="selectStock(tile)"
+      (keydown.space)="selectStock(tile); $event.preventDefault()"
+    >
+      <div class="tile-header" aria-hidden="true">
+        <img
+          *ngIf="getLogoUrl(tile.ticker) && !hiddenLogos.has(tile.ticker)"
+          class="company-logo"
+          [class.company-logo-large]="tile.textMode === 'large' || tile.textMode === 'medium'"
+          [class.company-logo-compact]="tile.textMode === 'small' || tile.textMode === 'micro'"
+          [src]="getLogoUrl(tile.ticker)!"
+          [alt]="tile.companyName + ' logo'"
+          (error)="hideLogo(tile.ticker)"
+        />
+        <span
+          *ngIf="!getLogoUrl(tile.ticker) || hiddenLogos.has(tile.ticker)"
+          class="logo-avatar"
+          [class.logo-avatar-compact]="tile.textMode === 'small' || tile.textMode === 'micro'">{{ getInitials(tile.ticker) }}</span>
+      </div>
+      <div class="tile-content">
+        <strong class="ticker" [class.ticker-centered]="tile.textMode === 'micro'">{{ tile.ticker }}</strong>
+        <span class="change" *ngIf="tile.textMode === 'large' || tile.textMode === 'medium' || tile.textMode === 'small'">{{ formatChange(tile.dailyChange) }}</span>
+        <span class="price" *ngIf="tile.textMode === 'large'">${{ tile.currentPrice | number: '1.2-2' }}</span>
+      </div>
+      <div class="tooltip" role="tooltip">
+        <strong>{{ tile.companyName }}</strong>
+        <span>{{ tile.ticker }}</span>
+        <span>Price: ${{ tile.currentPrice | number: '1.2-2' }}</span>
+        <span *ngIf="tile.marketCap">Market cap: ${{ tile.marketCap | number: '1.0-0' }}</span>
+        <span>Change: {{ formatChange(tile.dailyChange) }}</span>
+        <span *ngIf="tile.volume">Volume: {{ tile.volume | number }}</span>
+        <span *ngIf="tile.sector">Sector: {{ tile.sector }}</span>
+      </div>
+    </article>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="empty-state" *ngIf="!loading">Market data is unavailable.</div>
+  </ng-template>
+
+  </div>
+  <dialog #detailsDialog class="stock-dialog" aria-label="Stock details" (cancel)="cancelDetails($event)" (click)="closeOnBackdrop($event)">
+  <div class="details-drawer" *ngIf="selectedStock as stock">
+    <button class="close-button" type="button" (click)="closeDetails()" aria-label="Close stock details">×</button>
+    <span class="drawer-sector">{{ stock.sector || 'Market' }}</span>
+    <h3>{{ stock.ticker }}</h3>
+    <p>{{ stock.companyName }}</p>
+    <button type="button" class="trade-stock-button" (click)="tradeSelectedStock()">Trade This Stock</button>
+    <div *ngIf="tradeNotice" class="trade-notice" role="status">{{ tradeNotice }}</div>
+    <div *ngIf="tradeWarning" class="trade-error" role="alert">{{ tradeWarning }}</div>
+    <div class="drawer-chart">
+      <app-tradingview-widget [symbol]="getChartSymbol(stock)"></app-tradingview-widget>
+    </div>
+    <div class="drawer-information">
+    <div class="drawer-change" [style.color]="getHeatmapColor(stock.dailyChange)">{{ formatChange(stock.dailyChange) }}</div>
+    <dl>
+      <div><dt>Price</dt><dd>${{ stock.currentPrice | number: '1.2-2' }}</dd></div>
+      <div><dt>Market cap</dt><dd>{{ stock.marketCap ? ('$' + (stock.marketCap | number: '1.0-0')) : 'Not supplied by quote provider' }}</dd></div>
+      <div *ngIf="stock.volume"><dt>Volume</dt><dd>{{ stock.volume | number }}</dd></div>
+      <div *ngIf="stock.low !== undefined && stock.high !== undefined">
+        <dt>Day range</dt><dd>${{ stock.low | number: '1.2-2' }} - ${{ stock.high | number: '1.2-2' }}</dd>
+      </div>
+    </dl>
+    <section class="drawer-news" aria-label="Recent company news">
+      <h4>Recent News</h4>
+      <div *ngIf="loadingCompanyNews" class="drawer-news-loading">Loading company news...</div>
+      <p *ngIf="companyNewsError" class="drawer-news-error">{{ companyNewsError }}</p>
+      <p *ngIf="!loadingCompanyNews && !companyNewsError && companyNews.length === 0" class="drawer-news-empty">No recent company news found.</p>
+      <a *ngFor="let article of companyNews" [href]="article.url" target="_blank" rel="noopener noreferrer">
+        <strong>{{ article.headline }}</strong>
+        <span>{{ article.source }} · {{ getCompanyNewsTime(article.datetime) }}</span>
+      </a>
+    </section>
+    </div>
+  </div>
+  </dialog>
+  <dialog #tradeDialog class="quick-trade-dialog" aria-labelledby="quick-trade-title"
+    (cancel)="closeTrade($event)" (click)="$event.target === tradeDialog && closeTrade()">
+    <form *ngIf="selectedStock as stock" (ngSubmit)="placeQuickOrder()" class="quick-trade-form">
+      <div class="quick-trade-heading">
+        <div>
+          <h2 id="quick-trade-title">Quick Trade · {{ stock.ticker }}</h2>
+          <p>Account #{{ accountNumber }}</p>
+        </div>
+        <button type="button" class="ticket-close" aria-label="Close quick trade" [disabled]="placingTrade" (click)="closeTrade()">×</button>
+      </div>
+      <p>Market price: <strong>{{ tradePrice | currency:'USD' }}</strong></p>
+      <label>Action
+        <select name="side" [(ngModel)]="tradeSide" [disabled]="placingTrade || tradeLocked">
+          <option value="BUY">BUY</option>
+          <option value="SELL">SELL</option>
+        </select>
+      </label>
+      <label>Quantity
+        <input name="quantity" type="number" min="1" step="1" required [(ngModel)]="tradeQuantity"
+          [disabled]="placingTrade || tradeLocked" />
+      </label>
+      <dl class="ticket-summary">
+        <div><dt>Subtotal</dt><dd>{{ tradeSubtotal | currency:'USD' }}</dd></div>
+        <div><dt>Estimated fee</dt><dd>{{ tradeFee | currency:'USD' }}</dd></div>
+        <div class="ticket-total"><dt>{{ tradeSide === 'BUY' ? 'Estimated total' : 'Estimated net proceeds' }}</dt><dd>{{ tradeTotal | currency:'USD' }}</dd></div>
+      </dl>
+      <p class="ticket-disclaimer">Market order. Price and fees are estimates; final execution is determined by the server.</p>
+      <p *ngIf="!accountNumber" class="trade-error" role="alert">Select a trading account before placing an order.</p>
+      <p *ngIf="tradeError" class="trade-error" role="alert">{{ tradeError }}</p>
+      <p *ngIf="tradeWarning" class="trade-error" role="alert">{{ tradeWarning }}</p>
+      <button type="submit" class="trade-stock-button ticket-submit" [disabled]="!validTrade || placingTrade || tradeLocked">
+        {{ placingTrade ? 'Placing order...' : 'Place Order' }}
+      </button>
+    </form>
+  </dialog>
+</div>

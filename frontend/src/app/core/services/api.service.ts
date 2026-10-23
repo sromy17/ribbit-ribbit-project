@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, map } from 'rxjs';
+import { Observable, concat, of, map, shareReplay, tap } from 'rxjs';
 import { delay } from 'rxjs/operators';
 
 // Component -> ApiService -> HttpClient -> API
@@ -38,7 +38,7 @@ export interface Order {
   side: 'BUY' | 'SELL';
   quantity: number;
   price?: number;
-  status: 'PENDING' | 'FILLED' | 'CANCELLED';
+  status: 'PENDING' | 'FILLED' | 'EXECUTED' | 'REJECTED' | 'CANCELLED';
   dateRequested?: string;
 }
 
@@ -172,8 +172,14 @@ export interface MarketInstrument {
   providedIn: 'root'
 })
 export class ApiService {
+  public static readonly REFRESH_INTERVAL_MS = 60000;
   private apiUrl = '/api';
   private useMockData = false;
+  private readonly marketQuoteCache = new Map<string, { symbol: string; price: number; change?: number; changePercent?: number }>();
+  private readonly marketQuoteRequests = new Map<string, Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number }>>>();
+  private readonly marketQuoteRequestTimes = new Map<string, number>();
+  private readonly marketQuoteStorageKey = 'leap-trader:market-quotes';
+  private marketQuoteCacheRestored = false;
 
   constructor(private http: HttpClient) {}
 
@@ -278,6 +284,64 @@ export class ApiService {
 
   getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number }> {
     return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number }>(`/api/market/quotes/${encodeURIComponent(symbol)}`);
+  }
+
+  getMarketQuotes(symbols: string[]): Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number }>> {
+    const normalizedSymbols = [...new Set(symbols.map((symbol) => symbol.toUpperCase()))];
+    const cacheKey = normalizedSymbols.slice().sort().join(',');
+    const existingRequest = this.marketQuoteRequests.get(cacheKey);
+    const requestTime = this.marketQuoteRequestTimes.get(cacheKey) ?? 0;
+    if (existingRequest && Date.now() - requestTime < ApiService.REFRESH_INTERVAL_MS) {
+      return existingRequest;
+    }
+    this.marketQuoteRequests.delete(cacheKey);
+    this.restoreMarketQuoteCache();
+    const cachedQuotes = normalizedSymbols
+      .map((symbol) => this.marketQuoteCache.get(symbol))
+      .filter((quote): quote is { symbol: string; price: number; change?: number; changePercent?: number } => !!quote);
+    const networkRequest = this.http.get<Array<{ symbol: string; price: number; change?: number; changePercent?: number }>>(
+      `${this.apiUrl}/market/quotes`,
+      { params: { symbols: normalizedSymbols.join(',') } }
+    ).pipe(
+      tap((quotes) => {
+        quotes.forEach((quote) => this.marketQuoteCache.set(quote.symbol.toUpperCase(), quote));
+        this.persistMarketQuoteCache();
+      })
+    );
+    const request = concat(
+      cachedQuotes.length > 0 ? of(cachedQuotes) : of([]),
+      networkRequest
+    ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+    this.marketQuoteRequests.set(cacheKey, request);
+    this.marketQuoteRequestTimes.set(cacheKey, Date.now());
+    return request;
+  }
+
+  private restoreMarketQuoteCache(): void {
+    if (this.marketQuoteCacheRestored) return;
+    this.marketQuoteCacheRestored = true;
+    try {
+      const raw = localStorage.getItem(this.marketQuoteStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Array<{ symbol: string; price: number; change?: number; changePercent?: number }>;
+      if (Array.isArray(parsed)) {
+        parsed.forEach((quote) => {
+          if (quote?.symbol && Number.isFinite(quote.price)) {
+            this.marketQuoteCache.set(quote.symbol.toUpperCase(), quote);
+          }
+        });
+      }
+    } catch {
+      // Local storage is an optional cache; the API remains the source of truth.
+    }
+  }
+
+  private persistMarketQuoteCache(): void {
+    try {
+      localStorage.setItem(this.marketQuoteStorageKey, JSON.stringify([...this.marketQuoteCache.values()]));
+    } catch {
+      // Local storage is an optional cache; the API remains the source of truth.
+    }
   }
 
   getMarketInstruments(): Observable<{ symbols: MarketInstrument[] }> {

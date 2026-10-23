@@ -1,0 +1,19 @@
+<section class="help-desk" aria-labelledby="help-title">
+  <header class="desk-heading">
+    <h1 id="help-title">Help</h1>
+    <p>Quick answers to common platform questions.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="faq-title">
+    <h2 id="faq-title">FAQ</h2>
+    <details *ngFor="let category of faqs">
+      <summary>{{ category.title }}</summary>
+      <div class="faq-content">
+        <article *ngFor="let item of category.items">
+          <h3>{{ item.question }}</h3>
+          <p>{{ item.answer }}</p>
+        </article>
+      </div>
+    </details>
+  </section>
+</section>
