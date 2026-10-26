@@ -1,6 +1,6 @@
 <div class="heatmap-shell">
   <div class="market-legend" aria-label="Daily price change legend">
-    <span>Daily change · Equal-sized tiles</span>
+    <span>Tile area: magnitude of daily % change · Minimum size below 1%</span>
     <span><i class="legend-loss"></i>Down</span><span><i class="legend-flat"></i>Unchanged</span><span><i class="legend-gain"></i>Up</span>
   </div>
   <div class="heatmap-pane">
@@ -8,12 +8,17 @@
     <span *ngFor="let block of skeletonBlocks"></span>
   </div>
 
-  <div class="heatmap-treemap" *ngIf="tiles.length > 0; else emptyState" aria-label="Top 50 stock market heatmap">
+  <div class="heatmap-treemap" *ngIf="tiles.length > 0; else emptyState" [style.height.px]="layoutHeight" aria-label="Stock performance heatmap">
     <article
       *ngFor="let tile of tiles; trackBy: trackByTicker"
       class="tile"
       [class.tile-selected]="selectedStock?.ticker === tile.ticker"
       [style.background-color]="tile.color"
+      [style.left.%]="tile.left / layoutWidth * 100"
+      [style.top.px]="tile.top"
+      [style.width.%]="tile.width / layoutWidth * 100"
+      [style.height.px]="tile.height"
+      [class.tile-compact]="tile.height < 140 || tile.width < 140"
       tabindex="0"
       [attr.aria-label]="tile.ticker + ' ' + formatChange(tile.dailyChange)"
       [attr.aria-pressed]="selectedStock?.ticker === tile.ticker"

@@ -36,6 +36,24 @@ describe('Heatmap stock selection', () => {
       expect(tile.querySelector('.change')?.textContent).toContain('+12.75%');
     }
   });
+  it('gives stronger gains and losses more area without rewarding price or market cap', () => {
+    TestBed.configureTestingModule({ providers: [{ provide: FinnhubNewsService, useValue: { getCompanyNews: () => of([]) } }] });
+    const fixture = TestBed.createComponent(StockHeatmapComponent);
+    fixture.componentRef.setInput('stocks', [0, .2, 4, -8, 8].map((dailyChange, index) => ({
+      ticker: `S${index}`, companyName: `Company ${index}`, currentPrice: 500 - index * 90, dailyChange
+    })));
+    fixture.detectChanges();
+    const area = (ticker: string) => {
+      const tile = fixture.componentInstance.tiles.find(tile => tile.ticker === ticker)!;
+      return tile.width * tile.height;
+    };
+    expect(area('S2')).toBeGreaterThan(area('S1'));
+    expect(area('S3')).toBeGreaterThan(area('S2'));
+    expect(area('S4')).toBeGreaterThan(area('S2'));
+    expect(area('S3') / area('S4')).toBeGreaterThan(.9);
+    expect(area('S3') / area('S4')).toBeLessThan(1.1);
+    expect(area('S0')).toBeGreaterThan(0);
+  });
   it('selects another tile after company news fails', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     TestBed.configureTestingModule({

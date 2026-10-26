@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, NgZone, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+import { hierarchy, treemap, treemapSquarify } from 'd3';
 import { FinnhubNewsArticle, FinnhubNewsService } from '../../core/services/finnhub-news.service';
 import { getHeatmapColor } from './heatmap-color';
 import { getCompanyLogoUrl } from './company-logo';
@@ -22,7 +23,14 @@ export interface HeatmapStock {
   exchange?: string;
 }
 
-interface HeatmapTile extends HeatmapStock { color: string; }
+interface HeatmapTile extends HeatmapStock {
+  color: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+interface PerformanceNode { stock?: HeatmapStock; weight?: number; children?: PerformanceNode[]; }
 
 @Component({
   selector: 'app-stock-heatmap',
@@ -41,6 +49,8 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy {
   private toastTimer?: ReturnType<typeof setTimeout>;
   @Input() stocks: HeatmapStock[] = [];
   @Input() loading = false;
+  readonly layoutWidth = 1000;
+  layoutHeight = 760;
 
   tiles: HeatmapTile[] = [];
   selectedStock: HeatmapStock | null = null;
@@ -259,8 +269,18 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy {
   }
 
   private createTiles(stocks: HeatmapStock[]): HeatmapTile[] {
-    return stocks.filter(stock => Number.isFinite(stock.currentPrice) && stock.currentPrice > 0)
-      .slice(0, 50).map(stock => ({ ...stock, color: getHeatmapColor(stock.dailyChange) }));
+    const eligible = stocks.filter(stock => Number.isFinite(stock.currentPrice) && stock.currentPrice > 0
+      && Number.isFinite(stock.dailyChange)).slice(0, 50);
+    // Both gains and losses matter. The one-point floor keeps quiet stocks readable.
+    const children = eligible.map(stock => ({ stock, weight: Math.max(1, Math.abs(stock.dailyChange)) }));
+    this.layoutHeight = Math.max(760, Math.ceil(children.reduce((sum, node) => sum + node.weight, 0) * 14));
+    const root = hierarchy<PerformanceNode>({ children }).sum(node => node.weight ?? 0)
+      .sort((left, right) => (right.value ?? 0) - (left.value ?? 0));
+    return treemap<PerformanceNode>().tile(treemapSquarify.ratio(1))
+      .size([this.layoutWidth, this.layoutHeight]).paddingInner(6).paddingOuter(8)(root).leaves()
+      .filter(node => !!node.data.stock)
+      .map(node => ({ ...node.data.stock!, color: getHeatmapColor(node.data.stock!.dailyChange),
+        left: node.x0, top: node.y0, width: node.x1 - node.x0, height: node.y1 - node.y0 }));
   }
 
   private toDate(date: Date): string {
