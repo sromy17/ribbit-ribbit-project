@@ -306,3 +306,10 @@ CREATE table bank_movement
     movement_type VARCHAR(10) NOT NULL CHECK (movement_type IN ('DEPOSIT', 'WITHDRAWAL')),
     movement_date TIMESTAMPTZ NOT NULL
 );
+
+CREATE TABLE watchlist
+(
+	watchlist_id INT PRIMARY KEY,
+	accountid NOT NULL REFERENCES accounts(accountid),
+	instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
+);

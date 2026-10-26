@@ -3,6 +3,8 @@ package com.neueda.leap.trading.service.impl;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.List;
+import java.util.ArrayList;
 
 import com.neueda.leap.trading.service.impl.marketdata.FauxnanceQuoteClient;
 import com.neueda.leap.trading.service.impl.marketdata.KafkaQuoteProducer;
@@ -12,6 +14,8 @@ import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
 import com.neueda.leap.trading.service.contract.MarketQuote;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+
 
 import com.neueda.leap.trading.domain.Order;
 
@@ -86,6 +90,7 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
             return fauxnanceQuoteClient.fetchMarketQuote(ticker);
         } catch (RuntimeException ex) {
             throw new IllegalStateException("Price unavailable for " + ticker, ex);
+
         }
     }
 

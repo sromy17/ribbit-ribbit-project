@@ -1,0 +1,13 @@
+:host { display: block; min-width: 0; }
+.help-desk { display: grid; gap: 24px; padding-bottom: 32px; color: #e6edf3; }
+.desk-heading h1 { margin: 0 0 8px; font-size: 1.6rem; letter-spacing: -0.03em; }
+p { margin: 8px 0 0; color: #aab7c5; font-size: 0.86rem; line-height: 1.6; }
+.panel { min-width: 0; padding: 24px; border: 1px solid #303b48; border-radius: 14px; background: rgb(19 26 35 / 94%); }
+h2 { margin: 0 0 20px; font-size: 1rem; }
+details { border-top: 1px solid #303b48; }
+summary { padding: 20px 0; cursor: pointer; font-size: 0.88rem; font-weight: 600; line-height: 1.5; }
+summary::marker { color: #a7c080; }
+summary:focus-visible { outline: 2px solid #a7c080; outline-offset: 3px; }
+.faq-content { display: grid; gap: 18px; max-width: 75ch; padding-bottom: 24px; }
+h3 { margin: 0; font-size: 0.83rem; font-weight: 600; }
+@media (max-width: 600px) { .panel { padding: 16px; } }

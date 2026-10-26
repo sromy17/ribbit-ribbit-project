@@ -70,6 +70,11 @@ mvn spring-boot:run
 
 Both services must share the same `JWT_SHARED_SECRET` value.
 
+The primary datasource and default `transactionManager` serve OLTP JPA operations
+(accounts, wallets, and orders). The ETL uses its separate OLAP datasource and
+explicitly selects `olapTransactionManager`; it must not replace the default JPA
+transaction manager.
+
 ### Demo market-data integration
 
 For a recordable demo that keeps credentials out of the screen, follow
@@ -102,6 +107,7 @@ submit an order for a seeded instrument such as `AAPL`. The flow is:
 Fauxnance -> priority/secondary refresh -> QuoteCache -> Kafka market.quotes
 										   -> order-time cache/fallback
 ```
+
 
 ### Test account order creation
 ```bash

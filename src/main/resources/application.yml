@@ -30,6 +30,19 @@ app:
       username: ${DB_OLAP_USER:${DB_USER:sa}}
       password: ${DB_OLAP_PASSWORD:${DB_PASSWORD:}}
 
+olap:
+  enabled: ${ETL_ENABLED:false}
+  datasource:
+    url: ${DB_OLAP_URL:jdbc:postgresql://localhost:5432/ribbit_olap}
+    username: ${DB_OLAP_USER:${DB_USER:}}
+    password: ${DB_OLAP_PASSWORD:${DB_PASSWORD:}}
+  source:
+    url: ${DB_OLTP_URL:${DB_URL:jdbc:postgresql://localhost:5432/ribbit_oltp}}
+    username: ${DB_OLTP_USER:${DB_USER:}}
+    password: ${DB_OLTP_PASSWORD:${DB_PASSWORD:}}
+  etl:
+    fixed-delay-ms: ${ETL_FIXED_DELAY_MS:300000}
+
 mybatis:
   configuration:
     map-underscore-to-camel-case: true

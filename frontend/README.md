@@ -49,6 +49,54 @@ is an account ID.
 
 ## Code scaffolding
 
+### Stock detail charts
+
+The Graphs view uses a single "LEAP Trader Pro Heatmap" heading.
+Tile sizes use synthetic rank weights, not reported market capitalization.
+
+Selecting a heatmap tile opens the official TradingView chart in its detail panel.
+Details open in a native modal dialog without resizing the heatmap. Close with
+Escape, the close button, or the backdrop before selecting another tile.
+Trade This Stock opens a compact Quick Trade dialog over the stock details,
+without leaving Graphs or recreating the chart. It defaults to BUY, one share,
+and the tile's current price, with a live subtotal and estimated fee (0.1%, $1
+minimum). SELL shows estimated net proceeds after fees.
+`PortfolioStateService.executeTrade(accountNumber, trade)` submits to the existing
+backend order endpoint and reconciles cash, holdings, orders, and history from
+the server. No local duplicate cash deduction is made. Confirmed execution closes
+only the ticket and displays a success banner using the actual execution result.
+Rejected orders and synchronization failures are shown explicitly; an uncertain
+submission instructs the user to check History before retrying. No automatic order
+retries are performed. Closing/navigating away does not cancel server reconciliation.
+The widget loads `https://s3.tradingview.com/tv.js` once on demand and uses the
+selected ticker/exchange, dark mode, and daily candles. Closing the panel destroys
+the widget. The surrounding heatmap remains available.
+
+TradingView requires an internet connection and permits users to change symbols
+inside its own chart. Quotes and exchange delays depend on TradingView's coverage;
+the widget is not the platform's order execution price source. Only the public
+stock symbol is supplied to widget configuration, not account balances or holdings.
+Script failures display a retry control; browser content blockers may need to
+allow TradingView.
+
+Company news is independent of stock selection and charting. The auth interceptor
+adds the platform bearer token only to relative `/api/` requests, never external
+Finnhub requests (which reject that header during CORS preflight). Missing keys,
+rejected credentials, rate limits, timeouts, and other news failures use curated
+sample articles for both market and company views, with one concise informational
+console message per fallback episode rather than application error stacks.
+Samples are labeled "Curated sample"; their links are searches, not verified
+publisher articles. The News grid uses the existing 18-photo editorial fallback pool.
+After a 401/403, requests using the rejected key are skipped across both feeds for
+the service lifetime. A changed key or page reload allows another attempt.
+Transient failures continue retrying on the refresh timer. DevTools may still
+show browser-generated network errors for requests that were actually rejected.
+
+News sector tabs share the general Finnhub feed (`category=general`) and filter
+it locally. Switching sector or ticker cancels the old view subscription to
+prevent stale polling responses from overwriting the selected feed. Missing
+article images continue to use the deterministic editorial image pool.
+
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
 
 ```bash
@@ -73,6 +121,18 @@ This will compile your project and store the build artifacts in the `dist/` dire
 
 ## Application structure
 
+The investor sidebar fills the remaining viewport beneath the header, flush with
+the left and bottom edges. Navigation scrolls independently on short screens,
+while the full-width Active Session footer stays visible. The footer is
+informational; Logout remains available in the top header.
+
+### Help
+
+The Help tab is a simple FAQ with four native accordions:
+orders, portfolio history, market charts, and local data privacy. It uses OnPush
+change detection and does not fetch telemetry or collect support tickets.
+Previously saved local tickets are left untouched.
+
 The Angular application is organized by responsibility and feature so the
 course topics map directly to the code:
 
@@ -96,6 +156,32 @@ dependency injection, forms stay in the login/investor components, and
 authenticated routing is centralized in the reusable `AuthGuard`.
 
 ## Running unit tests
+
+### Portfolio account state
+
+`PortfolioStateService` publishes account-specific RxJS state for Portfolio,
+Trade, and History. Orders still execute on the backend; after confirmation,
+cash, holdings, and orders are refreshed together. Fees and average cost remain
+backend-authoritative rather than being applied a second time in the browser.
+Live quotes value holdings; unavailable quotes explicitly warn that cost basis
+is being used.
+
+Confirmed state and observed balance snapshots persist under
+`leap_account_<accountId>` in localStorage. Cached balances are shown on return,
+then reconciled with the server. Failed synchronization does not erase the cache.
+This browser cache is not an authorization mechanism or a replacement for the
+server ledger.
+
+The balance chart uses recorded snapshots only, including a flat current balance
+for newly observed accounts. Asset Allocation above Holdings uses the same
+published state: shares times current price for each position, plus cash. Legend
+percentages use total portfolio value; unavailable quotes retain the visible
+estimated-valuation notice.
+
+The history chart cannot reconstruct returns before the browser
+first observed the account. Daily snapshots are captured while the dashboard is
+open (checked every minute) or on the next account refresh; no background job
+runs when the browser is closed. Clearing browser storage removes local history.
 
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
 

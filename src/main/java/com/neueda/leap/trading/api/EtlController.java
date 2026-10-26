@@ -2,25 +2,37 @@ package com.neueda.leap.trading.api;
 
 import java.util.Map;
 
-import com.neueda.leap.trading.service.impl.OltpToOlapEtlService;
+import org.springframework.http.HttpStatus;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@RestController
-@RequestMapping("/api/etl")
-public class EtlController {
-    private final OltpToOlapEtlService etlService;
+import com.neueda.leap.etl.OlapEtlService;
 
-    public EtlController(OltpToOlapEtlService etlService) {
+@RestController
+@RequestMapping({"/api/etl", "/etl"})
+public class EtlController {
+    private final OlapEtlService etlService;
+
+    public EtlController(OlapEtlService etlService) {
+
         this.etlService = etlService;
     }
 
     @PostMapping("/run")
     @org.springframework.security.access.prepost.PreAuthorize("hasAuthority('PERM_ETL_TRIGGER')")
-    public ResponseEntity<Map<String, String>> run() {
-        String runId = etlService.runFullLoad();
-        return ResponseEntity.ok(Map.of("status", "completed", "runId", runId));
+    public ResponseEntity<Map<String, Object>> runEtl() {
+        OlapEtlService.EtlResult result = etlService.runNow();
+        HttpStatus status = result.successful()
+            ? HttpStatus.OK
+            : HttpStatus.SERVICE_UNAVAILABLE;
+
+        return ResponseEntity.status(status).body(Map.of(
+            "success", result.successful(),
+            "message", result.message()
+        ));
     }
 }
+

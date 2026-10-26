@@ -1,4 +1,5 @@
 /Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/ApplicationContextTest.java
+/Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/etl/OlapDataSourceConfigurationTest.java
 /Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/AdminPostgresTest.java
 /Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/OrderProcessingIntegrationTest.java
 /Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/api/OrderControllerTest.java
@@ -6,3 +7,4 @@
 /Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/service/impl/DefaultTradingRulesServiceTest.java
 /Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/service/impl/TradingOrderServiceTest.java
 /Users/Sai/ribbit-ribbit-project/src/test/java/com/neueda/leap/trading/service/impl/marketdata/FauxnanceQuoteClientTest.java
+

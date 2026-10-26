@@ -3,6 +3,7 @@ package com.neueda.leap.trading.service.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -108,7 +109,7 @@ class TradingOrderServiceTest {
 
         when(accountRepository.findById(10)).thenReturn(Optional.of(account));
         when(instrumentRepository.findByTickerIgnoreCase("AAPL")).thenReturn(Optional.of(instrument));
-        when(orderRepository.findMaxOrderId()).thenReturn(99);
+        when(orderRepository.existsById(any())).thenReturn(false);
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         // BR-05: Mock trading rules validation to pass
         when(tradingRulesService.validateOrderSubmission(any(), any(), any(), any(), any()))
@@ -124,7 +125,7 @@ class TradingOrderServiceTest {
 
         CreateOrderResponse response = tradingOrderService.createOrder(request);
 
-        assertEquals(100, response.orderId());
+        assertTrue(response.orderId() > 0);
         assertEquals(10, response.accountId());
         assertEquals(20, response.instrumentId());
         assertEquals(OrderStatus.PENDING, response.status());

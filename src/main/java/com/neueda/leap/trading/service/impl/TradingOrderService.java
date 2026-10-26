@@ -454,7 +454,19 @@ public class TradingOrderService implements OrderService {
     }
 
     private Integer nextOrderId() {
-        return idAllocator == null ? orderRepository.findMaxOrderId() + 1 : idAllocator.next("ORDER");
+        if (idAllocator != null) {
+            return idAllocator.next("ORDER");
+        }
+
+        for (int attempt = 0; attempt < 20; attempt++) {
+            int candidate = ThreadLocalRandom.current().nextInt(1, Integer.MAX_VALUE);
+            if (!orderRepository.existsById(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new IllegalStateException("Unable to allocate a unique order/request id");
+
     }
 
     private Integer nextTradeId() {
