@@ -13,7 +13,7 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
     @Query("select o from Order o where o.orderId = :id")
     java.util.Optional<Order> findForUpdate(@Param("id") Integer id);
 
-    @Query("select o from Order o join fetch o.instrument where o.account.accountId = :accountId order by o.dateRequested desc")
+    @Query("select distinct o from Order o join fetch o.instrument left join fetch o.trades where o.account.accountId = :accountId order by o.dateRequested desc, o.orderId desc")
     List<Order> findByAccountAccountId(@Param("accountId") Integer accountId);
 
 }

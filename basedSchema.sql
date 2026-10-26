@@ -83,7 +83,8 @@ CREATE TABLE instruments
 (
     instrumentid INT PRIMARY KEY,
     ticker VARCHAR(25) NOT NULL,
-    instrumentname VARCHAR(25) NOT NULL,
+    instrumentname VARCHAR(255) NOT NULL,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
     asset_class VARCHAR(30), market VARCHAR(40), venue VARCHAR(80),
     quote_currency CHAR(3), settlement_currency CHAR(3), quantity_unit VARCHAR(40),
     price_precision INT CHECK (price_precision >= 0),

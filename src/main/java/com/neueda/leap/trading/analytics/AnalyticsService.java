@@ -95,7 +95,7 @@ public class AnalyticsService {
               (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND client_id IS NULL) AS unattributed_fills,
               (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND NOT valued) AS unvalued_fills,
               (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND quantity_unit IS NULL) AS unknown_quantity_unit,
-              (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND fee_currency IS NULL) AS unknown_fee_currency,
+              (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND (fee_currency IS NULL OR fee IS NULL)) AS unknown_fee_currency,
               (SELECT COUNT(*) FROM orders o WHERE NOT EXISTS (SELECT 1 FROM lifecycle_event_facts e WHERE e.requestid=o.requestid AND e.event_type='ORDER_SUBMITTED')) AS missing_submission_evidence,
               (SELECT COUNT(*) FROM cash WHERE occurred_at_utc >= :start AND occurred_at_utc < :end AND (currency IS NULL OR currency_source IS NULL)) AS unverified_cash_currency,
               (SELECT COUNT(*) FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND segment_code='UNKNOWN') AS unknown_segment_fills
@@ -187,7 +187,7 @@ public class AnalyticsService {
             """);
         r.putAll(cohort);
         r.put("grossNotional",list(q,"SELECT execution_currency AS currency,SUM(execution_price*executed_quantity*contract_multiplier) AS amount,COUNT(*) AS valued_fills FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND valued GROUP BY execution_currency ORDER BY currency"));
-        r.put("fees",list(q,"SELECT fee_currency AS currency,SUM(fee) AS amount FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND fee_currency IS NOT NULL GROUP BY fee_currency ORDER BY currency"));
+        r.put("fees",list(q,"SELECT fee_currency AS currency,SUM(fee) AS amount FROM fills WHERE executed_at_utc >= :start AND executed_at_utc < :end AND fee_currency IS NOT NULL AND fee IS NOT NULL GROUP BY fee_currency ORDER BY currency"));
         r.put("netCash",list(q,"SELECT currency,SUM(amount) AS amount FROM cash WHERE occurred_at_utc >= :start AND occurred_at_utc < :end AND currency IS NOT NULL AND currency_source IS NOT NULL GROUP BY currency ORDER BY currency"));
         return r;
     }

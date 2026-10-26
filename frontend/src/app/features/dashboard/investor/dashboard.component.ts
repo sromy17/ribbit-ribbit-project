@@ -471,6 +471,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   setView(view: 'portfolio' | 'trade' | 'history' | 'wallet' | 'graphs' | 'news' | 'help'): void {
     this.activeView = view;
     if (view === 'graphs') this.loadMarketHeatmap();
+    if (view === 'history') this.loadOrderHistory();
+    if (view === 'wallet') this.loadWalletData();
     if (view === 'news' && !this.newsLoaded) {
       this.loadNews();
     }
@@ -772,6 +774,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.closeWalletModal();
   }
 
+  loadOrderHistory(): void {
+    const accountId = this.accountId;
+    this.loadingOrders = true;
+    this.api.getOrders(accountId).pipe(timeout(10000), takeUntil(this.destroy$)).subscribe({
+      next: orders => { if (this.accountId !== accountId) return; this.orders = orders; this.loadingOrders = false; this.cdr.markForCheck(); },
+      error: () => { if (this.accountId !== accountId) return; this.error = 'Order history could not be loaded. Refresh to retry.'; this.loadingOrders = false; this.cdr.markForCheck(); }
+    });
+  }
+
   loadDashboardData(recordTrade = false) {
     this.accountLoadSubscription?.unsubscribe();
     this.loadingBalance = this.loadingHoldings = this.loadingOrders = !this.accountState;
@@ -1014,7 +1025,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getOrderTotalPrice(order: Order): number {
-    return order.quantity * (order.price ?? 0);
+    return order.executedNotional ?? 0;
   }
 
   logout() {

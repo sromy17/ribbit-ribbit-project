@@ -82,6 +82,7 @@
   </div>
 
   <div class="page-body">
+    <p class="mb-3 text-xs text-muted">Local paper trading · Educational prices may be delayed. Orders and balances are saved locally; no broker or bank transfers are made.</p>
     <!-- Loading & Error States -->
     <div *ngIf="error" class="error-banner">
       {{ error }}
@@ -365,14 +366,14 @@
                       <th scope="col">Side</th>
                       <th scope="col">Status</th>
                       <th scope="col" class="quantity-column">Quantity</th>
-                      <th scope="col">Price</th>
-                      <th scope="col" class="total-order-price-column">Total order price</th>
+                      <th scope="col">Order price</th>
+                      <th scope="col" class="total-order-price-column">Executed value</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr *ngFor="let o of orders">
                       <td>{{ o.orderId }}</td>
-                      <td>{{ o.dateRequested | date: 'short' }}</td>
+                      <td><ng-container *ngIf="o.createdAtUtc; else dateOnly">{{ o.createdAtUtc | date: 'MMM d, y, HH:mm:ss' : 'UTC' }} UTC</ng-container><ng-template #dateOnly>{{ o.dateRequested | date: 'mediumDate' : 'UTC' }} (date only)</ng-template></td>
                       <td>
                         <strong>{{ o.symbol }}</strong>
                       </td>
@@ -504,7 +505,7 @@
 
         <div *ngIf="activeView === 'graphs'" class="section full-width market-heatmap-section">
           <h1 class="market-heatmap-title">LEAP Trader Pro Heatmap</h1>
-          <div *ngIf="loadingMarketHeatmap" class="loading-indicator">Loading live market data...</div>
+          <div *ngIf="loadingMarketHeatmap" class="loading-indicator">Loading market data...</div>
           <div *ngIf="marketHeatmapError" class="error-banner">{{ marketHeatmapError }}</div>
           <app-stock-heatmap [stocks]="marketStocks" [loading]="loadingMarketHeatmap" [accountNumber]="accountId"></app-stock-heatmap>
         </div>

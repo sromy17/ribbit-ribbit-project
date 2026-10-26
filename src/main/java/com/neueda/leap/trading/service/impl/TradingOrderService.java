@@ -322,7 +322,11 @@ public class TradingOrderService implements OrderService {
                 null
             );
         }
-        return transactions.executeOrder(created.orderId());
+        ProcessOrderResponse result = transactions.executeOrder(created.orderId());
+        // MyBatis reads use a separate connection: refresh only after execution commits.
+        return new ProcessOrderResponse(result.orderId(), result.tradeId(), result.status(),
+            result.executedQuantity(), result.executionPrice(), result.fee(),
+            readMapper.getAccountOrderSummary(request.accountId()));
     }
 
     private void saveRejection(Integer orderId, String reason) {

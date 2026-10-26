@@ -40,6 +40,11 @@ export interface Order {
   price?: number;
   status: 'PENDING' | 'FILLED' | 'EXECUTED' | 'REJECTED' | 'CANCELLED';
   dateRequested?: string;
+  createdAtUtc?: string;
+  executedQuantity?: number;
+  executedNotional?: number;
+  fee?: number;
+  cashEffect?: number;
 }
 
 export interface ProcessOrderResponse {

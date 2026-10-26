@@ -71,6 +71,21 @@ class FauxnanceQuoteClientTest {
     }
 
     @Test
+    void providerAsOfAndEducationalMetadataArePreserved() {
+        server.expect(requestTo("https://quotes.test/quotes/AAPL"))
+            .andRespond(withSuccess("""
+                {"data":{"price":123.45,"currency":"USD","asOf":"2026-10-26T19:40:44Z"},
+                 "meta":{"source":"cache","stale":true,"disclaimer":"Educational data. Not for investment use."}}
+                """, MediaType.APPLICATION_JSON));
+        var quote = client.fetchMarketQuote("AAPL");
+        assertEquals(java.time.Instant.parse("2026-10-26T19:40:44Z"), quote.quoteAtUtc());
+        assertEquals("fauxnance:cache", quote.source());
+        assertEquals(Boolean.TRUE, quote.stale());
+        assertEquals("Educational data. Not for investment use.", quote.disclaimer());
+        server.verify();
+    }
+
+    @Test
     void invalidPriceIsRejected() {
         server.expect(requestTo("https://quotes.test/quotes/AAPL"))
             .andRespond(withSuccess("{\"data\":{\"price\":0}}", MediaType.APPLICATION_JSON));

@@ -91,8 +91,8 @@ public class OrderController {
     }
 
     @GetMapping
-    public List<Order> getOrdersByAccount(@PathVariable("accountId") Integer accountId) {
+    public List<com.neueda.leap.trading.api.dto.OrderHistoryItem> getOrdersByAccount(@PathVariable("accountId") Integer accountId) {
         accountAccessService.requireAccountAccess(accountId, "PERM_ORDER_INVESTIGATION");
-        return orderService.getOrders(accountId);
+        return orderService.getOrders(accountId).stream().map(com.neueda.leap.trading.api.dto.OrderHistoryItem::from).toList();
     }
 }

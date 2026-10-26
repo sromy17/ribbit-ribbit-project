@@ -1,4 +1,7 @@
 # Enterprise Trading Platform Fidelity
+
+For the persistent local UI, run `bash scripts/start-local.sh` and open **http://127.0.0.1:4200**. See [the local application guide](documents/local-application-guide.md) for separate user/staff logins, pgAdmin, OLTP/OLAP databases, and verification steps. Port 14300 is the disposable integration demo.
+
 * Shravan Romy
 * Sukie Zhang
 * Naga Ritvika Yeyuvuri

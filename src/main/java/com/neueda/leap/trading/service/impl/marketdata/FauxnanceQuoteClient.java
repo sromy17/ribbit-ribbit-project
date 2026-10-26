@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.neueda.leap.trading.service.contract.MarketQuote;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,8 +65,10 @@ public class FauxnanceQuoteClient {
 
             QuoteData data = response.data();
             return new MarketQuote(normalized, data.price(), data.change(), data.changePercent(),
-                data.source() == null ? "fauxnance" : data.source(),
-                data.timestamp(), Instant.now(), data.currency(), data.priceType());
+                data.source() == null ? (response.meta() == null || response.meta().source() == null ? "fauxnance" : "fauxnance:" + response.meta().source()) : data.source(),
+                data.timestamp(), Instant.now(), data.currency(), data.priceType(),
+                response.meta() == null ? null : response.meta().stale(),
+                response.meta() == null ? null : response.meta().disclaimer());
         } catch (RestClientResponseException ex) {
             throw new IllegalArgumentException(extractErrorMessage(ex) + " for symbol " + normalized, ex);
         }
@@ -106,12 +109,15 @@ public class FauxnanceQuoteClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record QuoteApiResponse(QuoteData data, ApiError error) {
+    private record QuoteApiResponse(QuoteData data, ApiError error, QuoteMeta meta) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
+    private record QuoteMeta(String source, Boolean stale, String disclaimer) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record QuoteData(BigDecimal price, BigDecimal change, BigDecimal changePercent,
-                             String source, Instant timestamp, String currency, String priceType) {
+                             String source, @JsonAlias("asOf") Instant timestamp, String currency, String priceType) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

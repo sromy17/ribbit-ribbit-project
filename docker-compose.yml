@@ -5,15 +5,16 @@ services:
     image: postgres:16-alpine
     container_name: ribbit-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-ribbit-oltp}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_OLTP_PASSWORD}}
     ports:
       - "5432:5432"
     volumes:
       - ./basedSchema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./insert-data.sql:/docker-entrypoint-initdb.d/02-data.sql
       - ./olap-database.sql:/docker-entrypoint-initdb.d/03-olap-database.sql
+      - ./olap.sql:/schemas/olap.sql:ro
       - postgres_data:/var/lib/postgresql/data
     networks:
       - ribbit-network
@@ -32,17 +33,20 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/ribbit_oltp
-      DB_OLTP_URL: jdbc:postgresql://postgres:5432/ribbit_oltp
-      DB_OLTP_USER: ${POSTGRES_USER}
-      DB_OLTP_PASSWORD: ${POSTGRES_PASSWORD}
-      DB_OLAP_URL: jdbc:postgresql://postgres:5432/ribbit_olap
-      DB_OLAP_USER: ${POSTGRES_USER}
-      DB_OLAP_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
+      DB_OLTP_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
+      DB_OLTP_USER: ${POSTGRES_USER:-postgres}
+      DB_OLTP_PASSWORD: ${POSTGRES_PASSWORD:-${DB_OLTP_PASSWORD}}
+      DB_OLAP_URL: jdbc:postgresql://postgres:5432/ribbit-olap
+      DB_OLAP_USER: ${POSTGRES_USER:-postgres}
+      DB_OLAP_PASSWORD: ${POSTGRES_PASSWORD:-${DB_OLTP_PASSWORD}}
+      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET}
+      FAUXNANCE_API_KEY: ${FAUXNANCE_API_KEY}
+      ORDER_EXECUTION_KAFKA_ENABLED: "false"
       ETL_ENABLED: ${ETL_ENABLED}
       ETL_FIXED_DELAY_MS: ${ETL_FIXED_DELAY_MS}
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-${DB_OLTP_PASSWORD}}
     ports:
       - "8082:8082"
     networks:

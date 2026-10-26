@@ -28,7 +28,7 @@ public class OlapEtlService {
     @EventListener(ApplicationReadyEvent.class)
     public void runOnStartup() { if (enabled) runNow(); }
 
-    @Scheduled(fixedDelayString = "${olap.etl.fixed-delay-ms:300000}")
+    @Scheduled(fixedDelayString = "${olap.etl.fixed-delay-ms:300000}", initialDelayString = "${olap.etl.fixed-delay-ms:300000}")
     public void runScheduled() { if (enabled && "-".equals(cron)) runNow(); }
 
     public EtlResult runNow() {

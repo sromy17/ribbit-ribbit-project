@@ -36,7 +36,7 @@ public class Trade {
     @Column(name = "quantity_executed", nullable = false)
     private Integer executedQuantity;
 
-    @Column(name = "fee", nullable = false, precision = 30, scale = 10)
+    @Column(name = "fee", precision = 30, scale = 10)
     private BigDecimal fee = BigDecimal.ZERO;
 
     @Column(name = "executed_at_utc")

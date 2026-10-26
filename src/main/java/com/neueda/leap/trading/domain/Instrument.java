@@ -30,7 +30,7 @@ public class Instrument {
     @Column(name = "ticker", nullable = false, length = 25)
     private String ticker;
 
-    @Column(name = "instrumentname", nullable = false, length = 25)
+    @Column(name = "instrumentname", nullable = false, length = 255)
     private String instrumentName;
 
     @Enumerated(EnumType.STRING)

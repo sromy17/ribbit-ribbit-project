@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS fill_facts
 (
     executeid INT PRIMARY KEY, requestid INT NOT NULL, accountid INT NOT NULL,
     instrumentid INT, executed_quantity INT NOT NULL, execution_price NUMERIC NOT NULL,
-    fee NUMERIC NOT NULL, executed_at_utc TIMESTAMPTZ,
+    fee NUMERIC, executed_at_utc TIMESTAMPTZ,
     client_id INT, execution_currency CHAR(3), fee_currency CHAR(3), quantity_unit VARCHAR(40),
     contract_multiplier NUMERIC, product_convention VARCHAR(80), pricing_event_id BIGINT,
     dataset_run_id VARCHAR(36) NOT NULL
@@ -105,7 +105,7 @@ CREATE TABLE if NOT EXISTS trade_facts
     first_name VARCHAR(50),
     last_name VARCHAR(50),
     ticker VARCHAR(25),
-    instrumentname VARCHAR(25),
+    instrumentname VARCHAR(255),
     dispute_employeeusername VARCHAR(50),
     dispute_employeeRoles VARCHAR(20),
     order_status VARCHAR(20),
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS instruments_info
 (
     instrumentid INT PRIMARY KEY,
     ticker VARCHAR(25) NOT NULL,
-    instrumentname VARCHAR(25) NOT NULL,
+    instrumentname VARCHAR(255) NOT NULL,
     asset_class VARCHAR(30), market VARCHAR(40), venue VARCHAR(80),
     quote_currency CHAR(3), settlement_currency CHAR(3), quantity_unit VARCHAR(40),
     price_precision INT, quantity_precision INT, contract_multiplier NUMERIC,
@@ -181,7 +181,7 @@ CREATE TABLE if NOT EXISTS holdings_info
     last_name VARCHAR(50),
     instrumentid INT,
     ticker VARCHAR(25),
-    instrumentname VARCHAR(25),
+    instrumentname VARCHAR(255),
     quantity INT,
     as_of_date TIMESTAMPTZ,
     last_synced_at TIMESTAMPTZ,
