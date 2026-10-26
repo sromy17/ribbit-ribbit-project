@@ -39,6 +39,8 @@ interface WalletActivity {
   styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  quoteCurrency = 'UNKNOWN';
+  get currencyLabel(): string { return this.accountState?.currency || 'UNKNOWN'; }
   activeView: 'portfolio' | 'trade' | 'history' | 'wallet' | 'graphs' | 'news' | 'help' = 'portfolio';
   accountTypeLabel = 'Trading Account';
   currentUser: User | null = null;
@@ -144,6 +146,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.finnhubNews.availability$.pipe(takeUntil(this.destroy$)).subscribe(status => {
+      if (status === 'unavailable') this.newsError = 'Market news is unavailable. The provider may not be configured.';
+      if (status === 'available') this.newsError = '';
+      this.cdr.markForCheck();
+    });
     this.portfolioState.persistenceError$.pipe(takeUntil(this.destroy$)).subscribe(message => {
       this.persistenceMessage = message;
       if (message) this.error = message;
@@ -192,7 +199,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.loadAccounts();
       this.loadDashboardData();
     });
-    this.loadMarketHeatmap();
   }
 
   loadMarketHeatmap(): void {
@@ -226,6 +232,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
               }
               return stocks;
             }, []);
+            if (!this.marketStocks.length) this.marketHeatmapError = 'Market prices or percentage changes are unavailable.';
             this.loadingMarketHeatmap = false;
             this.cdr.detectChanges();
           },
@@ -247,7 +254,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     instrument: MarketInstrument,
     quote?: { symbol: string; price: number; change?: number; changePercent?: number }
   ): HeatmapStock | null {
-    if (!quote || !Number.isFinite(quote.price) || quote.price <= 0) {
+    if (!quote || !Number.isFinite(quote.price) || quote.price <= 0 || !Number.isFinite(quote.changePercent)) {
       return null;
     }
     return {
@@ -417,6 +424,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.api.getQuote(symbol).subscribe({
       next: (quote) => {
         this.currentPrice = quote.price;
+        this.quoteCurrency = quote.currency || 'UNKNOWN';
         this.currentChange = quote.change ?? null;
         this.currentChangePercent = quote.changePercent ?? null;
         this.loadingQuote = false;
@@ -462,6 +470,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   setView(view: 'portfolio' | 'trade' | 'history' | 'wallet' | 'graphs' | 'news' | 'help'): void {
     this.activeView = view;
+    if (view === 'graphs') this.loadMarketHeatmap();
     if (view === 'news' && !this.newsLoaded) {
       this.loadNews();
     }
@@ -972,7 +981,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           return;
         }
         this.resetOrderForm();
-        this.orderFormErrors['submit'] = 'Failed to place order. Please try again.';
+        this.orderFormErrors['submit'] = 'Order could not be confirmed. Check History before retrying; the server may have received it.';
         this.loading = false;
       }
     });
@@ -1076,7 +1085,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   formatHistoryValue(value: number): string {
-    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${this.currencyLabel} ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   formatSignedHistoryValue(value: number): string {

@@ -1,4 +1,4 @@
-<app-workspace area="Trading workspace" [username]="currentUser?.username || ''" (logout)="logout()"
+<app-workspace class="investor-workspace" area="Trading workspace" [username]="currentUser?.username || ''" (logout)="logout()"
   ><div workspaceActions class="flex items-center gap-2">
     <div class="account-switcher">
       <button
@@ -106,6 +106,8 @@
         >
           Trade
         </button>
+        <button type="button" class="sidebar-button" [class.active]="activeView === 'graphs'" (click)="setView('graphs')">Market</button>
+        <button type="button" class="sidebar-button" [class.active]="activeView === 'news'" (click)="setView('news')">News</button>
         <button
           type="button"
           class="sidebar-button"
@@ -227,7 +229,7 @@
               >
                 <div class="quote-price-row">
                   <span class="quote-price-value">{{ currentPrice | number: '1.2-2' }}</span>
-                  <span class="quote-currency">USD</span>
+                  <span class="quote-currency">{{ quoteCurrency }}</span>
                   <div
                     class="quote-change-box"
                     *ngIf="currentChange !== null && currentChangePercent !== null"
@@ -289,19 +291,19 @@
                 <div class="order-summary" *ngIf="orderForm.quantity > 0 && currentPrice !== null">
                   <div class="summary-row">
                     <span
-                      >Subtotal ({{ orderForm.quantity }} × ${{
+                      >Subtotal ({{ orderForm.quantity }} × {{ currencyLabel }} {{
                         currentPrice | number: '1.2-2'
                       }})</span
                     >
-                    <span>${{ getEstimatedNotional() | number: '1.2-2' }}</span>
+                    <span>{{ currencyLabel }} {{ getEstimatedNotional() | number: '1.2-2' }}</span>
                   </div>
                   <div class="summary-row">
-                    <span>Fee (0.1%, min $1.00)</span>
-                    <span>${{ getEstimatedFee() | number: '1.2-2' }}</span>
+                    <span>Fee estimate (0.1%, min 1.00)</span>
+                    <span>{{ currencyLabel }} {{ getEstimatedFee() | number: '1.2-2' }}</span>
                   </div>
                   <div class="summary-row total">
                     <span>{{ orderForm.side === 'BUY' ? 'Total cost' : 'Net proceeds' }}</span>
-                    <span>${{ getEstimatedTotal() | number: '1.2-2' }}</span>
+                    <span>{{ currencyLabel }} {{ getEstimatedTotal() | number: '1.2-2' }}</span>
                   </div>
                 </div>
                 <button
@@ -381,9 +383,9 @@
                         <app-status-badge [status]="o.status" />
                       </td>
                       <td class="quantity-column">{{ o.quantity }}</td>
-                      <td>${{ o.price | number: '1.2-2' }}</td>
+                      <td>{{ currencyLabel }} {{ o.price | number: '1.2-2' }}</td>
                       <td class="total-order-price-column">
-                        ${{ getOrderTotalPrice(o) | number: '1.2-2' }}
+                        {{ currencyLabel }} {{ getOrderTotalPrice(o) | number: '1.2-2' }}
                       </td>
                     </tr>
                   </tbody>
@@ -404,7 +406,7 @@
               <div class="wallet-funds">
                 <div class="wallet-balance-card">
                   <span>Available cash</span>
-                  <strong *ngIf="!loadingBalance">${{ portfolio.cash | number: '1.2-2' }}</strong>
+                  <strong *ngIf="!loadingBalance">{{ currencyLabel }} {{ portfolio.cash | number: '1.2-2' }}</strong>
                   <strong *ngIf="loadingBalance">Loading...</strong>
                 </div>
                 <div class="wallet-actions">
@@ -488,7 +490,7 @@
                     >
                   </span>
                   <strong [class.wallet-negative]="activity.type === 'Withdrawal'">
-                    {{ activity.type === 'Deposit' ? '+' : '-' }}${{
+                    {{ activity.type === 'Deposit' ? '+' : '-' }}{{ currencyLabel }} {{
                       activity.amount | number: '1.2-2'
                     }}
                   </strong>
@@ -510,9 +512,9 @@
         <section *ngIf="activeView === 'news'" class="news-view section full-width" aria-labelledby="news-heading">
           <div class="news-header">
             <div>
-              <span class="news-badge">LIVE FINNHUB FEED</span>
-              <h2 id="news-heading">Market News &amp; FinNews Catalysts</h2>
-              <p class="description">Live market headlines, ticker sentiment, and breaking catalysts from Finnhub.</p>
+              <span class="news-badge">NEWS</span>
+              <h2 id="news-heading">Market news</h2>
+              <p class="description">Latest available headlines from Finnhub.</p>
             </div>
           </div>
 
@@ -671,14 +673,14 @@
             <div class="cards">
               <div class="card">
                 <h3>Cash</h3>
-                <p class="value" *ngIf="!loadingBalance">${{ portfolio.cash | number: '1.2-2' }}</p>
+                <p class="value" *ngIf="!loadingBalance">{{ currencyLabel }} {{ portfolio.cash | number: '1.2-2' }}</p>
                 <p class="value loading" *ngIf="loadingBalance">Loading...</p>
               </div>
 
               <div class="card">
                 <h3>Portfolio Value</h3>
                 <p class="value" *ngIf="!loadingBalance">
-                  ${{ getTotalValue() | number: '1.2-2' }}
+                  {{ currencyLabel }} {{ getTotalValue() | number: '1.2-2' }}
                 </p>
                 <p class="value loading" *ngIf="loadingBalance">Loading...</p>
               </div>
@@ -705,7 +707,7 @@
               </div>
               <div class="portfolio-chart-canvas" *ngIf="portfolioHistory.length > 0">
                 <div class="portfolio-price-axis" aria-label="Portfolio value axis">
-                  <span *ngFor="let value of historyPriceTicks">${{ value | number: (historyHigh - historyLow < 4 ? '1.2-2' : '1.0-0') }}</span>
+                  <span *ngFor="let value of historyPriceTicks">{{ currencyLabel }} {{ value | number: (historyHigh - historyLow < 4 ? '1.2-2' : '1.0-0') }}</span>
                 </div>
                 <div class="portfolio-plot">
                   <svg
@@ -788,9 +790,9 @@
                         <strong>{{ h.symbol }}</strong>
                       </td>
                       <td>{{ h.quantity }}</td>
-                      <td>${{ (h.currentPrice || h.averageCost) | number: '1.2-2' }}</td>
+                      <td>{{ currencyLabel }} {{ (h.currentPrice || h.averageCost) | number: '1.2-2' }}</td>
                       <td>
-                        ${{ (h.quantity * (h.currentPrice || h.averageCost)) | number: '1.0-0' }}
+                        {{ currencyLabel }} {{ (h.quantity * (h.currentPrice || h.averageCost)) | number: '1.0-0' }}
                       </td>
                     </tr>
                   </tbody>

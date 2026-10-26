@@ -15,6 +15,7 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class CreateAccountComponent {
   accountType = 'TRADING';
+  currency = 'USD';
   error = '';
   loading = false;
   readonly accountTypes = ['TRADING', 'INVESTMENT', 'DAYTRADING', 'PORTFOLIO', 'HEDGE', 'CASH', 'MARGIN'];
@@ -36,7 +37,8 @@ export class CreateAccountComponent {
     this.loading = true;
     this.api.createAccount({
       userId: Number(user.id),
-      accountType: this.accountType
+      accountType: this.accountType,
+      currency: this.currency
     }).subscribe({
       next: (account) => this.router.navigate(['/investor-dashboard', account.accountId]),
       error: () => {

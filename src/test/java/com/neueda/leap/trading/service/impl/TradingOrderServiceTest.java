@@ -146,7 +146,6 @@ class TradingOrderServiceTest {
             .thenReturn(new BigDecimal("12.50"));
         when(tradingRulesService.validateOrderSubmission(any(), any(), any(), any(), any()))
             .thenReturn(ValidationResult.invalid("Insufficient funds"));
-        when(orderRepository.findMaxOrderId()).thenReturn(99);
         when(rejectedOrderRepository.findMaxRejectId()).thenReturn(4);
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
@@ -160,7 +159,7 @@ class TradingOrderServiceTest {
         assertEquals(OrderStatus.REJECTED, result.status());
         ArgumentCaptor<RejectedOrder> captor = ArgumentCaptor.forClass(RejectedOrder.class);
         verify(rejectedOrderRepository).save(captor.capture());
-        assertEquals(100, captor.getValue().getRequestId());
+        assertEquals(result.orderId(), captor.getValue().getRequestId());
         assertEquals("Insufficient funds", captor.getValue().getReason());
         verifyNoInteractions(tradeRepository);
     }

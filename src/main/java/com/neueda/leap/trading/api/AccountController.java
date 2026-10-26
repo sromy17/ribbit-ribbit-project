@@ -124,7 +124,8 @@ public class AccountController {
 
         return Map.of(
             "accountId", account.getAccountId(),
-            "cashBalance", account.getAvailableFunds()
+            "cashBalance", account.getAvailableFunds(),
+            "currency", account.getCurrency() == null ? "UNKNOWN" : account.getCurrency()
         );
     }
 

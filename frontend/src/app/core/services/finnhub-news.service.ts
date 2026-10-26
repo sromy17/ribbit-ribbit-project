@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { Observable, concat, defer, of, timer } from 'rxjs';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { BehaviorSubject, Observable, concat, defer, of, timer } from 'rxjs';
 import { catchError, map, shareReplay, switchMap, tap, timeout } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
@@ -18,41 +18,15 @@ export interface FinnhubNewsArticle {
 
 export type FinnhubNewsCategory = 'general' | 'technology' | 'healthcare' | 'finance' | 'energy';
 
-const FALLBACK_NEWS: FinnhubNewsArticle[] = [
-  ['Earnings momentum meets renewed rate uncertainty', 'SPY,QQQ', 'Reuters', 'general'],
-  ['Semiconductor demand keeps chip leaders in focus', 'NVDA,AMD,TSM', 'Bloomberg', 'technology'],
-  ['Dollar steadies ahead of central-bank guidance', 'UUP,EURUSD', 'WSJ', 'finance'],
-  ['Healthcare deal pipeline draws investor attention', 'LLY,MRK,ABBV', 'Reuters', 'healthcare'],
-  ['Cloud spending remains a key enterprise signal', 'MSFT,CRM,ORCL', 'Bloomberg', 'technology'],
-  ['Federal Reserve policy keeps bank shares in focus', 'JPM,BAC,GS', 'CNBC', 'finance'],
-  ['Retailers report an uneven consumer demand picture', 'AMZN,WMT,COST', 'WSJ', 'general'],
-  ['Auto shares react to delivery and margin outlooks', 'TSLA,GM,F', 'Reuters', 'general'],
-  ['Industrial energy demand points to a busy infrastructure cycle', 'GE,MMM,CAT', 'Bloomberg', 'energy'],
-  ['Banks prepare for a close read on credit quality', 'JPM,BAC,GS', 'MarketWatch', 'general'],
-  ['Pharma pipelines and FDA decisions shape healthcare sentiment', 'PFE,LLY,MRNA', 'Reuters', 'healthcare'],
-  ['Energy markets track inventories ahead of winter demand', 'XOM,CVX,USO', 'Financial Times', 'general']
-].map(([headline, related, source, category], index) => ({
-  category,
-  datetime: Math.floor(Date.now() / 1000) - (15 + index * 43) * 60,
-  headline,
-  id: -index - 1,
-  image: '',
-  related,
-  source,
-  summary: `Market participants are monitoring ${headline.toLowerCase()} as the next catalyst for ${related} and the broader trading session.`,
-  url: `https://www.google.com/search?q=${encodeURIComponent(headline)}`
-}));
-
 @Injectable({ providedIn: 'root' })
 export class FinnhubNewsService {
   public static readonly REFRESH_INTERVAL_MS = 60000;
-  private readonly baseUrl = 'https://finnhub.io/api/v1';
+  private readonly baseUrl = '/api/market';
+  readonly availability$ = new BehaviorSubject<'loading' | 'available' | 'unavailable'>('loading');
   private readonly categoryCache = new Map<string, Observable<FinnhubNewsArticle[]>>();
   private readonly companyCache = new Map<string, Observable<FinnhubNewsArticle[]>>();
   private readonly requestTimeoutMs = 4000;
   private readonly storagePrefix = 'leap-trader:finnhub:';
-  private rejectedApiKey?: string;
-  private fallbackStatusLogged = false;
 
   constructor(private http: HttpClient) {}
 
@@ -96,29 +70,12 @@ export class FinnhubNewsService {
     params: HttpParams,
     fallbackKey: string
   ): Observable<FinnhubNewsArticle[]> {
-    const apiKey = environment.finnhubApiKey?.trim();
-    if (!apiKey || apiKey === this.rejectedApiKey) return this.useFallback(fallbackKey);
-    return this.http.get<unknown>(`${this.baseUrl}/${endpoint}`, {
-      params: params.set('token', apiKey)
-    }).pipe(
-      timeout(this.requestTimeoutMs),
+    return this.http.get<unknown>(`${this.baseUrl}/${endpoint}`, {params}).pipe(
+      timeout(this.requestTimeoutMs + 1500),
       mapNewsResponse(),
-      tap(() => { this.fallbackStatusLogged = false; }),
-      catchError((error: unknown) => {
-        if (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)) {
-          this.rejectedApiKey = apiKey;
-        }
-        return this.useFallback(fallbackKey);
-      })
+      tap(() => this.availability$.next('available')),
+      catchError(() => { this.availability$.next('unavailable'); return of([]); })
     );
-  }
-
-  private useFallback(key: string): Observable<FinnhubNewsArticle[]> {
-    if (!this.fallbackStatusLogged) {
-      console.info('Using curated market intelligence stream (offline/fallback mode)');
-      this.fallbackStatusLogged = true;
-    }
-    return of(this.getFallbackNews(key));
   }
 
   private createPollingRequest(
@@ -140,7 +97,7 @@ export class FinnhubNewsService {
       const stored = this.readCache(storageKey);
       const cached = stored?.every(article => article.id > 0) ? stored : null;
       return concat(
-        cached ? of(cached) : of(this.getFallbackNews(fallbackKey)),
+        cached ? of(cached) : of([]),
         refresh
       );
     }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
@@ -165,17 +122,6 @@ export class FinnhubNewsService {
     }
   }
 
-  private getFallbackNews(categoryOrSymbol: string): FinnhubNewsArticle[] {
-    const isSymbol = /^[A-Z]{1,5}$/.test(categoryOrSymbol);
-    const fallback = FALLBACK_NEWS.map((article, index) => ({
-      ...article,
-      source: 'Curated sample',
-      id: article.id - index,
-      category: isSymbol ? 'company' : categoryOrSymbol,
-      related: isSymbol ? categoryOrSymbol : article.related
-    }));
-    return filterBySector(fallback, categoryOrSymbol as FinnhubNewsCategory);
-  }
 }
 
 function filterBySector(articles: FinnhubNewsArticle[], category: FinnhubNewsCategory): FinnhubNewsArticle[] {

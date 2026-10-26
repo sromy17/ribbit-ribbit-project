@@ -12,10 +12,10 @@ import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
-import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
+import org.springframework.boot.persistence.autoconfigure.EntityScan;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
+import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
+import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -32,6 +32,9 @@ import com.neueda.leap.trading.repository.jpa.UserRepository;
 import com.neueda.leap.trading.service.impl.TradingAccountService;
 
 class OlapDataSourceConfigurationTest {
+    @org.junit.jupiter.api.AfterEach
+    void clearActor() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
+
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(
             DataSourceAutoConfiguration.class,
@@ -47,9 +50,9 @@ class OlapDataSourceConfigurationTest {
             "olap.source.url=jdbc:h2:mem:account-oltp;MODE=PostgreSQL",
             "olap.source.username=sa",
             "olap.source.password=",
-            "olap.datasource.url=jdbc:h2:mem:account-olap;MODE=PostgreSQL",
-            "olap.datasource.username=sa",
-            "olap.datasource.password="
+            "app.datasource.olap.url=jdbc:h2:mem:account-olap;MODE=PostgreSQL",
+            "app.datasource.olap.username=sa",
+            "app.datasource.olap.password="
         );
 
     @Test
@@ -79,14 +82,17 @@ class OlapDataSourceConfigurationTest {
             user.setUserHashedSaltedPassword("test-hash");
             context.getBean(UserRepository.class).saveAndFlush(user);
 
+            var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("test").header("alg", "HS256").subject("account-regression-test").claim("uid", 1).build();
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt, java.util.List.of()));
             var mvc = MockMvcBuilders.standaloneSetup(context.getBean(AccountController.class)).build();
             String response = mvc.perform(post("/accounts")
                     .contentType("application/json")
-                    .content("{\"userId\":1,\"accountType\":\"TRADING\"}"))
+                    .content("{\"userId\":1,\"accountType\":\"TRADING\",\"currency\":\"GBP\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.type").value("TRADING"))
                 .andReturn().getResponse().getContentAsString();
-            int accountId = new com.fasterxml.jackson.databind.ObjectMapper()
+            int accountId = new tools.jackson.databind.ObjectMapper()
                 .readTree(response).get("accountId").intValue();
 
             context.getBean(TradingAccountService.class).deposit(accountId, new BigDecimal("25.00"));
@@ -100,7 +106,7 @@ class OlapDataSourceConfigurationTest {
     @Configuration(proxyBeanMethods = false)
     @EntityScan("com.neueda.leap.trading.domain")
     @EnableJpaRepositories("com.neueda.leap.trading.repository.jpa")
-    @Import({OlapDataSourceConfiguration.class, AccountController.class, TradingAccountService.class})
+    @Import({OlapDataSourceConfiguration.class, AccountController.class, TradingAccountService.class, com.neueda.leap.trading.security.AccountAccessService.class})
     static class TestConfiguration {
     }
 }

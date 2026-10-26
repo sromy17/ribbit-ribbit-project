@@ -22,16 +22,16 @@ describe('Persistent portfolio state', () => {
   }
   beforeEach(() => {
     api.createOrder.mockReset();
-    localStorage.removeItem(`leap_account_${id}`);
-    localStorage.removeItem('leap_account_other-test');
+    localStorage.removeItem(`leap_account_anonymous_${id}`);
+    localStorage.removeItem('leap_account_anonymous_other-test');
     TestBed.configureTestingModule({ providers: [{ provide: ApiService, useValue: api }] });
     service = TestBed.inject(PortfolioStateService);
     backend(350000);
   });
   afterEach(() => {
     vi.restoreAllMocks();
-    localStorage.removeItem(`leap_account_${id}`);
-    localStorage.removeItem('leap_account_other-test');
+    localStorage.removeItem(`leap_account_anonymous_${id}`);
+    localStorage.removeItem('leap_account_anonymous_other-test');
   });
 
   it('publishes confirmed buy/sell state, including fees, without locally deducting twice', async () => {
@@ -67,7 +67,7 @@ describe('Persistent portfolio state', () => {
     expect(buy?.holdings[0].shares).toBe(2);
     expect(buy?.orders).toEqual([order]);
     expect(buy?.history.at(-1)?.totalValue).toBe(349999);
-    expect(JSON.parse(localStorage.getItem(`leap_account_${id}`)!).cash).toBe(349649);
+    expect(JSON.parse(localStorage.getItem(`leap_account_anonymous_${id}`)!).cash).toBe(349649);
 
     backend(350008, [], [{ ...order, side: 'SELL', price: 180 }]);
     api.createOrder.mockReturnValue(of({ orderId: 2, status: 'EXECUTED', executedQuantity: 2, executionPrice: 180 }));
@@ -153,7 +153,7 @@ describe('Persistent portfolio state', () => {
 
   it('reports corrupt storage and restores from authoritative backend data', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    localStorage.setItem(`leap_account_${id}`, '{"cash":"bad"}');
+    localStorage.setItem(`leap_account_anonymous_${id}`, '{"cash":"bad"}');
     expect(await firstValueFrom(service.watchAccount(id))).toBeNull();
     expect(service.persistenceError$.value).not.toBe('');
     expect((await firstValueFrom(service.refreshAccount(id))).cash).toBe(350000);
@@ -189,6 +189,19 @@ describe('Persistent portfolio state', () => {
       vi.setSystemTime(new Date('2026-10-23T12:00:00Z'));
       expect((await firstValueFrom(service.refreshAccount(id))).history).toHaveLength(2);
     } finally { vi.useRealTimers(); }
+  });
+
+  it('isolates cached account data between signed-in users', async () => {
+    localStorage.setItem('currentUser', JSON.stringify({id:'first'}));
+    backend(123);
+    await firstValueFrom(service.refreshAccount(id));
+    localStorage.setItem('currentUser', JSON.stringify({id:'second'}));
+    expect(await firstValueFrom(service.watchAccount(id))).toBeNull();
+    backend(456);
+    await firstValueFrom(service.refreshAccount(id));
+    localStorage.setItem('currentUser', JSON.stringify({id:'first'}));
+    expect((await firstValueFrom(service.watchAccount(id)))?.cash).toBe(123);
+    localStorage.removeItem('currentUser');
   });
 
   it('plots observed balances without synthetic returns, including zero and range boundaries', () => {

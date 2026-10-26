@@ -17,6 +17,7 @@ export interface TradeExecutionResult {
 export interface PortfolioAccountState {
   accountNumber: string;
   cash: number;
+  currency?: string;
   holdings: Array<{ symbol: string; shares: number; avgPrice: number; currentPrice: number }>;
   history: Array<{ timestamp: Date; totalValue: number }>;
   orders: Order[];
@@ -73,8 +74,10 @@ export class PortfolioStateService {
 
   refreshAccount(id: string, recordTrade = false): Observable<PortfolioAccountState> {
     return defer(() => {
-      const revision = (this.revisions.get(id) ?? 0) + 1;
-      this.revisions.set(id, revision);
+      const key = this.cacheKey(id);
+      const subject = this.account(id);
+      const revision = (this.revisions.get(key) ?? 0) + 1;
+      this.revisions.set(key, revision);
       return forkJoin({
         balance: this.api.getAccountBalance(id),
         holdings: this.api.getHoldings(id),
@@ -106,9 +109,8 @@ export class PortfolioStateService {
           })));
         }),
         map(({ balance, holdings, orders, valuationWarning }) => {
-        const subject = this.account(id);
         const previous = subject.value;
-        if (this.revisions.get(id) !== revision && previous) return previous;
+        if (this.revisions.get(key) !== revision && previous) return previous;
         const positions = holdings.filter(h => h.quantity > 0).map(h => ({
           symbol: h.symbol, shares: h.quantity, avgPrice: h.averageCost,
           currentPrice: h.currentPrice ?? h.averageCost
@@ -123,9 +125,9 @@ export class PortfolioStateService {
           history.push({ timestamp: now, totalValue });
         }
         const state: PortfolioAccountState = {
-          accountNumber: id, cash: balance.cashBalance, holdings: positions, orders, history, valuationWarning
+          accountNumber: id, currency: balance.currency, cash: balance.cashBalance, holdings: positions, orders, history, valuationWarning
         };
-        this.persist(state);
+        this.persist(state, key);
         subject.next(state);
         return state;
       }));
@@ -133,18 +135,25 @@ export class PortfolioStateService {
   }
 
   private account(id: string): BehaviorSubject<PortfolioAccountState | null> {
-    let subject = this.accounts.get(id);
+    const key = this.cacheKey(id);
+    let subject = this.accounts.get(key);
     if (!subject) {
       subject = new BehaviorSubject<PortfolioAccountState | null>(this.restore(id));
-      this.accounts.set(id, subject);
+      this.accounts.set(key, subject);
     }
     return subject;
+  }
+
+  private cacheKey(id: string): string {
+    let user = 'anonymous';
+    try { user = String(JSON.parse(localStorage.getItem('currentUser') || '{}').id || 'anonymous'); } catch { /* Cache only; backend remains authoritative. */ }
+    return `leap_account_${user}_${id}`;
   }
 
   private restore(id: string): PortfolioAccountState | null {
     if (typeof localStorage === 'undefined') return null;
     try {
-      const raw = localStorage.getItem(`leap_account_${id}`);
+      const raw = localStorage.getItem(this.cacheKey(id));
       if (!raw) return null;
       const value = JSON.parse(raw) as PortfolioAccountState;
       if (value.accountNumber !== id || !Number.isFinite(value.cash) ||
@@ -161,10 +170,10 @@ export class PortfolioStateService {
     }
   }
 
-  private persist(state: PortfolioAccountState): void {
+  private persist(state: PortfolioAccountState, key: string): void {
     if (typeof localStorage === 'undefined') return;
     try {
-      localStorage.setItem(`leap_account_${state.accountNumber}`, JSON.stringify(state));
+      localStorage.setItem(key, JSON.stringify(state));
       this.persistenceError$.next('');
     } catch (error) {
       console.error('Unable to persist account state:', error);

@@ -127,6 +127,8 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy {
       this.companyNewsSubscription = this.finnhubNews.getCompanyNews(stock.ticker, this.toDate(from), this.toDate(today)).subscribe({
         next: (articles) => {
           this.companyNews = articles.slice(0, 5);
+          this.companyNewsError = this.finnhubNews.availability$?.value === 'unavailable'
+            ? 'Company news is temporarily unavailable.' : '';
           this.loadingCompanyNews = false;
           this.cdr.markForCheck();
         },

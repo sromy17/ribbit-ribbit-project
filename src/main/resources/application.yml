@@ -4,8 +4,8 @@ spring:
       accept-float-as-int: false
   datasource:
     url: ${DB_OLTP_URL:${DB_URL:jdbc:h2:mem:trading;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}}
-    username: ${DB_USER:sa}
-    password: ${DB_PASSWORD:}
+    username: ${DB_OLTP_USER:${DB_USER:sa}}
+    password: ${DB_OLTP_PASSWORD:${DB_PASSWORD:}}
   jpa:
     hibernate:
       ddl-auto: update
@@ -32,14 +32,6 @@ app:
 
 olap:
   enabled: ${ETL_ENABLED:false}
-  datasource:
-    url: ${DB_OLAP_URL:jdbc:postgresql://localhost:5432/ribbit_olap}
-    username: ${DB_OLAP_USER:${DB_USER:}}
-    password: ${DB_OLAP_PASSWORD:${DB_PASSWORD:}}
-  source:
-    url: ${DB_OLTP_URL:${DB_URL:jdbc:postgresql://localhost:5432/ribbit_oltp}}
-    username: ${DB_OLTP_USER:${DB_USER:}}
-    password: ${DB_OLTP_PASSWORD:${DB_PASSWORD:}}
   etl:
     fixed-delay-ms: ${ETL_FIXED_DELAY_MS:300000}
 
@@ -56,6 +48,8 @@ security:
     shared-secret: ${JWT_SHARED_SECRET:please-change-this-jwt-secret-before-production}
 
 market-data:
+  finnhub:
+    api-key: ${FINNHUB_API_KEY:}
   fauxnance:
     base-url: ${FAUXNANCE_BASE_URL:https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
     api-key: ${FAUXNANCE_API_KEY:}

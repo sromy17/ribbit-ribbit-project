@@ -46,7 +46,7 @@ public class Order {
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
-    @Column(name = "bidprice", nullable = false)
+    @Column(name = "bidprice", nullable = false, precision = 30, scale = 10)
     private BigDecimal price;
 
     @Column(name = "date_request", nullable = false)

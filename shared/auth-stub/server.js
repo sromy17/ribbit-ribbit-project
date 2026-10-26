@@ -14,9 +14,9 @@ const PORT = Number(process.env.AUTH_STUB_PORT || 4000);
 const SHARED_SECRET = process.env.JWT_SHARED_SECRET;
 const JWT_EXPIRATION_SECONDS = Number(process.env.JWT_EXPIRATION_SECONDS || 1200);
 const REFRESH_TOKEN_VALID_DAYS = Number(process.env.REFRESH_TOKEN_VALID_DAYS || 7);
-const DB_URL = process.env.DB_URL;
-const DB_USER = process.env.DB_USER;
-const DB_PASSWORD = process.env.DB_PASSWORD;
+const DB_URL = process.env.DB_OLTP_URL || process.env.DB_URL;
+const DB_USER = process.env.DB_OLTP_USER || process.env.DB_USER;
+const DB_PASSWORD = process.env.DB_OLTP_PASSWORD || process.env.DB_PASSWORD;
 const DB_SSL = (process.env.DB_SSL || "false").toLowerCase() === "true";
 
 function extractBearerToken(authHeader) {

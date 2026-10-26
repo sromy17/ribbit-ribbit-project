@@ -18,7 +18,7 @@ public class BankMovement {
     @Column(name = "bankid", nullable = false)
     private Integer bankId;
 
-    @Column(name = "amount", nullable = false)
+    @Column(name = "amount", nullable = false, precision = 30, scale = 10)
     private BigDecimal amount;
 
     @Column(name = "movement_type", nullable = false, length = 10)

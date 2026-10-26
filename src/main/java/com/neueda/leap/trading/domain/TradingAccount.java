@@ -32,7 +32,7 @@ public class TradingAccount {
 	@JsonIgnore
 	private User user;
 
-	@Column(name = "availablefunds", nullable = false)
+	@Column(name = "availablefunds", nullable = false, precision = 30, scale = 10)
 	private BigDecimal availableFunds;
 
 	@Column(name = "currency", length = 3)

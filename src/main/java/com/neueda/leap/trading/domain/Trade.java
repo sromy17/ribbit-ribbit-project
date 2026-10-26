@@ -27,7 +27,7 @@ public class Trade {
     @JsonIgnore
     private Order order;
 
-    @Column(name = "askprice", nullable = false)
+    @Column(name = "askprice", nullable = false, precision = 30, scale = 10)
     private BigDecimal executionPrice;
 
     @Column(name = "date_execution", nullable = false)

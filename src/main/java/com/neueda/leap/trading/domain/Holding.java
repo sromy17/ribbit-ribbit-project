@@ -36,7 +36,7 @@ public class Holding {
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
-    @Column(name = "average_cost", nullable = false)
+    @Column(name = "average_cost", nullable = false, precision = 30, scale = 10)
     private BigDecimal averageCost;
 
     @Column(name = "as_of_date", nullable = false)

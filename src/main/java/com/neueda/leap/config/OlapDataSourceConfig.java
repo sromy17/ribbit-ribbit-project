@@ -23,7 +23,7 @@ public class OlapDataSourceConfig {
         return new DataSourceProperties();
     }
 
-    @Bean(name = "dataSource")
+    @Bean(name = {"dataSource", "oltpDataSource"})
     @Primary
     public DataSource oltpDataSource() {
         return oltpDataSourceProperties().initializeDataSourceBuilder().build();

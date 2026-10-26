@@ -61,3 +61,21 @@ Verification does not approve the small-segment disclosure policy, legal retenti
 Run `bash scripts/verify-merged-connection.sh --demo` for the richer disposable fixture on http://127.0.0.1:14300. Follow [the presenter guide](admin-analytics-demo-guide.md) for credentials, September 2026 totals, order IDs and case actions. Segment disclosure remains withheld.
 
 The boundary fixture exposed legacy source evidence columns declared as timezone-free timestamps while OLAP uses timezone-aware timestamps. The fresh source schema now uses `TIMESTAMPTZ` for those UTC evidence fields. Existing PostgreSQL databases with the older declarations should apply `migrations/2026-10-23-evidence-utc.sql` through the normal migration process before refreshing analytics; it preserves their declared UTC meaning and leaves already-aware fields unchanged.
+
+## October 26 merge integration
+
+The second datasource/ETL implementation introduced by the merge is now a compatibility entry point to the existing configuration and canonical publisher. There is one JPA/source datasource and a separate OLAP datasource/transaction manager. `DB_OLTP_URL/USER/PASSWORD` take precedence over `DB_URL/USER/PASSWORD`; Spring and customer authentication use the same source settings. Existing `ETL_ENABLED` / `ETL_FIXED_DELAY_MS` settings delegate to the atomic, reconciled publisher. An explicit ETL cron supersedes the compatibility fixed-delay schedule. Both `/api/etl/run` and `/etl/run` require server-side ETL permissions and publish the same versioned facts and freshness metadata. Wallet reporting tables publish in that same transaction; bank identifiers retain only their trailing digits in OLAP.
+
+New backend market routes (frontend accesses them through `/api`):
+
+- `GET /market/quotes?symbols=AAPL,MSFT`: authenticated, at most 50 supplied symbols, bounded concurrent work and response wait; only actual available quotes are returned. Missing changes are excluded from heatmap coloring rather than interpreted as zero.
+- `GET /market/news?category=general`: authenticated news proxy with server-side `FINNHUB_API_KEY`, bounded cache/concurrency and provider timeouts.
+- `GET /market/company-news?symbol=AAPL&from=2026-10-01&to=2026-10-22`: validates symbol and at most a 31-day range.
+
+Live market quotes still depend on Fauxnance configuration/availability. Live news requires a valid `FINNHUB_API_KEY` on Spring; no key is shipped in Angular. News without configuration or during provider failure returns 503 and displays unavailable, rather than synthetic articles. The disposable demo intentionally leaves this key unset. Backend provider success/error behavior is tested against a local fixture server. TradingView is an external chart widget and remains dependent on its provider/network.
+
+New accounts must declare currency. The UI includes a currency selector, the balance API returns currency, and portfolio/allocation labels use it. Older accounts without currency remain UNKNOWN. Financial entity mappings now retain ten decimal places for prices, balances and cost basis, avoiding Hibernate's default two-decimal narrowing. This does not reconstruct previously rounded historical values. Browser observations are explicitly labelled as browser-observed history and cached separately for each signed-in user; source balances, holdings, execution outcomes and permissions remain backend-authoritative.
+
+The investor view styles are scoped to its workspace and imported into the shared Tailwind component layer. This preserves new chart/news/help widgets without exceeding the production component stylesheet budget or applying investor layout rules to admin/analytics.
+
+The connection script also checks registration, explicit-currency account creation, invalid currency omission, cross-account wallet denial, unconfigured-news behavior, invalid batch quotes, precise persisted cost basis, report issuance/retrieval/amendments and token revocation.

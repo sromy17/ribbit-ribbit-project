@@ -70,13 +70,14 @@ public class OltpToOlapEtlService {
                 for (String table : List.of("trade_facts", "accounts_info", "instruments_info",
                         "employees_info", "holdings_info", "order_facts", "fill_facts",
                         "lifecycle_event_facts", "cash_movement_facts", "holding_movement_facts",
-                        "clients_info", "client_segment_history")) {
+                        "clients_info", "client_segment_history", "bank_movement_facts", "bank_info")) {
                     olapJdbcTemplate.update("DELETE FROM public." + table);
                 }
                 var snapshotTime = sourceWatermark().value();
                 olapJdbcTemplate.update("UPDATE etl_refresh_runs SET source_watermark=? WHERE run_id=?",
                     java.sql.Timestamp.from(snapshotTime), runId);
                 loadAccounts();
+                loadWalletFacts();
                 loadInstruments(runId);
                 loadClients(runId);
                 loadTradeFacts();
@@ -223,6 +224,25 @@ public class OltpToOlapEtlService {
     }
 
     private record InstantHolder(java.time.Instant value) {
+    }
+
+    private void loadWalletFacts() {
+        var banks = oltpJdbcTemplate.queryForList("""
+            SELECT b.bankid,b.accountid,a.userid,u.username,u.first_name,u.last_name,
+                b.accountname,RIGHT(b.routing_number,3) AS routing_number,
+                RIGHT(b.account_number,4) AS account_number,b.balance
+            FROM bank b JOIN accounts a ON a.accountid=b.accountid JOIN users u ON u.userid=a.userid
+            """);
+        batchInsert("INSERT INTO bank_info(bankid,accountid,userid,username,first_name,last_name,accountname,routing_number,account_number,balance) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            banks,"bankid","accountid","userid","username","first_name","last_name","accountname","routing_number","account_number","balance");
+        var movements = oltpJdbcTemplate.queryForList("""
+            SELECT m.movement_id,m.bankid,b.accountid,a.userid,u.username,u.first_name,u.last_name,
+                m.amount,m.movement_type,m.movement_date
+            FROM bank_movement m JOIN bank b ON b.bankid=m.bankid
+            JOIN accounts a ON a.accountid=b.accountid JOIN users u ON u.userid=a.userid
+            """);
+        batchInsert("INSERT INTO bank_movement_facts(movement_id,bankid,accountid,userid,username,first_name,last_name,amount,movement_type,movement_date) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            movements,"movement_id","bankid","accountid","userid","username","first_name","last_name","amount","movement_type","movement_date");
     }
 
     private void loadAccounts() {

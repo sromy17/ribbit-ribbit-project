@@ -79,18 +79,7 @@ stock symbol is supplied to widget configuration, not account balances or holdin
 Script failures display a retry control; browser content blockers may need to
 allow TradingView.
 
-Company news is independent of stock selection and charting. The auth interceptor
-adds the platform bearer token only to relative `/api/` requests, never external
-Finnhub requests (which reject that header during CORS preflight). Missing keys,
-rejected credentials, rate limits, timeouts, and other news failures use curated
-sample articles for both market and company views, with one concise informational
-console message per fallback episode rather than application error stacks.
-Samples are labeled "Curated sample"; their links are searches, not verified
-publisher articles. The News grid uses the existing 18-photo editorial fallback pool.
-After a 401/403, requests using the rejected key are skipped across both feeds for
-the service lifetime. A changed key or page reload allows another attempt.
-Transient failures continue retrying on the refresh timer. DevTools may still
-show browser-generated network errors for requests that were actually rejected.
+Company news uses authenticated same-origin backend endpoints `/api/market/news` and `/api/market/company-news`. Set `FINNHUB_API_KEY` on Spring only; no provider key belongs in Angular environment files. The backend validates symbols/date ranges, applies provider timeouts and a short bounded cache. Missing configuration or provider failure returns 503; the UI shows unavailable instead of manufactured headlines. Polling retries after transient failures.
 
 News sector tabs share the general Finnhub feed (`category=general`) and filter
 it locally. Switching sector or ticker cancels the old view subscription to

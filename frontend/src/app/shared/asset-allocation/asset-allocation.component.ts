@@ -27,17 +27,17 @@ interface AllocationSlice {
             fill="none" [attr.stroke]="slice.color" stroke-width="25" pathLength="100"
             [attr.stroke-dasharray]="slice.percentage + ' ' + (100 - slice.percentage)"
             [attr.stroke-dashoffset]="-slice.offset" transform="rotate(-90 110 110)">
-            <title>{{ slice.symbol }}: {{ slice.value | currency:'USD' }} ({{ slice.percentage | number:'1.2-2' }}%)</title>
+            <title>{{ slice.symbol }}: {{ slice.value | number:'1.2-2' }} {{ state?.currency || 'UNKNOWN' }} ({{ slice.percentage | number:'1.2-2' }}%)</title>
           </circle>
         </svg>
-        <div class="center"><small>Total assets</small><strong>{{ total | currency:'USD':'symbol':'1.0-0' }}</strong></div>
+        <div class="center"><small>Total assets</small><strong>{{ total | number:'1.0-0' }} {{ state?.currency || 'UNKNOWN' }}</strong></div>
       </div>
       <ul aria-label="Allocation legend">
         <li *ngFor="let slice of slices">
           <span class="swatch" [style.background]="slice.color"></span>
           <strong>{{ slice.symbol }}</strong>
           <span>{{ slice.percentage | number:'1.2-2' }}%</span>
-          <small>{{ slice.value | currency:'USD' }}</small>
+          <small>{{ slice.value | number:'1.2-2' }} {{ state?.currency || 'UNKNOWN' }}</small>
         </li>
       </ul>
     </div>

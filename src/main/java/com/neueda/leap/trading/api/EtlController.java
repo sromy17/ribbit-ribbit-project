@@ -31,6 +31,7 @@ public class EtlController {
 
         return ResponseEntity.status(status).body(Map.of(
             "success", result.successful(),
+            "runId", result.runId(),
             "message", result.message()
         ));
     }

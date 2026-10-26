@@ -90,6 +90,7 @@ export interface RegisterRequest {
 export interface CreateAccountRequest {
   userId: number;
   accountType: string;
+  currency: string;
 }
 
 export interface WalletBankAccount {
@@ -233,8 +234,8 @@ export class ApiService {
   public static readonly REFRESH_INTERVAL_MS = 60000;
   private apiUrl = '/api';
   private useMockData = false;
-  private readonly marketQuoteCache = new Map<string, { symbol: string; price: number; change?: number; changePercent?: number }>();
-  private readonly marketQuoteRequests = new Map<string, Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number }>>>();
+  private readonly marketQuoteCache = new Map<string, { symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>();
+  private readonly marketQuoteRequests = new Map<string, Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>>>();
   private readonly marketQuoteRequestTimes = new Map<string, number>();
   private readonly marketQuoteStorageKey = 'leap-trader:market-quotes';
   private marketQuoteCacheRestored = false;
@@ -271,8 +272,8 @@ export class ApiService {
     return this.http.post<TradingAccount>(`${this.apiUrl}/accounts`, request);
   }
 
-  getAccountBalance(accountId: string): Observable<{ accountId: string; cashBalance: number }> {
-    return this.http.get<{ accountId: string; cashBalance: number }>(
+  getAccountBalance(accountId: string): Observable<{ accountId: string; cashBalance: number; currency?: string }> {
+    return this.http.get<{ accountId: string; cashBalance: number; currency?: string }>(
       `${this.apiUrl}/accounts/${accountId}/balance`
     );
   }
@@ -340,11 +341,11 @@ export class ApiService {
 
   // Market data
 
-  getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number }> {
-    return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number }>(`/api/market/quotes/${encodeURIComponent(symbol)}`);
+  getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }> {
+    return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>(`/api/market/quotes/${encodeURIComponent(symbol)}`);
   }
 
-  getMarketQuotes(symbols: string[]): Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number }>> {
+  getMarketQuotes(symbols: string[]): Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>> {
     const normalizedSymbols = [...new Set(symbols.map((symbol) => symbol.toUpperCase()))];
     const cacheKey = normalizedSymbols.slice().sort().join(',');
     const existingRequest = this.marketQuoteRequests.get(cacheKey);
@@ -356,8 +357,8 @@ export class ApiService {
     this.restoreMarketQuoteCache();
     const cachedQuotes = normalizedSymbols
       .map((symbol) => this.marketQuoteCache.get(symbol))
-      .filter((quote): quote is { symbol: string; price: number; change?: number; changePercent?: number } => !!quote);
-    const networkRequest = this.http.get<Array<{ symbol: string; price: number; change?: number; changePercent?: number }>>(
+      .filter((quote): quote is { symbol: string; price: number; change?: number; changePercent?: number; currency?: string } => !!quote);
+    const networkRequest = this.http.get<Array<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>>(
       `${this.apiUrl}/market/quotes`,
       { params: { symbols: normalizedSymbols.join(',') } }
     ).pipe(
@@ -381,7 +382,7 @@ export class ApiService {
     try {
       const raw = localStorage.getItem(this.marketQuoteStorageKey);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as Array<{ symbol: string; price: number; change?: number; changePercent?: number }>;
+      const parsed = JSON.parse(raw) as Array<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>;
       if (Array.isArray(parsed)) {
         parsed.forEach((quote) => {
           if (quote?.symbol && Number.isFinite(quote.price)) {
@@ -553,7 +554,7 @@ export class ApiService {
     };
   }
 
-  private mockGetAccountBalance(accountId: string): { accountId: string; cashBalance: number } {
+  private mockGetAccountBalance(accountId: string): { accountId: string; cashBalance: number; currency?: string } {
     return {
       accountId,
       cashBalance: 50000
