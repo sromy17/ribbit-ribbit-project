@@ -1899,6 +1899,93 @@ input[type='number'] {
   animation: modal-pop-in 250ms ease-out;
 }
 
+.trade-details-dialog {
+  width: min(960px, calc(100vw - 32px));
+  height: min(800px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+  animation: modal-pop-in 250ms ease-out;
+}
+
+.trade-details-drawer {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  padding: 22px;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 16px;
+  background: var(--md-surface-container-high);
+  box-shadow: 0 18px 45px var(--md-shadow);
+  color: var(--md-on-surface);
+}
+
+.trade-details-drawer h3 {
+  margin: 10px 0 2px;
+  font-size: 1.8rem;
+}
+
+.trade-details-drawer p {
+  margin: 0 0 14px;
+  color: var(--md-on-surface-variant);
+  font-size: 0.82rem;
+}
+
+.trade-details-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr);
+  gap: 16px;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.close-button {
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--md-on-surface-variant);
+  cursor: pointer;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.drawer-sector {
+  color: var(--md-on-surface-variant);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.drawer-chart {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.drawer-information {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 0;
+}
+
+.trade-form-group {
+  gap: 10px;
+}
+
+.trade-order-placed {
+  width: min(420px, 90vw);
+  padding: 24px;
+  background: var(--md-surface);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px var(--md-shadow);
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -2083,6 +2170,20 @@ input[type='number'] {
   }
 
   .investor-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .trade-details-dialog {
+    width: min(960px, calc(100vw - 20px));
+    height: min(800px, calc(100dvh - 20px));
+    max-height: calc(100dvh - 20px);
+  }
+
+  .trade-details-drawer {
+    padding: 16px;
+  }
+
+  .trade-details-content {
     grid-template-columns: 1fr;
   }
 

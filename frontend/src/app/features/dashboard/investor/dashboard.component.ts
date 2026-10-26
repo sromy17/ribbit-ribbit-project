@@ -13,6 +13,7 @@ import { PortfolioHistoryPoint, PortfolioHistoryRange, PortfolioService } from '
 import { PortfolioAccountState, PortfolioStateService } from '../../../core/services/portfolio-state.service';
 import { AssetAllocationComponent } from '../../../shared/asset-allocation/asset-allocation.component';
 import { HelpComponent } from './help/help.component';
+import { TradingviewWidgetComponent } from '../../../shared/tradingview/tradingview-widget.component';
 
 interface WalletBankAccount {
   id: number;
@@ -32,11 +33,26 @@ interface WalletActivity {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, StockHeatmapComponent, AssetAllocationComponent, HelpComponent],
+  imports: [CommonModule, FormsModule, StockHeatmapComponent, AssetAllocationComponent, HelpComponent, TradingviewWidgetComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  private static readonly LARGE_CAP_FALLBACK_ORDER = [
+    'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'BRK.B', 'BRK-B', 'BRK/B',
+    'AVGO', 'LLY', 'JPM', 'V', 'WMT', 'MA', 'XOM', 'UNH', 'COST', 'ORCL',
+    'NFLX', 'JNJ', 'HD', 'PG', 'ABBV', 'BAC', 'KO', 'CRM', 'CVX', 'MRK',
+    'WFC', 'AMD', 'PEP', 'TMO', 'DIS', 'MCD', 'CSCO', 'ABT', 'INTU', 'LIN',
+    'ACN', 'DHR', 'ADBE', 'TXN', 'QCOM', 'VZ', 'PM', 'MS', 'CAT', 'IBM'
+  ];
+
+  private static readonly LARGE_CAP_FALLBACK_SCORE = new Map(
+    DashboardComponent.LARGE_CAP_FALLBACK_ORDER.map((symbol, index) => [
+      symbol.toUpperCase(),
+      DashboardComponent.LARGE_CAP_FALLBACK_ORDER.length - index
+    ])
+  );
+
   activeView: 'portfolio' | 'trade' | 'history' | 'wallet' | 'graphs' | 'news' | 'help' = 'portfolio';
   accountTypeLabel = 'Trading Account';
   currentUser: User | null = null;
@@ -86,6 +102,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   tradeSearch = '';
   tradeSearchError = '';
   selectedTicker = '';
+  selectedTradeInstrument: MarketInstrument | null = null;
   showOrderModal = false;
   orderPlaced = false;
   currentPrice: number | null = null;
@@ -199,7 +216,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.marketHeatmapError = '';
     this.api.getMarketInstruments().pipe(timeout(10000), takeUntil(this.destroy$)).subscribe({
       next: ({ symbols }) => {
-        const instruments = symbols.slice(0, 50);
+        const instruments = symbols;
         const batches = this.chunk(instruments, 25);
         from(batches).pipe(
           concatMap((batch) =>
@@ -223,7 +240,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 stocks.push(stock);
               }
               return stocks;
-            }, []);
+            }, []).sort((left, right) => this.getMarketCapRank(right) - this.getMarketCapRank(left)).slice(0, 50);
             this.loadingMarketHeatmap = false;
             this.cdr.detectChanges();
           },
@@ -248,6 +265,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!quote || !Number.isFinite(quote.price) || quote.price <= 0) {
       return null;
     }
+    const instrumentWithOptionalCap = instrument as MarketInstrument & {
+      marketCap?: number;
+      market_cap?: number;
+      marketCapitalization?: number;
+      sizeValue?: number;
+    };
+    const marketCap = this.toPositiveNumber(
+      instrumentWithOptionalCap.marketCap ??
+      instrumentWithOptionalCap.market_cap ??
+      instrumentWithOptionalCap.marketCapitalization
+    );
+    const sizeValue = this.toPositiveNumber(instrumentWithOptionalCap.sizeValue) ?? this.getFallbackCapScore(instrument.symbol);
+
     return {
       ticker: instrument.symbol,
       companyName: instrument.name,
@@ -255,7 +285,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
       currentPrice: quote.price,
       dailyChange: quote.changePercent ?? 0,
       sector: instrument.type,
+      marketCap: marketCap ?? undefined,
+      sizeValue: sizeValue ?? undefined,
     };
+  }
+
+  private getMarketCapRank(stock: HeatmapStock): number {
+    const rank = stock.marketCap ?? stock.sizeValue;
+    return Number.isFinite(rank) ? rank as number : 0;
+  }
+
+  private getFallbackCapScore(symbol: string): number {
+    return DashboardComponent.LARGE_CAP_FALLBACK_SCORE.get(symbol.trim().toUpperCase()) ?? 0;
+  }
+
+  private toPositiveNumber(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+    return value;
   }
 
   private chunk<T>(items: T[], size: number): T[][] {
@@ -399,11 +447,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     this.tradeSearchError = '';
     this.selectedTicker = symbol;
+    this.selectedTradeInstrument = this.marketInstruments.find(
+      (instrument) => instrument.symbol.toUpperCase() === symbol
+    ) ?? null;
     this.orderForm = { symbol, side: 'BUY', quantity: 1 };
     this.orderFormErrors = {};
     this.orderPlaced = false;
     this.showOrderModal = true;
     this.loadQuote(symbol);
+  }
+
+  getTradeChartSymbol(): string {
+    const exchange = this.selectedTradeInstrument?.exchange?.trim().toUpperCase();
+    const prefix = exchange === 'XNAS' ? 'NASDAQ' : exchange === 'XNYS' ? 'NYSE' : exchange;
+    return prefix === 'NASDAQ' || prefix === 'NYSE' || prefix === 'AMEX'
+      ? `${prefix}:${this.selectedTicker}`
+      : this.selectedTicker;
   }
 
   loadQuote(symbol: string): void {
@@ -450,6 +509,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.showOrderModal = false;
     this.orderPlaced = false;
     this.orderFormErrors = {};
+    this.selectedTradeInstrument = null;
   }
 
   backToPortfolio(): void {

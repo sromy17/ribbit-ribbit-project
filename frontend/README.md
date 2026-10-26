@@ -16,7 +16,7 @@ Once the server is running, open your browser and navigate to `http://localhost:
 
 The frontend uses the real services by default. `npm start` loads
 [`proxy.conf.json`](./proxy.conf.json), forwarding `/api/*` to the Spring
-trading service at `http://localhost:8082` and `/auth/*` to the Node auth stub
+trading service at `http://localhost:8081` and `/auth/*` to the Node auth stub
 at `http://localhost:4000`.
 
 Start the services in this order:

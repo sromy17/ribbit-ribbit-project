@@ -139,82 +139,95 @@
       </div>
 
       <div *ngIf="showOrderModal" class="modal-overlay" (click)="closeOrderModal()">
-        <div class="modal-box" (click)="$event.stopPropagation()">
+        <div class="trade-details-dialog" (click)="$event.stopPropagation()">
           <ng-container *ngIf="!orderPlaced; else orderPlacedBox">
-            <div class="modal-header">
-              <h2>{{ selectedTicker }}</h2>
-              <button type="button" class="btn-small" (click)="closeOrderModal()" aria-label="Close">✕</button>
-            </div>
-            
-            <div class="quote-card" *ngIf="!loadingQuote && currentPrice !== null; else quoteStatus">
-              <div class="quote-price-row">
-                <span class="quote-price-value">{{ currentPrice | number: '1.2-2' }}</span>
-                <span class="quote-currency">USD</span>
-                <div class="quote-change-box"
-                     *ngIf="currentChange !== null && currentChangePercent !== null"
-                     [class.positive]="currentChange >= 0"
-                     [class.negative]="currentChange < 0">
-                  <span class="quote-percent-pill">
-                    {{ currentChange >= 0 ? '↑' : '↓' }} {{ currentChangePercent >= 0 ? '+' : '' }}{{ currentChangePercent | number: '1.2-2' }}%
-                  </span>
-                  <span class="quote-change-amount">
-                    {{ currentChange >= 0 ? '+' : '' }}{{ currentChange | number: '1.2-2' }} today
-                  </span>
+            <div class="details-drawer trade-details-drawer">
+              <button class="close-button" type="button" (click)="closeOrderModal()" aria-label="Close stock details">×</button>
+              <span class="drawer-sector">{{ selectedTradeInstrument?.exchange || 'Market' }}</span>
+              <h3>{{ selectedTicker }}</h3>
+              <p>{{ selectedTradeInstrument?.name || 'Selected ticker' }}</p>
+
+              <div class="trade-details-content">
+                <div class="drawer-chart">
+                  <app-tradingview-widget [symbol]="getTradeChartSymbol()"></app-tradingview-widget>
+                </div>
+
+                <div class="drawer-information">
+                  <div class="quote-card" *ngIf="!loadingQuote && currentPrice !== null; else quoteStatus">
+                    <div class="quote-price-row">
+                      <span class="quote-price-value">{{ currentPrice | number: '1.2-2' }}</span>
+                      <span class="quote-currency">USD</span>
+                      <div class="quote-change-box"
+                        *ngIf="currentChange !== null && currentChangePercent !== null"
+                        [class.positive]="currentChange >= 0"
+                        [class.negative]="currentChange < 0">
+                        <span class="quote-percent-pill">
+                          {{ currentChange >= 0 ? '↑' : '↓' }} {{ currentChangePercent >= 0 ? '+' : '' }}{{ currentChangePercent | number: '1.2-2' }}%
+                        </span>
+                        <span class="quote-change-amount">
+                          {{ currentChange >= 0 ? '+' : '' }}{{ currentChange | number: '1.2-2' }} today
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ng-template #quoteStatus>
+                    <p class="quote-status">
+                      <span *ngIf="loadingQuote">Loading price...</span>
+                      <span class="error-text" *ngIf="!loadingQuote && quoteError">{{ quoteError }}</span>
+                    </p>
+                  </ng-template>
+
+                  <div class="form-group trade-form-group">
+                    <div class="form-field">
+                      <label>Side</label>
+                      <select [(ngModel)]="orderForm.side" (ngModelChange)="onOrderFormChange()" [disabled]="loading">
+                        <option>BUY</option>
+                        <option>SELL</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label>Quantity</label>
+                      <input
+                        type="number"
+                        [(ngModel)]="orderForm.quantity"
+                        placeholder="10"
+                        min="1"
+                        step="1"
+                        inputmode="numeric"
+                        (keydown)="blockInvalidNumberKey($event, false)"
+                        (paste)="sanitizeNumberPaste($event, false)"
+                        (ngModelChange)="onOrderFormChange()"
+                        [disabled]="loading" />
+                      <span class="error-text" *ngIf="orderFormErrors['quantity']">{{ orderFormErrors['quantity'] }}</span>
+                    </div>
+                    <div class="order-summary" *ngIf="orderForm.quantity > 0 && currentPrice !== null">
+                      <div class="summary-row">
+                        <span>Subtotal ({{ orderForm.quantity }} × ${{ currentPrice | number: '1.2-2' }})</span>
+                        <span>${{ getEstimatedNotional() | number: '1.2-2' }}</span>
+                      </div>
+                      <div class="summary-row">
+                        <span>Fee (0.1%, min $1.00)</span>
+                        <span>${{ getEstimatedFee() | number: '1.2-2' }}</span>
+                      </div>
+                      <div class="summary-row total">
+                        <span>{{ orderForm.side === 'BUY' ? 'Total cost' : 'Net proceeds' }}</span>
+                        <span>${{ getEstimatedTotal() | number: '1.2-2' }}</span>
+                      </div>
+                    </div>
+                    <button (click)="placeOrder()" [disabled]="loading || !isFormValid()" class="btn-primary btn-full-width">
+                      {{ loading ? 'Placing...' : 'Place Order' }}
+                    </button>
+                  </div>
+
+                  <div class="error-text" *ngIf="orderFormErrors['submit']">{{ orderFormErrors['submit'] }}</div>
                 </div>
               </div>
             </div>
-            <ng-template #quoteStatus>
-              <p class="quote-status">
-                <span *ngIf="loadingQuote">Loading price...</span>
-                <span class="error-text" *ngIf="!loadingQuote && quoteError">{{ quoteError }}</span>
-              </p>
-            </ng-template>
-            <div class="form-group">
-              <div class="form-field">
-                <label>Side</label>
-                <select [(ngModel)]="orderForm.side" (ngModelChange)="onOrderFormChange()" [disabled]="loading">
-                  <option>BUY</option>
-                  <option>SELL</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label>Quantity</label>
-                <input
-                  type="number"
-                  [(ngModel)]="orderForm.quantity"
-                  placeholder="10"
-                  min="1"
-                  step="1"
-                  inputmode="numeric"
-                  (keydown)="blockInvalidNumberKey($event, false)"
-                  (paste)="sanitizeNumberPaste($event, false)"
-                  (ngModelChange)="onOrderFormChange()"
-                  [disabled]="loading" />
-                <span class="error-text" *ngIf="orderFormErrors['quantity']">{{ orderFormErrors['quantity'] }}</span>
-              </div>
-              <div class="order-summary" *ngIf="orderForm.quantity > 0 && currentPrice !== null">
-                <div class="summary-row">
-                  <span>Subtotal ({{ orderForm.quantity }} × ${{ currentPrice | number: '1.2-2' }})</span>
-                  <span>${{ getEstimatedNotional() | number: '1.2-2' }}</span>
-                </div>
-                <div class="summary-row">
-                  <span>Fee (0.1%, min $1.00)</span>
-                  <span>${{ getEstimatedFee() | number: '1.2-2' }}</span>
-                </div>
-                <div class="summary-row total">
-                  <span>{{ orderForm.side === 'BUY' ? 'Total cost' : 'Net proceeds' }}</span>
-                  <span>${{ getEstimatedTotal() | number: '1.2-2' }}</span>
-                </div>
-              </div>
-              <button (click)="placeOrder()" [disabled]="loading || !isFormValid()" class="btn-primary btn-full-width">
-                {{ loading ? 'Placing...' : 'Place Order' }}
-              </button>
-            </div>
-            <div class="error-text" *ngIf="orderFormErrors['submit']">{{ orderFormErrors['submit'] }}</div>
           </ng-container>
 
           <ng-template #orderPlacedBox>
-            <div class="order-placed">
+            <div class="order-placed trade-order-placed">
               <button type="button" class="order-placed-close" (click)="closeOrderModal()" aria-label="Close order confirmation">✕</button>
               <h2>Order placed</h2>
               <p>Your order was submitted.</p>
