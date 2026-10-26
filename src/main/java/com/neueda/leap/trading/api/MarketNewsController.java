@@ -24,10 +24,18 @@ public class MarketNewsController {
     private final java.util.concurrent.Semaphore requests = new java.util.concurrent.Semaphore(4);
     private final RestClient provider;
     private final String apiKey;
+    private final PublicMarketNewsFeed publicFeed;
 
+    public MarketNewsController(String url, String apiKey) {
+        this(url,apiKey,PublicMarketNewsFeed.DEFAULT_URL);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public MarketNewsController(@Value("${market-data.finnhub.base-url:https://finnhub.io/api/v1}") String url,
-            @Value("${market-data.finnhub.api-key:}") String apiKey) {
+            @Value("${market-data.finnhub.api-key:}") String apiKey,
+            @Value("${market-data.news.rss-url:https://feeds.finance.yahoo.com/rss/2.0/headline}") String rssUrl) {
         this.apiKey = apiKey;
+        this.publicFeed = new PublicMarketNewsFeed(rssUrl);
         var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build());
         factory.setReadTimeout(Duration.ofSeconds(4));
         this.provider = RestClient.builder().baseUrl(url).requestFactory(factory).build();
@@ -48,13 +56,12 @@ public class MarketNewsController {
     }
 
     private List<Map<String,Object>> fetch(String endpoint, Map<String,String> params) {
-        if (apiKey.isBlank()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Market news is not configured");
         String key = endpoint+new java.util.TreeMap<>(params);
         Cached cached = cache.get(key);
         if (cached!=null && cached.expiresAt()>System.currentTimeMillis()) return cached.articles();
         if (!requests.tryAcquire()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"News service is busy; retry shortly");
         try {
-            List<Map<String,Object>> articles = provider.get().uri(builder -> {
+            List<Map<String,Object>> articles = apiKey.isBlank() ? publicFeed.fetch(params) : provider.get().uri(builder -> {
                 builder.path("/"+endpoint); params.forEach(builder::queryParam); return builder.build();
             }).header("X-Finnhub-Token",apiKey).retrieve().body(new ParameterizedTypeReference<List<Map<String,Object>>>() {});
             if (articles==null) throw new IllegalStateException("Missing news response");

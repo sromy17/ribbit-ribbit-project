@@ -70,9 +70,9 @@ function loadTradingView(): Promise<TradingViewApi> {
     :host { display: flex; position: relative; flex: 1; width: 100%; height: 100%; min-width: 0; min-height: 0; }
     .chart { flex: 1; width: 100%; height: 100%; min-width: 0; min-height: 0; }
     .status { position: absolute; inset: 0; display: grid; place-content: center; gap: 12px;
-      padding: 16px; background: #131a23; color: #e6edf3; text-align: center; white-space: normal; }
-    button { padding: 8px; border: 1px solid #8fa2b8; border-radius: 6px; background: #1f2937;
-      color: #e6edf3; cursor: pointer; }
+      padding: 16px; background: var(--ui-panel); color: var(--ui-ink); text-align: center; white-space: normal; }
+    button { padding: 8px; border: 1px solid var(--ui-line); border-radius: 6px; background: var(--ui-subtle);
+      color: var(--ui-ink); cursor: pointer; }
   `]
 })
 export class TradingviewWidgetComponent implements AfterViewInit, OnChanges, OnDestroy {
@@ -85,6 +85,7 @@ export class TradingviewWidgetComponent implements AfterViewInit, OnChanges, OnD
   private destroyed = false;
   private revision = 0;
   private widget?: TradingViewInstance;
+  private themeObserver?: MutationObserver;
 
   constructor(
     @Inject(PLATFORM_ID) private readonly platformId: object,
@@ -94,6 +95,10 @@ export class TradingviewWidgetComponent implements AfterViewInit, OnChanges, OnD
 
   ngAfterViewInit(): void {
     this.ready = isPlatformBrowser(this.platformId);
+    if (this.ready) {
+      this.themeObserver = new MutationObserver(() => this.render());
+      this.themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
     this.render();
   }
 
@@ -112,7 +117,7 @@ export class TradingviewWidgetComponent implements AfterViewInit, OnChanges, OnD
         if (this.destroyed || revision !== this.revision) return;
         this.widget = new api.widget({
           autosize: true, symbol: this.symbol, interval: 'D', timezone: 'Etc/UTC',
-          theme: 'dark', style: '1', locale: 'en', toolbar_bg: '#1f2937',
+          theme: document.body.classList.contains('theme-dark') ? 'dark' : 'light', style: '1', locale: 'en', toolbar_bg: getComputedStyle(document.body).getPropertyValue('--ui-panel').trim(),
           enable_publishing: false, allow_symbol_change: true, container_id: this.containerId
         });
         this.zone.run(() => { this.loading = false; this.cdr.markForCheck(); });
@@ -129,6 +134,7 @@ export class TradingviewWidgetComponent implements AfterViewInit, OnChanges, OnD
   }
 
   ngOnDestroy(): void {
+    this.themeObserver?.disconnect();
     this.destroyed = true;
     ++this.revision;
     this.removeWidget();

@@ -10,8 +10,37 @@ import org.springframework.web.server.ResponseStatusException;
 
 class MarketNewsControllerTest {
     @Test void validatesMissingConfigurationAndCompanyRanges() {
-        var news = new MarketNewsController("https://example.invalid", "");
+        var news = new MarketNewsController("https://example.invalid", "", "http://127.0.0.1:1/feed");
         assertEquals(503,assertThrows(ResponseStatusException.class,()->news.news("general")).getStatusCode().value());
+    }
+
+    @Test void publicFeedWorksWithoutAKeyAndFiltersInvalidAndOutOfRangeEvidence() throws Exception {
+        var server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+        var requests=new AtomicInteger();
+        server.createContext("/feed", exchange->{
+            requests.incrementAndGet();
+            assertNull(exchange.getRequestHeaders().getFirst("X-Finnhub-Token"));
+            byte[] bytes="""
+                <rss><channel>
+                <item><title>Recorded headline</title><link>https://example.com/one</link><pubDate>Mon, 26 Oct 2026 12:00:00 GMT</pubDate><description>Publisher summary</description></item>
+                <item><title>Duplicate</title><link>https://example.com/one</link><pubDate>Mon, 26 Oct 2026 12:00:00 GMT</pubDate></item>
+                <item><title>Old</title><link>https://example.com/old</link><pubDate>Sun, 25 Oct 2026 12:00:00 GMT</pubDate></item>
+                <item><title>No date</title><link>https://example.com/no-date</link></item>
+                <item><title>Unsafe</title><link>javascript:alert(1)</link><pubDate>Mon, 26 Oct 2026 12:00:00 GMT</pubDate></item>
+                </channel></rss>
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200,bytes.length);exchange.getResponseBody().write(bytes);exchange.close();
+        });server.start();
+        try {
+            var news=new MarketNewsController("https://example.invalid","","http://127.0.0.1:"+server.getAddress().getPort()+"/feed");
+            var articles=news.company("AAPL",LocalDate.of(2026,10,26),LocalDate.of(2026,10,26));
+            assertEquals(1,articles.size());
+            assertEquals("Recorded headline",articles.getFirst().get("headline"));
+            assertEquals("Yahoo Finance RSS",articles.getFirst().get("source"));
+            assertEquals(1793016000L,articles.getFirst().get("datetime"));
+            assertEquals(articles,news.company("AAPL",LocalDate.of(2026,10,26),LocalDate.of(2026,10,26)));
+            assertEquals(1,requests.get());
+        } finally { server.stop(0); }
     }
 
     @Test void keepsProviderKeyOnServerCachesRealArticlesAndDoesNotInventFailures() throws Exception {

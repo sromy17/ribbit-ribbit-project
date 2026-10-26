@@ -96,10 +96,7 @@ export class FinnhubNewsService {
     return defer(() => {
       const stored = this.readCache(storageKey);
       const cached = stored?.every(article => article.id > 0) ? stored : null;
-      return concat(
-        cached ? of(cached) : of([]),
-        refresh
-      );
+      return cached ? concat(of(cached), refresh) : refresh;
     }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
   }
 

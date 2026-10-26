@@ -147,7 +147,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     this.finnhubNews.availability$.pipe(takeUntil(this.destroy$)).subscribe(status => {
-      if (status === 'unavailable') this.newsError = 'Market news is unavailable. The provider may not be configured.';
+      if (status === 'unavailable') this.newsError = 'Market news is temporarily unavailable. Please retry shortly.';
       if (status === 'available') this.newsError = '';
       this.cdr.markForCheck();
     });
@@ -402,7 +402,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   selectTicker(symbolOverride?: string): void {
     const symbol = (symbolOverride ?? this.tradeSearch).trim().toUpperCase();
-    if (!/^[A-Z]{1,5}$/.test(symbol)) {
+    if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
       this.tradeSearchError = 'Enter a valid ticker (e.g., AAPL, MSFT)';
       return;
     }
@@ -499,12 +499,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.newsArticles = articles;
         this.newsLoaded = true;
         this.loadingNews = false;
+        this.cdr.markForCheck();
       },
       error: (error) => {
         console.error('Finnhub News Error:', error);
         console.error('Error loading Finnhub news:', error);
         this.newsError = 'Live news is temporarily unavailable. Please try again shortly.';
         this.loadingNews = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -521,7 +523,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.loadNews();
       return;
     }
-    if (!/^[A-Z]{1,5}$/.test(symbol)) {
+    if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
       this.newsError = 'Enter a valid ticker such as AAPL, NVDA, or TSLA.';
       return;
     }
@@ -536,12 +538,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: (articles) => {
         this.newsArticles = articles;
         this.loadingNews = false;
+        this.cdr.markForCheck();
       },
       error: (error) => {
         console.error('Finnhub News Error:', error);
         console.error(`Error loading Finnhub news for ${symbol}:`, error);
         this.newsError = `News for ${symbol} is temporarily unavailable.`;
         this.loadingNews = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -562,59 +566,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return (article.related ?? '').split(',').map((ticker) => ticker.trim().toUpperCase()).filter(Boolean).slice(0, 4);
   }
 
-  private readonly fallbackNewsImages = [
-    'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1559526324-593bc073d938?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80'
-  ];
-
-  getNewsImage(article: FinnhubNewsArticle, articleIndex = 0): string {
-    if (article.image && !this.failedNewsImages.has(article.id)) {
-      return article.image;
-    }
-    return this.getNewsFallbackImage(article, articleIndex);
-  }
-
   handleNewsImageError(article: FinnhubNewsArticle): void {
     this.failedNewsImages.add(article.id);
     this.cdr.detectChanges();
-  }
-
-  private getNewsFallbackImage(article: FinnhubNewsArticle, articleIndex: number): string {
-    const imageIndex = this.getFallbackImageIndex(article, articleIndex);
-    return this.fallbackNewsImages[imageIndex];
-  }
-
-  private getFallbackImageIndex(article: FinnhubNewsArticle, articleIndex: number): number {
-    const headlineHash = article.headline
-      .split('')
-      .reduce((hash, character) => hash + character.charCodeAt(0), 0);
-    let imageIndex = Math.abs(headlineHash) % this.fallbackNewsImages.length;
-    if (articleIndex > 0) {
-      const previousArticle = this.filteredNewsArticles[articleIndex - 1];
-      if (previousArticle && (!previousArticle.image || this.failedNewsImages.has(previousArticle.id))) {
-        const previousIndex = this.getFallbackImageIndex(previousArticle, articleIndex - 1);
-        if (imageIndex === previousIndex) {
-          imageIndex = (imageIndex + 1) % this.fallbackNewsImages.length;
-        }
-      }
-    }
-    return imageIndex;
   }
 
   getTimeAgo(timestamp: number): string {
@@ -908,7 +862,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     if (!this.orderForm.symbol || this.orderForm.symbol.trim() === '') {
       this.orderFormErrors['symbol'] = 'Symbol is required';
-    } else if (!/^[A-Z]{1,5}$/.test(this.orderForm.symbol.toUpperCase())) {
+    } else if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(this.orderForm.symbol.toUpperCase())) {
       this.orderFormErrors['symbol'] = 'Invalid symbol format (e.g., AAPL, MSFT)';
     }
 
@@ -1077,8 +1031,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getHistoryColor(): string {
     return this.portfolioHistory.length > 1 && this.portfolioHistory[this.portfolioHistory.length - 1].value >= this.portfolioHistory[0].value
-      ? '#22c55e'
-      : '#ef4444';
+      ? 'var(--ui-success)'
+      : 'var(--ui-danger)';
   }
 
   getHistoryChange(): number {

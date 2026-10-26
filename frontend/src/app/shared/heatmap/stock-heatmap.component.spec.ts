@@ -21,6 +21,21 @@ describe('Heatmap stock selection', () => {
     HTMLDialogElement.prototype.showModal = function () { this.open = true; };
     HTMLDialogElement.prototype.close = function () { this.open = false; };
   });
+  it('shows a ticker, price and uncapped percentage for every stock', () => {
+    TestBed.configureTestingModule({ providers: [{ provide: FinnhubNewsService, useValue: { getCompanyNews: () => of([]) } }] });
+    const fixture = TestBed.createComponent(StockHeatmapComponent);
+    fixture.componentRef.setInput('stocks', Array.from({ length: 50 }, (_, index) => ({
+      ticker: `S${index}`, companyName: `Company ${index}`, currentPrice: 100 + index, dailyChange: 12.75
+    })));
+    fixture.detectChanges();
+    const tiles = fixture.nativeElement.querySelectorAll('.tile');
+    expect(tiles).toHaveLength(50);
+    for (const tile of tiles) {
+      expect(tile.querySelector('.ticker')?.textContent).toBeTruthy();
+      expect(tile.querySelector('.price')?.textContent).toContain('$');
+      expect(tile.querySelector('.change')?.textContent).toContain('+12.75%');
+    }
+  });
   it('selects another tile after company news fails', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     TestBed.configureTestingModule({

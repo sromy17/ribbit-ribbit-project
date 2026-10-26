@@ -52,7 +52,7 @@ async function call(path, token, body) {
   assert.ok(accounts.length>0);
   await call(`/api/accounts/${accounts[0].accountId}/wallet/banks`,customer.token);
   const unavailableNews=await fetch(base+'/api/market/news',{headers:{Authorization:`Bearer ${customer.token}`}});
-  assert.equal(unavailableNews.status,503,'Unconfigured news must be unavailable, not fabricated');
+  assert.equal(unavailableNews.status,503,'Unavailable news provider must return an error, not fabricated articles');
   const unauthorizedNews=await fetch(base+'/api/market/news');
   assert.equal(unauthorizedNews.status,401);
   const invalidBatch=await fetch(base+'/api/market/quotes?symbols=INVALID%3F',{headers:{Authorization:`Bearer ${customer.token}`}});

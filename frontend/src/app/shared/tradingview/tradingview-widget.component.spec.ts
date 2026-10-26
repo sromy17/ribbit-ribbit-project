@@ -6,9 +6,11 @@ describe('TradingView widget lifecycle', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     Reflect.deleteProperty(window, 'TradingView');
+    document.body.classList.remove('theme-dark');
   });
 
   it('creates an autosized dark chart, updates symbols, and cleans up', async () => {
+    document.body.classList.add('theme-dark');
     const remove = vi.fn();
     const widget = vi.fn(function (options: { container_id: string }) {
       return { id: options.container_id, remove };
@@ -29,6 +31,22 @@ describe('TradingView widget lifecycle', () => {
     expect(widget).toHaveBeenLastCalledWith(expect.objectContaining({ symbol: 'NASDAQ:AAPL' }));
     fixture.destroy();
     expect(remove).toHaveBeenCalledTimes(2);
+  });
+
+  it('updates an open chart when the shared theme changes', async () => {
+    const widget = vi.fn(function (options: { container_id: string }) {
+      return { id: options.container_id, remove: vi.fn() };
+    });
+    Object.defineProperty(window, 'TradingView', { configurable: true, value: { widget } });
+    document.body.classList.remove('theme-dark');
+    const fixture = TestBed.createComponent(TradingviewWidgetComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(widget).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'light' }));
+    document.body.classList.add('theme-dark');
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await fixture.whenStable();
+    expect(widget).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark' }));
   });
 
   it('does not create a widget after the view is destroyed while awaiting initialization', async () => {

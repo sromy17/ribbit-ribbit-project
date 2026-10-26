@@ -13,7 +13,7 @@ h2 { font-size:1.1rem; font-weight:650; margin-bottom:.8rem; }
 .money-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; }
 .bar-chart { margin:1.5rem 0; display:grid; gap:.6rem; }
 .bar-chart>div { display:grid; grid-template-columns:140px minmax(20px,1fr) 90px; align-items:center; gap:1rem; font-size:.8rem; }
-.bar { height:14px; min-width:2px; border-radius:4px; background:#318d79; }
+.bar { height:14px; min-width:2px; border-radius:4px; background:var(--ui-brand); }
 .activity-map { display:flex; flex-wrap:wrap; gap:.5rem; margin:1rem 0; }
-.activity-map>div { display:grid; gap:.5rem; min-width:135px; padding:1rem; background:#238372; color:white; border-radius:.5rem; }
+.activity-map>div { display:grid; gap:.5rem; min-width:135px; padding:1rem; background:var(--ui-brand); color:var(--ui-brand-ink); border-radius:.5rem; }
 dl { display:grid; grid-template-columns:1fr auto; max-width:600px; gap:.3rem; } caption { text-align:left; padding:1rem 0; } details { margin-top:1rem; } ul { padding:1rem; list-style:disc; }

@@ -1,4 +1,8 @@
 <div class="heatmap-shell">
+  <div class="market-legend" aria-label="Daily price change legend">
+    <span>Daily change · Equal-sized tiles</span>
+    <span><i class="legend-loss"></i>Down</span><span><i class="legend-flat"></i>Unchanged</span><span><i class="legend-gain"></i>Up</span>
+  </div>
   <div class="heatmap-pane">
   <div class="heatmap-skeleton" *ngIf="loading && tiles.length === 0" aria-label="Loading market heatmap">
     <span *ngFor="let block of skeletonBlocks"></span>
@@ -8,16 +12,8 @@
     <article
       *ngFor="let tile of tiles; trackBy: trackByTicker"
       class="tile"
-      [class.tile-large]="tile.textMode === 'large'"
-      [class.tile-medium]="tile.textMode === 'medium'"
-      [class.tile-small]="tile.textMode === 'small'"
-      [class.tile-micro]="tile.textMode === 'micro'"
       [class.tile-selected]="selectedStock?.ticker === tile.ticker"
       [style.background-color]="tile.color"
-      [style.left.%]="tile.left / layoutWidth * 100"
-      [style.top.%]="tile.top / layoutHeight * 100"
-      [style.width.%]="tile.width / layoutWidth * 100"
-      [style.height.%]="tile.height / layoutHeight * 100"
       tabindex="0"
       [attr.aria-label]="tile.ticker + ' ' + formatChange(tile.dailyChange)"
       [attr.aria-pressed]="selectedStock?.ticker === tile.ticker"
@@ -30,21 +26,18 @@
         <img
           *ngIf="getLogoUrl(tile.ticker) && !hiddenLogos.has(tile.ticker)"
           class="company-logo"
-          [class.company-logo-large]="tile.textMode === 'large' || tile.textMode === 'medium'"
-          [class.company-logo-compact]="tile.textMode === 'small' || tile.textMode === 'micro'"
           [src]="getLogoUrl(tile.ticker)!"
           [alt]="tile.companyName + ' logo'"
           (error)="hideLogo(tile.ticker)"
         />
         <span
           *ngIf="!getLogoUrl(tile.ticker) || hiddenLogos.has(tile.ticker)"
-          class="logo-avatar"
-          [class.logo-avatar-compact]="tile.textMode === 'small' || tile.textMode === 'micro'">{{ getInitials(tile.ticker) }}</span>
+          class="logo-avatar">{{ getInitials(tile.ticker) }}</span>
       </div>
       <div class="tile-content">
-        <strong class="ticker" [class.ticker-centered]="tile.textMode === 'micro'">{{ tile.ticker }}</strong>
-        <span class="change" *ngIf="tile.textMode === 'large' || tile.textMode === 'medium' || tile.textMode === 'small'">{{ formatChange(tile.dailyChange) }}</span>
-        <span class="price" *ngIf="tile.textMode === 'large'">${{ tile.currentPrice | number: '1.2-2' }}</span>
+        <strong class="ticker" >{{ tile.ticker }}</strong>
+        <span class="change">{{ formatChange(tile.dailyChange) }}</span>
+        <span class="price">${{ tile.currentPrice | number: '1.2-2' }}</span>
       </div>
       <div class="tooltip" role="tooltip">
         <strong>{{ tile.companyName }}</strong>
@@ -76,7 +69,7 @@
       <app-tradingview-widget [symbol]="getChartSymbol(stock)"></app-tradingview-widget>
     </div>
     <div class="drawer-information">
-    <div class="drawer-change" [style.color]="getHeatmapColor(stock.dailyChange)">{{ formatChange(stock.dailyChange) }}</div>
+    <div class="drawer-change" [style.color]="stock.dailyChange < 0 ? 'var(--ui-danger)' : stock.dailyChange > 0 ? 'var(--ui-success)' : 'var(--ui-muted)'">{{ formatChange(stock.dailyChange) }}</div>
     <dl>
       <div><dt>Price</dt><dd>${{ stock.currentPrice | number: '1.2-2' }}</dd></div>
       <div><dt>Market cap</dt><dd>{{ stock.marketCap ? ('$' + (stock.marketCap | number: '1.0-0')) : 'Not supplied by quote provider' }}</dd></div>

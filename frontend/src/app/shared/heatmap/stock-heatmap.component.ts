@@ -2,9 +2,8 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, NgZone, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
-import { hierarchy, treemap } from 'd3';
 import { FinnhubNewsArticle, FinnhubNewsService } from '../../core/services/finnhub-news.service';
-import { clampChange, getHeatmapColor } from './heatmap-color';
+import { getHeatmapColor } from './heatmap-color';
 import { getCompanyLogoUrl } from './company-logo';
 import { TradingviewWidgetComponent } from '../tradingview/tradingview-widget.component';
 import { PortfolioStateService } from '../../core/services/portfolio-state.service';
@@ -23,21 +22,7 @@ export interface HeatmapStock {
   exchange?: string;
 }
 
-interface HeatmapTile extends HeatmapStock {
-  color: string;
-  weight: number;
-  textMode: 'large' | 'medium' | 'small' | 'micro';
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-interface TreemapData {
-  stock?: HeatmapStock;
-  weight?: number;
-  children?: TreemapData[];
-}
+interface HeatmapTile extends HeatmapStock { color: string; }
 
 @Component({
   selector: 'app-stock-heatmap',
@@ -54,8 +39,6 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy {
   private companyNewsSubscription?: Subscription;
   private tradeSubscription?: Subscription;
   private toastTimer?: ReturnType<typeof setTimeout>;
-  readonly layoutWidth = 1000;
-  readonly layoutHeight = 600;
   @Input() stocks: HeatmapStock[] = [];
   @Input() loading = false;
 
@@ -276,77 +259,12 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy {
   }
 
   private createTiles(stocks: HeatmapStock[]): HeatmapTile[] {
-    const ranked = stocks
-      .filter((stock) => Number.isFinite(stock.currentPrice) && stock.currentPrice > 0)
-      .sort((left, right) => this.getWeight(right) - this.getWeight(left))
-      .slice(0, 50);
-
-    const root = hierarchy<TreemapData>({
-      children: ranked.map((stock, index) => ({
-        stock,
-        weight: this.getSyntheticWeight(index)
-      }))
-    })
-      .sum((node) => node.weight ?? 0)
-      .sort((left, right) => (right.value ?? 0) - (left.value ?? 0));
-
-    const layout = treemap<TreemapData>()
-      .size([this.layoutWidth, this.layoutHeight])
-      .paddingInner(2)
-      .paddingOuter(2)
-      .round(true);
-
-    return layout(root).leaves()
-      .filter((node): node is typeof node & { data: { stock: HeatmapStock } } => !!node.data.stock)
-      .map((node) => this.toTile(
-        node.data.stock,
-        node.data.weight ?? 0,
-        node.x0,
-        node.y0,
-        node.x1 - node.x0,
-        node.y1 - node.y0
-      ));
-  }
-
-  private toTile(
-    stock: HeatmapStock,
-    weight: number,
-    left: number,
-    top: number,
-    width: number,
-    height: number
-  ): HeatmapTile {
-    const dailyChange = clampChange(Number.isFinite(stock.dailyChange) ? stock.dailyChange : 0);
-    return {
-      ...stock,
-      dailyChange,
-      color: getHeatmapColor(dailyChange),
-      weight,
-      left,
-      top,
-      width,
-      height,
-      textMode: this.getTextMode(width, height)
-    };
-  }
-
-  private getSyntheticWeight(rank: number): number {
-    return Math.max(10, Math.pow(51 - rank, 1.2));
-  }
-
-  private getTextMode(width: number, height: number): HeatmapTile['textMode'] {
-    if (width > 110 && height > 90) return 'large';
-    if (width > 70 && height > 50) return 'medium';
-    if (width > 45 && height > 35) return 'small';
-    return 'micro';
+    return stocks.filter(stock => Number.isFinite(stock.currentPrice) && stock.currentPrice > 0)
+      .slice(0, 50).map(stock => ({ ...stock, color: getHeatmapColor(stock.dailyChange) }));
   }
 
   private toDate(date: Date): string {
     return date.toISOString().slice(0, 10);
   }
 
-  private getWeight(stock: HeatmapStock): number {
-    const weight = stock.marketCap ?? stock.sizeValue;
-    return Number.isFinite(weight) && (weight ?? 0) > 0 ? weight as number : 0;
-  }
 }

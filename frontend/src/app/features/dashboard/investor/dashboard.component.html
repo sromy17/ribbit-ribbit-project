@@ -504,7 +504,7 @@
         <app-help *ngIf="activeView === 'help'"></app-help>
 
         <div *ngIf="activeView === 'graphs'" class="section full-width market-heatmap-section">
-          <h1 class="market-heatmap-title">LEAP Trader Pro Heatmap</h1>
+          <h1 class="market-heatmap-title">Market overview</h1>
           <div *ngIf="loadingMarketHeatmap" class="loading-indicator">Loading market data...</div>
           <div *ngIf="marketHeatmapError" class="error-banner">{{ marketHeatmapError }}</div>
           <app-stock-heatmap [stocks]="marketStocks" [loading]="loadingMarketHeatmap" [accountNumber]="accountId"></app-stock-heatmap>
@@ -515,7 +515,7 @@
             <div>
               <span class="news-badge">NEWS</span>
               <h2 id="news-heading">Market news</h2>
-              <p class="description">Latest available headlines from Finnhub.</p>
+              <p class="description">Latest available headlines · Source and publication time shown on each article.</p>
             </div>
           </div>
 
@@ -542,8 +542,9 @@
           <div *ngIf="!loadingNews && !newsError && filteredNewsArticles.length > 0" class="news-grid">
             <article *ngFor="let article of filteredNewsArticles; let articleIndex = index" class="news-card">
               <div class="news-card-image">
-                <img
-                  [src]="getNewsImage(article, articleIndex)"
+                <span *ngIf="!article.image || failedNewsImages.has(article.id)" class="news-image-placeholder" aria-hidden="true">Market brief</span>
+                <img *ngIf="article.image && !failedNewsImages.has(article.id)"
+                  [src]="article.image"
                   [alt]="article.headline"
                   (error)="handleNewsImageError(article)" />
                 <span *ngIf="getArticleTickers(article)[0] as ticker" class="news-image-ticker">${{ ticker }}</span>

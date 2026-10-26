@@ -27,3 +27,9 @@ An empty Docker volume is initialized by Compose. Existing volumes are upgraded 
 Legacy transactions lack some original timestamps, fees and execution metadata. They remain visible, with reporting incompleteness warnings; the migration does not invent that evidence. Small client segment reporting remains withheld because its disclosure policy has not been approved. Metric approval, retention policy and production load targets still require stakeholder sign-off.
 
 For another local setup, explicitly run `node scripts/provision-local-accounts.cjs` after starting/migrating PostgreSQL to create separate accounts. `--legacy-usd` additionally assigns USD to currency-less accounts and should only be used with the account owner's approval. This command does not reset passwords or grant permissions to existing usernames.
+
+## News and market appearance
+
+Market and company news use public Yahoo Finance RSS when no Finnhub key is configured; an optional server-side `FINNHUB_API_KEY` selects Finnhub instead. The backend validates dates and HTTPS article links, caches results for a minute, and reports upstream failures without generating articles. Headlines retain the feed's source and publication time. Stock searches filter the available company feed to the selected date range.
+
+The Market map uses equal-sized tiles with the ticker, actual percentage change and price always visible. Tile area does not imply unavailable market capitalization. It scrolls rather than shrinking labels. Customer, admin and analytics workspaces share the emerald/slate light and dark theme tokens, including help, news, charts and stock dialogs.

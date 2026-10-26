@@ -7,11 +7,11 @@ export function clampChange(change: number): number {
 
 export function getHeatmapColor(dailyChange: number): string {
   const change = Number.isFinite(dailyChange) ? dailyChange : 0;
-  if (change >= 5) return '#0E4429';
-  if (change >= 2) return '#006D32';
-  if (change > 0) return '#1b3320';
-  if (change === 0) return '#21262d';
-  if (change > -2) return '#3d1c1c';
-  if (change > -5) return '#A61C1C';
-  return '#8A0000';
+  if (change >= 5) return 'var(--heatmap-up-3)';
+  if (change >= 2) return 'var(--heatmap-up-2)';
+  if (change > 0) return 'var(--heatmap-up-1)';
+  if (change === 0) return 'var(--ui-subtle)';
+  if (change > -2) return 'var(--heatmap-down-1)';
+  if (change > -5) return 'var(--heatmap-down-2)';
+  return 'var(--heatmap-down-3)';
 }

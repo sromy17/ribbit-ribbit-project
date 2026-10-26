@@ -22,7 +22,7 @@ interface AllocationSlice {
     <div class="allocation" *ngIf="state && total > 0">
       <div class="donut">
         <svg viewBox="0 0 220 220" role="img" aria-label="Asset allocation including cash">
-          <circle cx="110" cy="110" r="82" fill="none" stroke="#263240" stroke-width="25" />
+          <circle cx="110" cy="110" r="82" fill="none" stroke="var(--ui-line)" stroke-width="25" />
           <circle *ngFor="let slice of slices" cx="110" cy="110" r="82"
             fill="none" [attr.stroke]="slice.color" stroke-width="25" pathLength="100"
             [attr.stroke-dasharray]="slice.percentage + ' ' + (100 - slice.percentage)"
@@ -78,7 +78,7 @@ export class AssetAllocationComponent implements OnChanges {
       const percentage = position.value / this.total * 100;
       const slice = {
         ...position, percentage, offset,
-        color: position.symbol === 'Cash' ? '#94a3b8' : `hsl(${(index * 137.508 + 145) % 360} 65% 60%)`
+        color: position.symbol === 'Cash' ? 'var(--ui-muted)' : `var(--ui-chart-${index % 6 + 1})`
       };
       offset += percentage;
       return slice;

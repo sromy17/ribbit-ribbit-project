@@ -31,6 +31,18 @@
     --ui-warning: #926316;
     --ui-danger-bg: #fff0f1;
     --ui-warning-bg: #fff7df;
+    --heatmap-up-1: #dcf3e9;
+    --heatmap-up-2: #a8dec9;
+    --heatmap-up-3: #5cb893;
+    --heatmap-down-1: #fae2e6;
+    --heatmap-down-2: #efbac4;
+    --heatmap-down-3: #e68b9e;
+    --ui-chart-1: #087f65;
+    --ui-chart-2: #3978ae;
+    --ui-chart-3: #8661b1;
+    --ui-chart-4: #b77a32;
+    --ui-chart-5: #b85770;
+    --ui-chart-6: #328b94;
 
   }
   body.theme-dark {
@@ -48,6 +60,18 @@
     --ui-warning: #e4bf77;
     --ui-danger-bg: #3b202b;
     --ui-warning-bg: #342e23;
+    --heatmap-up-1: #193d34;
+    --heatmap-up-2: #205d49;
+    --heatmap-up-3: #247552;
+    --heatmap-down-1: #442933;
+    --heatmap-down-2: #713848;
+    --heatmap-down-3: #964457;
+    --ui-chart-1: #76dbb4;
+    --ui-chart-2: #7cb6e5;
+    --ui-chart-3: #b99cde;
+    --ui-chart-4: #e4bf77;
+    --ui-chart-5: #e797ad;
+    --ui-chart-6: #78c5cc;
   }
   body {
     --md-primary: var(--ui-brand);
