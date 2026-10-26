@@ -2,6 +2,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # Isolated source/OLAP databases and ports; never reads the project .env.
+connection_demo=false
+connection_backend_port=18082; connection_auth_port=14000; connection_ui_port=14200
+if [[ "${1:-}" == '--demo' ]]; then
+  connection_demo=true
+  connection_backend_port=18182; connection_auth_port=14100; connection_ui_port=14300
+fi
 connection_container="leap-connection-check-$$"
 connection_temp="$(mktemp -d)"
 connection_backend=""; connection_auth=""; connection_frontend=""
@@ -22,27 +28,30 @@ connection_port="$(docker port "$connection_container" 5432/tcp | head -1 | awk 
 docker exec "$connection_container" createdb -U postgres connection_reporting
 docker exec -i "$connection_container" psql -v ON_ERROR_STOP=1 -U postgres -d connection_source < basedSchema.sql > "$connection_temp/schema.log" 2>&1
 docker exec -i "$connection_container" psql -v ON_ERROR_STOP=1 -U postgres -d connection_source < insert-data.sql >> "$connection_temp/schema.log" 2>&1
+if [[ "$connection_demo" == true ]]; then
+  docker exec -i "$connection_container" psql -v ON_ERROR_STOP=1 -U postgres -d connection_source < scripts/fixtures/admin-analytics-demo.sql >> "$connection_temp/schema.log" 2>&1
+fi
 docker exec -i "$connection_container" psql -v ON_ERROR_STOP=1 -U postgres -d connection_reporting < olap.sql >> "$connection_temp/schema.log" 2>&1
 docker exec "$connection_container" psql -v ON_ERROR_STOP=1 -U postgres -d connection_source -c "INSERT INTO roles(rolename) VALUES('PLATFORM_ADMINISTRATOR'),('ANALYST'); INSERT INTO user_roles(userid,roleid) SELECT 1,roleid FROM roles WHERE rolename='PLATFORM_ADMINISTRATOR'; INSERT INTO user_roles(userid,roleid) SELECT 2,roleid FROM roles WHERE rolename='ANALYST';" >/dev/null
 mvn -q package -DskipTests > "$connection_temp/package.log" 2>&1
-DB_URL="jdbc:postgresql://127.0.0.1:$connection_port/connection_source" DB_USER=postgres DB_PASSWORD=connection-test-only DB_OLAP_URL="jdbc:postgresql://127.0.0.1:$connection_port/connection_reporting" SERVER_PORT=18082 ORDER_EXECUTION_KAFKA_ENABLED=false java -jar target/team-skeleton.jar > "$connection_temp/backend.log" 2>&1 &
+DB_URL="jdbc:postgresql://127.0.0.1:$connection_port/connection_source" DB_USER=postgres DB_PASSWORD=connection-test-only DB_OLAP_URL="jdbc:postgresql://127.0.0.1:$connection_port/connection_reporting" SERVER_PORT="$connection_backend_port" ORDER_EXECUTION_KAFKA_ENABLED=false java -jar target/team-skeleton.jar > "$connection_temp/backend.log" 2>&1 &
 connection_backend=$!
-DB_URL="postgresql://127.0.0.1:$connection_port/connection_source" DB_USER=postgres DB_PASSWORD=connection-test-only JWT_SHARED_SECRET=please-change-this-jwt-secret-before-production AUTH_STUB_PORT=14000 node shared/auth-stub/server.js > "$connection_temp/auth.log" 2>&1 &
+DB_URL="postgresql://127.0.0.1:$connection_port/connection_source" DB_USER=postgres DB_PASSWORD=connection-test-only JWT_SHARED_SECRET=please-change-this-jwt-secret-before-production AUTH_STUB_PORT="$connection_auth_port" node shared/auth-stub/server.js > "$connection_temp/auth.log" 2>&1 &
 connection_auth=$!
-node - "$connection_temp/proxy.json" <<'NODE'
+node - "$connection_temp/proxy.json" "$connection_backend_port" "$connection_auth_port" <<'NODE'
 const fs=require('fs');const config=JSON.parse(fs.readFileSync('frontend/proxy.conf.json','utf8'));
-for(const [key,value] of Object.entries(config)) value.target=key==='/auth'?'http://127.0.0.1:14000':'http://127.0.0.1:18082';
+for(const [key,value] of Object.entries(config)) value.target='http://127.0.0.1:'+(key==='/auth'?process.argv[4]:process.argv[3]);
 fs.writeFileSync(process.argv[2],JSON.stringify(config));
 NODE
-(cd frontend; NG_BUILD_MAX_WORKERS=2 exec node node_modules/@angular/cli/bin/ng.js serve --host 127.0.0.1 --port 14200 --proxy-config "$connection_temp/proxy.json") > "$connection_temp/frontend.log" 2>&1 &
+(cd frontend; NG_BUILD_MAX_WORKERS=2 exec node node_modules/@angular/cli/bin/ng.js serve --host 127.0.0.1 --port "$connection_ui_port" --proxy-config "$connection_temp/proxy.json") > "$connection_temp/frontend.log" 2>&1 &
 connection_frontend=$!
 for attempt in {1..60}; do
-  if curl -fsS http://127.0.0.1:18082/actuator/health >/dev/null 2>&1 && curl -fsS http://127.0.0.1:14200/auth/health >/dev/null 2>&1; then break; fi
+  if curl -fsS "http://127.0.0.1:$connection_backend_port/actuator/health" >/dev/null 2>&1 && curl -fsS "http://127.0.0.1:$connection_ui_port/auth/health" >/dev/null 2>&1; then break; fi
   sleep 1
 done
-node scripts/verify-merged-connection.cjs
+MERGE_UI_URL="http://127.0.0.1:$connection_ui_port" MERGE_DEMO="$connection_demo" node scripts/verify-merged-connection.cjs
 printf 'Logs: %s\n' "$connection_temp"
-if [[ "${1:-}" == '--preview' ]]; then
-  echo 'UI: http://127.0.0.1:14200 — john_trader (admin staff), jane_investor (analyst staff), bob_daytrader (customer); password mission123. Ctrl-C stops disposable stack.'
+if [[ "${1:-}" == '--preview' || "$connection_demo" == true ]]; then
+  echo "UI: http://127.0.0.1:$connection_ui_port — john_trader (admin staff), jane_investor (analyst staff), bob_daytrader (customer); password mission123. Ctrl-C stops disposable stack."
   wait "$connection_frontend"
 fi

@@ -55,3 +55,9 @@ The backend image now copies its artifact from the Maven build stage, and Compos
 ## Business approvals still outstanding
 
 Verification does not approve the small-segment disclosure policy, legal retention policy, BR-18 selection, metric definitions, or production performance/freshness targets. The existing disclosure guard and explicit incomplete/unknown states remain in force.
+
+## Scripted admin / analytics demo
+
+Run `bash scripts/verify-merged-connection.sh --demo` for the richer disposable fixture on http://127.0.0.1:14300. Follow [the presenter guide](admin-analytics-demo-guide.md) for credentials, September 2026 totals, order IDs and case actions. Segment disclosure remains withheld.
+
+The boundary fixture exposed legacy source evidence columns declared as timezone-free timestamps while OLAP uses timezone-aware timestamps. The fresh source schema now uses `TIMESTAMPTZ` for those UTC evidence fields. Existing PostgreSQL databases with the older declarations should apply `migrations/2026-10-23-evidence-utc.sql` through the normal migration process before refreshing analytics; it preserves their declared UTC meaning and leaves already-aware fields unchanged.

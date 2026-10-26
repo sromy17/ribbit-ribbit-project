@@ -150,8 +150,8 @@ CREATE TABLE dispute_cases
     resolution_reason VARCHAR(1000),
     idempotency_key VARCHAR(100) NOT NULL,
     payload_hash VARCHAR(64) NOT NULL,
-    created_at_utc TIMESTAMP NOT NULL,
-    updated_at_utc TIMESTAMP NOT NULL,
+    created_at_utc TIMESTAMPTZ NOT NULL,
+    updated_at_utc TIMESTAMPTZ NOT NULL,
     version BIGINT NOT NULL DEFAULT 0,
     UNIQUE (customer_user_id, idempotency_key)
 );
@@ -163,7 +163,7 @@ CREATE TABLE dispute_case_events
     event_type VARCHAR(40) NOT NULL,
     actor_user_id INT NOT NULL REFERENCES users(userid),
     note VARCHAR(2000),
-    occurred_at_utc TIMESTAMP NOT NULL,
+    occurred_at_utc TIMESTAMPTZ NOT NULL,
     case_version BIGINT NOT NULL
 );
 
@@ -176,7 +176,7 @@ CREATE TABLE order_lifecycle_events
     event_type VARCHAR(60) NOT NULL,
     event_sequence BIGINT NOT NULL,
     event_version INT NOT NULL DEFAULT 1,
-    occurred_at_utc TIMESTAMP NOT NULL,
+    occurred_at_utc TIMESTAMPTZ NOT NULL,
     correlation_id VARCHAR(36) NOT NULL,
     quote_source VARCHAR(80), quote_at_utc TIMESTAMPTZ, quote_price NUMERIC,
     quote_received_at_utc TIMESTAMPTZ, quote_currency CHAR(3), quote_price_type VARCHAR(40),
@@ -190,7 +190,7 @@ CREATE TABLE cash_movements
     order_id INT NOT NULL REFERENCES trade_request(requestid),
     account_id INT NOT NULL REFERENCES accounts(accountid),
     amount NUMERIC NOT NULL, currency CHAR(3), currency_source VARCHAR(80),
-    movement_type VARCHAR(40) NOT NULL, occurred_at_utc TIMESTAMP NOT NULL,
+    movement_type VARCHAR(40) NOT NULL, occurred_at_utc TIMESTAMPTZ NOT NULL,
     correlation_id VARCHAR(36) NOT NULL
 );
 
@@ -201,7 +201,7 @@ CREATE TABLE holding_movements
     account_id INT NOT NULL REFERENCES accounts(accountid),
     instrument_id INT NOT NULL REFERENCES instruments(instrumentid),
     quantity_delta INT NOT NULL, quantity_after INT NOT NULL,
-    occurred_at_utc TIMESTAMP NOT NULL, correlation_id VARCHAR(36) NOT NULL
+    occurred_at_utc TIMESTAMPTZ NOT NULL, correlation_id VARCHAR(36) NOT NULL
 );
 
 CREATE TABLE employees

@@ -1,83 +1,38 @@
-<div class="auth-page">
-  <aside class="auth-story">
-    <app-brand />
-    <div>
-      <p class="eyebrow">Your next move starts here</p>
-      <h1 class="mt-5">A clearer view.<br /><span class="text-brand">A better trade.</span></h1>
-      <div class="auth-accent"></div>
-      <p>Your accounts, market activity, and trading tools in one considered workspace.</p>
-      <div class="mt-10 grid max-w-md grid-cols-2 gap-6">
-        <div class="border-t border-line pt-4">
-          <span class="text-xs font-medium text-ink">Stay informed</span>
-          <p class="!mt-2 !text-xs">Positions and order history, together.</p>
+<main class="flex min-h-dvh flex-col bg-canvas px-6 py-8 text-ink">
+  <header class="mx-auto w-full max-w-6xl"><app-brand /></header>
+  <div class="mx-auto flex w-full max-w-md flex-1 items-center py-12">
+    <section class="w-full" aria-labelledby="sign-in-title">
+      <ng-container *ngIf="!signInType; else credentials">
+        <h1 id="sign-in-title" class="text-3xl font-semibold tracking-tight">Sign in</h1>
+        <p class="mt-3 text-sm text-muted">Choose your account.</p>
+        <div class="mt-8 grid gap-4">
+          <button type="button" class="group flex w-full items-center justify-between rounded-xl border border-line bg-panel p-6 text-left transition hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand" (click)="chooseSignIn('user')">
+            <span><strong class="block text-base font-semibold">User sign-in</strong><span class="mt-1 block text-sm text-muted">Accounts and trading</span></span>
+            <span class="text-brand" aria-hidden="true">→</span>
+          </button>
+          <button type="button" class="group flex w-full items-center justify-between rounded-xl border border-line bg-panel p-6 text-left transition hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand" (click)="chooseSignIn('staff')">
+            <span><strong class="block text-base font-semibold">Staff sign-in</strong><span class="mt-1 block text-sm text-muted">Administration and analytics</span></span>
+            <span class="text-brand" aria-hidden="true">→</span>
+          </button>
         </div>
-        <div class="border-t border-line pt-4">
-          <span class="text-xs font-medium text-ink">Stay in control</span>
-          <p class="!mt-2 !text-xs">Dedicated investor and staff workspaces.</p>
-        </div>
-      </div>
-    </div>
-    <div class="auth-story-foot">
-      <span class="size-1.5 rounded-full bg-brand"></span> Leap Trader Pro
-      <span class="ml-auto">Built around your next move.</span>
-    </div>
-  </aside>
-  <main class="auth-content">
-    <div class="auth-card">
-      <div class="mb-10 lg:hidden"><app-brand /></div>
-      <p class="eyebrow mb-3">Welcome back</p>
-      <h1>Sign in to your workspace</h1>
-      <p class="description">Enter your details to continue.</p>
-      <form (ngSubmit)="login()" novalidate>
-        <div class="form-group">
-          <label for="login-username">Username</label
-          ><input
-            uiInput
-            id="login-username"
-            type="text"
-            [(ngModel)]="username"
-            name="username"
-            placeholder="Your username"
-            autocomplete="username"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <label for="login-password">Password</label
-          ><input
-            uiInput
-            id="login-password"
-            type="password"
-            [(ngModel)]="password"
-            name="password"
-            placeholder="Enter your password"
-            autocomplete="current-password"
-            required
-          />
-        </div>
-        <div class="rounded-lg border border-line bg-panel p-4">
-          <label class="checkbox-row"
-            ><input type="checkbox" name="staffLogin" [(ngModel)]="staffLogin" />Staff
-            sign-in</label
-          >
-          <p class="mt-2 pl-6 text-xs">
-            Use your assigned staff account for administration or reporting.
-          </p>
-        </div>
-        <div *ngIf="error" class="error" role="alert">{{ error }}</div>
-        <button uiButton="primary" type="submit" [disabled]="loading">
-          {{ loading ? 'Signing in…' : 'Sign in'
-          }}<span *ngIf="!loading" aria-hidden="true">→</span>
-        </button>
-      </form>
-      <div class="auth-divider"></div>
-      <p class="mb-4 text-center text-xs">New to Leap Trader?</p>
-      <button uiButton type="button" (click)="router.navigate(['/register'])">
-        Create a user profile
-      </button>
-      <p class="mt-8 text-center text-[11px]">
-        Your access is determined by your account permissions.
-      </p>
-    </div>
-  </main>
-</div>
+      </ng-container>
+      <ng-template #credentials>
+        <button uiButton="ghost" type="button" class="mb-6" (click)="chooseSignIn(null)" [disabled]="loading">← Back</button>
+        <h1 id="sign-in-title" class="text-3xl font-semibold tracking-tight">{{ staffLogin ? 'Staff sign-in' : 'User sign-in' }}</h1>
+        <form class="mt-8 grid gap-5" (ngSubmit)="login()" novalidate>
+          <div class="form-group">
+            <label for="login-username">Username</label>
+            <input uiInput id="login-username" type="text" [(ngModel)]="username" name="username" autocomplete="username" required />
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input uiInput id="login-password" type="password" [(ngModel)]="password" name="password" autocomplete="current-password" required />
+          </div>
+          <div *ngIf="error" class="error" role="alert">{{ error }}</div>
+          <button uiButton="primary" type="submit" [disabled]="loading">{{ loading ? 'Signing in…' : 'Sign in' }}</button>
+        </form>
+        <button *ngIf="!staffLogin" uiButton="ghost" type="button" class="mt-5 w-full" (click)="router.navigate(['/register'])">Create an account</button>
+      </ng-template>
+    </section>
+  </div>
+</main>

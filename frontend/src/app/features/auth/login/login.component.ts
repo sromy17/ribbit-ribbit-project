@@ -14,7 +14,15 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class LoginComponent {
   username = '';
-  staffLogin = false;
+  signInType: 'user' | 'staff' | null = null;
+  get staffLogin(): boolean { return this.signInType === 'staff'; }
+
+  chooseSignIn(type: 'user' | 'staff' | null): void {
+    this.signInType = type;
+    this.username = '';
+    this.password = '';
+    this.error = '';
+  }
   password = '';
   error = '';
   loading = false;
@@ -26,6 +34,7 @@ export class LoginComponent {
   ) {}
 
   login(): void {
+    if (!this.signInType || this.loading) return;
     this.error = '';
     const username = this.username.trim();
 
