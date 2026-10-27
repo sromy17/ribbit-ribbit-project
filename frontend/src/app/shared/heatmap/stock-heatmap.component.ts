@@ -280,6 +280,10 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
     if (event.target === this.detailsDialog.nativeElement) this.closeDetails();
   }
 
+  closeTradeOnBackdrop(event: MouseEvent): void {
+    if (event.target === this.tradeDialog.nativeElement) this.closeTrade();
+  }
+
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
     if (typeof window !== 'undefined') window.removeEventListener('resize', this.fitViewport);

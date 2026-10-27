@@ -21,21 +21,10 @@ export class UiInputDirective {}
 @Component({
   selector: 'app-brand',
   standalone: true,
-  template: ` <span class="inline-flex items-center gap-3" aria-label="Leap Trader Pro">
-    <span class="brand-symbol"
-      ><svg viewBox="0 0 28 28" width="26" height="26" fill="none" aria-hidden="true">
-        <path
-          d="M7 6v16h15M11 16l5-5 4 3 5-8M20 6h5v5"
-          stroke="currentColor"
-          stroke-width="2.3"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        /></svg
-    ></span>
-    <span class="brand-copy"
-      >Leap<span class="brand-product">Trader <span class="brand-pro">PRO</span></span></span
-    >
-  </span>`,
+  template: `<a class="trader-brand" href="/" aria-label="Ribbit Trader Pro home">
+    <span class="brand-symbol"><svg viewBox="0 0 28 28" width="26" height="26" fill="none" aria-hidden="true"><path d="M7 6v16h15M11 16l5-5 4 3 5-8M20 6h5v5" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="trader-brand-copy"><span class="trader-brand-name">Ribbit Trader <span class="brand-pro">PRO</span></span><span class="trader-brand-byline">by Ribbit Ribbit</span></span>
+  </a>`,
 })
 export class UiBrandComponent {}
 

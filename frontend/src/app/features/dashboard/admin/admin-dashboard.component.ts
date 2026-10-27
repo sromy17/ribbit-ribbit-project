@@ -3,7 +3,7 @@ import { Component, OnDestroy, OnInit, ChangeDetectorRef, ChangeDetectionStrateg
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { forkJoin, Subscription } from 'rxjs';
+import { forkJoin, Subscription, timer } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { ApiService, AdminOrder, DisputeCase, TradingAccount, ReportingStatus } from '../../../core/services/api.service';
 
@@ -35,7 +35,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   constructor(private auth: AuthService, private router: Router, private api: ApiService, private cdr: ChangeDetectorRef) {
     this.currentUser = auth.getUser();
   }
-  ngOnInit() { this.loadOrders(); this.loadCases(); if (this.canReport) this.refreshReporting(); }
+  ngOnInit() { this.loadOrders(); this.loadCases(); if (this.canReport) this.refreshReporting();
+    this.requests.set('queue-poll', timer(15000, 15000).subscribe(() => { if (this.activeTab === 'disputes' && !this.busy && !this.selectedCase) this.loadCases(this.casePage); }));
+  }
   get canWork() { return this.currentUser?.permissions?.includes('PERM_DISPUTE_WORK') ?? false; }
   get canSupervise() { return this.currentUser?.permissions?.includes('PERM_DISPUTE_SUPERVISOR') ?? false; }
   get canReport() { return this.currentUser?.permissions?.includes('PERM_REPORTING') ?? false; }
@@ -84,18 +86,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       expectedVersion: item.version, reason: this.reason.trim(), note: this.note.trim(), outcome: this.outcome, newAssigneeUserId: this.newAssignee
     }), updated => { this.busy = false; this.openCase(updated.caseId); this.loadCases(); });
   }
-  lookupUser(id = this.userId) {
+  lookupUser(id = this.userId, preferredAccountId?: number) {
     if (!id || !Number.isInteger(id) || id < 1) { this.error = 'Enter a valid user ID.'; return; }
     this.userId = id; this.user = null; this.accounts = []; this.history = null;
     this.requests.get('history')?.unsubscribe();
     this.run('user', forkJoin({user: this.api.lookupUser(id), accounts: this.api.lookupAccounts(id)}), result => {
       this.user = result.user; this.accounts = result.accounts;
-      if (this.accounts.length) { this.accountId = String(this.accounts[0].accountId); this.loadHistory(); }
+      if (this.accounts.length) { this.accountId = String(this.accounts.find(account => String(account.accountId) === String(preferredAccountId))?.accountId ?? this.accounts[0].accountId); this.loadHistory(); }
     });
   }
   investigateCustomer() {
     if (!this.selectedCase) return;
-    this.activeTab = 'users'; this.lookupUser(this.selectedCase.customerUserId);
+    this.activeTab = 'users'; this.lookupUser(this.selectedCase.customerUserId, this.selectedCase.accountId);
   }
   loadHistory(page = 0) {
     if (!this.accountId) return;

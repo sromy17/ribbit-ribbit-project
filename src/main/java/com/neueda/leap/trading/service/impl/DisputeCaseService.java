@@ -86,6 +86,53 @@ public class DisputeCaseService {
     }
 
     @Transactional(readOnly = true)
+    public java.util.Map<String, Object> customerSummary(int accountId) {
+        requireCustomerAccount(accountId);
+        var result = new java.util.LinkedHashMap<String, Object>();
+        for (var row : db.queryForList("""
+            SELECT order_id, COUNT(*) AS total,
+                SUM(CASE WHEN status='RESOLVED' THEN 1 ELSE 0 END) AS resolved,
+                SUM(CASE WHEN status<>'RESOLVED' THEN 1 ELSE 0 END) AS active
+            FROM dispute_cases WHERE account_id=? AND customer_user_id=? AND transaction_type='TRADE'
+            GROUP BY order_id
+            """, accountId, actorId())) {
+            long active = ((Number)row.get("active")).longValue();
+            result.put(String.valueOf(row.get("order_id")), java.util.Map.of("total",row.get("total"),
+                "active",active,"resolved",row.get("resolved"),"status",active>0?"UNDER_REVIEW":"RESOLVED"));
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> customerCases(int accountId, int orderId, int page, int size) {
+        requireCustomerAccount(accountId);
+        if(page<0 || size<1 || size>100) throw new IllegalArgumentException("Invalid pagination");
+        var order=orderRepository.findById(orderId)
+            .filter(item->item.getAccount().getAccountId().equals(accountId))
+            .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Trade not found for this account"));
+        var result=caseRepository.findByAccountIdAndOrderIdAndCustomerUserId(accountId,order.getOrderId(),actorId(),
+            org.springframework.data.domain.PageRequest.of(page,size,org.springframework.data.domain.Sort.by("createdAtUtc").descending().and(org.springframework.data.domain.Sort.by("caseId").descending())));
+        return java.util.Map.of("items",result.getContent().stream().map(CustomerCase::from).toList(),
+            "total",result.getTotalElements(),"page",page,"size",size,"asOf",Instant.now().toString());
+    }
+
+    private void requireCustomerAccount(int accountId) {
+        var account=accountRepository.findById(accountId)
+            .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Account not found"));
+        if(!Integer.valueOf(actorId()).equals(account.getUser().getUserId()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Account is not owned by the current user");
+    }
+
+    /** Customer-visible fields only: internal notes, staff identity and replay metadata stay private. */
+    public record CustomerCase(Long caseId, Integer orderId, String title, String reason, boolean feeRelated,
+        DisputeCaseStatus status, String resolutionReason, Instant createdAtUtc, Instant updatedAtUtc) {
+        public static CustomerCase from(DisputeCase item) {
+            return new CustomerCase(item.getCaseId(),item.getOrderId(),item.getTitle(),item.getReason(),
+                item.isFeeRelated(),item.getStatus(),item.getResolutionReason(),item.getCreatedAtUtc(),item.getUpdatedAtUtc());
+        }
+    }
+
+    @Transactional(readOnly = true)
     public java.util.Map<String, Object> page(String status, int page, int size) {
         if (page < 0 || size < 1 || size > 100) throw new IllegalArgumentException("Invalid pagination");
         var pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by("createdAtUtc").ascending().and(org.springframework.data.domain.Sort.by("caseId")));

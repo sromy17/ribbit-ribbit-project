@@ -172,6 +172,7 @@
                 <th scope="col">Case</th>
                 <th scope="col">Title</th>
                 <th scope="col">Transaction</th>
+                <th scope="col">Customer / account</th>
                 <th scope="col">Status</th>
                 <th scope="col">Assignee</th>
               </tr>
@@ -185,6 +186,7 @@
                 </td>
                 <td class="!whitespace-normal min-w-44">{{ item.title }}</td>
                 <td>{{ item.transactionType }} {{ item.transactionReference }}</td>
+                <td><button uiButton="ghost" (click)="activeTab = 'users'; lookupUser(item.customerUserId, item.accountId)">User {{ item.customerUserId }} · Account {{ item.accountId }} ↗</button></td>
                 <td><app-status-badge [status]="item.status" /></td>
                 <td>{{ item.assignedStaffUserId || 'Unassigned' }}</td>
               </tr>

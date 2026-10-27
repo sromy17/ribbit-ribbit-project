@@ -1,3 +1,4 @@
+import { HistorySortKey, HistorySortDirection, sortTradeHistory } from './trade-history-sort';
 import { UI_COMPONENTS } from '../../../shared/ui';
 import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -7,12 +8,13 @@ import { Subject, Subscription, from, of, timer, takeUntil, forkJoin } from 'rxj
 import { catchError, timeout } from 'rxjs/operators';
 import { concatMap, toArray } from 'rxjs/operators';
 import { AuthService, User } from '../../../core/services/auth.service';
-import { ApiService, Holding, MarketInstrument, Order, Trade, SymbolTrend, TradingAccount, WalletBankAccount as ApiWalletBankAccount, WalletActivity as ApiWalletActivity } from '../../../core/services/api.service';
+import { ApiService, TradeDisputeSummary, Holding, MarketInstrument, Order, Trade, SymbolTrend, TradingAccount, WalletBankAccount as ApiWalletBankAccount, WalletActivity as ApiWalletActivity } from '../../../core/services/api.service';
 import { HeatmapStock, StockHeatmapComponent } from '../../../shared/heatmap/stock-heatmap.component';
 import { FinnhubNewsArticle, FinnhubNewsCategory, FinnhubNewsService } from '../../../core/services/finnhub-news.service';
 import { PortfolioHistoryPoint, PortfolioHistoryRange, PortfolioService } from '../../../core/services/portfolio.service';
 import { PortfolioAccountState, PortfolioStateService } from '../../../core/services/portfolio-state.service';
 import { AssetAllocationComponent } from '../../../shared/asset-allocation/asset-allocation.component';
+import { TradeDisputesComponent } from './trade-disputes.component';
 import { HelpComponent } from './help/help.component';
 import { TradingviewWidgetComponent } from '../../../shared/tradingview/tradingview-widget.component';
 
@@ -34,7 +36,7 @@ interface WalletActivity {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [...UI_COMPONENTS, CommonModule, FormsModule, StockHeatmapComponent, AssetAllocationComponent, HelpComponent, TradingviewWidgetComponent],
+  imports: [...UI_COMPONENTS, CommonModule, FormsModule, StockHeatmapComponent, AssetAllocationComponent, HelpComponent, TradingviewWidgetComponent, TradeDisputesComponent],
 
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
@@ -72,6 +74,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loadingHoldings = false;
   loadingOrders = false;
   error = '';
+  disputeSummaries: Record<string, TradeDisputeSummary> | null = null;
+  disputeSummaryError = '';
+  disputeDialogOpen = false;
+  readonly noDisputeSummary: TradeDisputeSummary = {total: 0, active: 0, resolved: 0, status: 'NONE'};
+  trackOrder(_: number, order: Order) { return order.orderId; }
 
   // Investor Dashboard Data
   portfolio = {
@@ -81,6 +88,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
   };
 
   orders: Order[] = [];
+  historySortKey: HistorySortKey = 'date';
+  historySortDirection: HistorySortDirection = 'desc';
+  readonly historyColumns: {key: HistorySortKey; label: string}[] = [
+    {key: 'orderId', label: 'Order ID'}, {key: 'date', label: 'Date'},
+    {key: 'symbol', label: 'Symbol'}, {key: 'side', label: 'Side'},
+    {key: 'status', label: 'Status'}, {key: 'quantity', label: 'Quantity'},
+    {key: 'price', label: 'Order price'}, {key: 'executedNotional', label: 'Executed value'},
+    {key: 'disputes', label: 'Dispute tickets'}
+  ];
+  get sortedOrders(): Order[] {
+    return sortTradeHistory(this.orders, this.historySortKey, this.historySortDirection, this.disputeSummaries);
+  }
+  sortHistory(key: HistorySortKey): void {
+    this.historySortDirection = this.historySortKey === key && this.historySortDirection === 'asc' ? 'desc' : 'asc';
+    this.historySortKey = key;
+  }
+  historySortAria(key: HistorySortKey): 'ascending' | 'descending' | 'none' {
+    return this.historySortKey === key ? this.historySortDirection === 'asc' ? 'ascending' : 'descending' : 'none';
+  }
+  historySortLabel(key: HistorySortKey, label: string): string {
+    const next = this.historySortKey === key && this.historySortDirection === 'asc' ? 'descending' : 'ascending';
+    return `Sort by ${key === 'disputes' ? 'dispute status' : label}, ${next}`;
+  }
   symbolTrends: SymbolTrend[] = [];
   marketInstruments: MarketInstrument[] = [];
   marketStocks: HeatmapStock[] = [];
@@ -175,6 +205,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
     timer(60000, 60000).pipe(takeUntil(this.destroy$)).subscribe(() => {
       if (this.activeView === 'graphs') this.loadMarketHeatmap();
+      if (this.activeView === 'history' && !this.disputeDialogOpen && !this.loadingOrders) this.loadOrderHistory();
       if (!this.loading && this.accountState &&
           this.accountState.history.at(-1)?.timestamp.toDateString() !== new Date().toDateString()) {
         this.loadDashboardData();
@@ -784,6 +815,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   resetDashboardData(): void {
     this.portfolio = { cash: 0, holdings: [], totalValue: 0 };
     this.orders = [];
+    this.disputeSummaries = null; this.disputeSummaryError = ''; this.disputeDialogOpen = false;
     this.bankAccounts = [];
     this.walletActivity = [];
     this.closeWalletModal();
@@ -792,8 +824,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loadOrderHistory(): void {
     const accountId = this.accountId;
     this.loadingOrders = true;
-    this.api.getOrders(accountId).pipe(timeout(10000), takeUntil(this.destroy$)).subscribe({
-      next: orders => { if (this.accountId !== accountId) return; this.orders = orders; this.loadingOrders = false; this.cdr.markForCheck(); },
+    this.disputeSummaryError = '';
+    forkJoin({orders: this.api.getOrders(accountId), summaries: this.api.getTradeDisputeSummary(accountId).pipe(catchError(() => { this.disputeSummaryError = 'Ticket statuses could not be loaded. Refresh to retry.'; return of(null); }))}).pipe(timeout(10000), takeUntil(this.destroy$)).subscribe({
+      next: result => { if (this.accountId !== accountId) return; this.orders = result.orders; this.disputeSummaries = result.summaries; this.loadingOrders = false; this.cdr.markForCheck(); },
       error: () => { if (this.accountId !== accountId) return; this.error = 'Order history could not be loaded. Refresh to retry.'; this.loadingOrders = false; this.cdr.markForCheck(); }
     });
   }
@@ -1019,6 +1052,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Refresh Data
   refreshData() {
+    if (this.activeView === 'history') { this.loadOrderHistory(); return; }
     this.loadDashboardData();
   }
 

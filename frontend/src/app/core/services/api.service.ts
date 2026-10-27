@@ -204,6 +204,10 @@ export interface DisputeCase {
   updatedAtUtc: string;
 }
 
+export interface TradeDisputeSummary { total: number; active: number; resolved: number; status: 'NONE' | 'UNDER_REVIEW' | 'RESOLVED'; }
+export type CustomerDispute = Pick<DisputeCase, 'caseId' | 'orderId' | 'title' | 'reason' | 'status' | 'feeRelated' | 'resolutionReason' | 'createdAtUtc' | 'updatedAtUtc'>;
+export interface DisputeSubmission { transactionType: 'TRADE'; transactionId: string; title: string; reason: string; feeRelated: boolean; idempotencyKey: string; }
+
 // Analyst Dashboard Interfaces
 export interface SymbolTrend {
   symbol: string;
@@ -236,6 +240,15 @@ export interface MarketInstrument {
   providedIn: 'root'
 })
 export class ApiService {
+  getTradeDisputeSummary(accountId: string): Observable<Record<string, TradeDisputeSummary>> {
+    return this.http.get<Record<string, TradeDisputeSummary>>(`/api/accounts/${accountId}/disputes/summary`);
+  }
+  getCustomerDisputes(accountId: string, orderId: string, page = 0): Observable<{items: CustomerDispute[]; total: number}> {
+    return this.http.get<{items: CustomerDispute[]; total: number}>(`/api/accounts/${accountId}/orders/${orderId}/disputes`, {params: {page, size: 10}});
+  }
+  submitTradeDispute(body: DisputeSubmission): Observable<CustomerDispute> {
+    return this.http.post<CustomerDispute>('/api/disputes', body);
+  }
   public static readonly REFRESH_INTERVAL_MS = 60000;
   private apiUrl = '/api';
   private useMockData = false;

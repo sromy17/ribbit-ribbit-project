@@ -1,0 +1,30 @@
+<div class="storybook-home">
+  <header class="home-header">
+    <app-brand />
+    <nav aria-label="Main navigation"><button uiButton="ghost" type="button" (click)="theme.toggleTheme()" [attr.aria-label]="theme.dark ? 'Use light theme' : 'Use dark theme'">{{ theme.dark ? 'Light mode ☀' : 'Dark mode ☾' }}</button><a routerLink="/login" [queryParams]="{type:'staff'}">Staff entrance <span aria-hidden="true">↗</span></a></nav>
+  </header>
+  <main>
+    <section class="opening-chapter" aria-labelledby="home-title">
+      <div class="chapter-copy">
+        <span class="chapter-number">Your trading workspace</span>
+        <h1 id="home-title">Ribbit<br /><span>Trader Pro</span></h1>
+        <p class="maker-line">by <strong>Ribbit Ribbit</strong></p>
+        <div class="hand-drawn-rule" aria-hidden="true"></div>
+        <p class="home-description">Your portfolio, trading history, and market news.<br />All in one familiar place.</p>
+        <div class="home-actions"><a uiButton="primary" routerLink="/login" [queryParams]="{type:'user'}">User sign-in <span aria-hidden="true">→</span></a><a uiButton="secondary" routerLink="/register">Open your account</a></div>
+        <p class="paper-note">An educational trading platform. No real money changes hands.</p>
+      </div>
+      <div class="market-illustration" aria-hidden="true">
+        <div class="illustration-label"><span class="live-dot"></span> Portfolio · Markets · History</div>
+        <svg viewBox="0 0 600 330" fill="none"><path d="M20 70H580M20 150H580M20 230H580M100 35V290M230 35V290M360 35V290M490 35V290" stroke="currentColor" opacity=".12"/><path class="chart-area" d="M20 250L85 220L140 237L205 170L265 188L330 120L390 143L450 85L510 108L580 45V290H20Z" fill="currentColor" opacity=".08"/><path class="chart-line" d="M20 250L85 220L140 237L205 170L265 188L330 120L390 143L450 85L510 108L580 45" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="580" cy="45" r="7" fill="currentColor"/></svg>
+        <div class="illustration-tags"><span>Portfolio</span><span>Markets</span><span>Trade history</span></div>
+      </div>
+    </section>
+    <section class="chapter-index" aria-label="Your trading workspace">
+      <article><span class="index-number">01</span><div><h2>Your portfolio</h2><p>Accounts, holdings, and a clear record of your trades.</p></div></article>
+      <article><span class="index-number">02</span><div><h2>Market updates</h2><p>Market movements and news, ready when you are.</p></div></article>
+      <article><span class="index-number">03</span><div><h2>Support when needed</h2><p>Raise a ticket and follow its progress with our team.</p></div></article>
+    </section>
+  </main>
+  <footer class="home-footer"><span>Ribbit Trader Pro</span><span>Made with care, by Ribbit Ribbit.</span></footer>
+</div>

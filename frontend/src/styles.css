@@ -824,9 +824,10 @@
 html,
 body {
 	margin: 0;
-	height: 100%;
+	height: auto;
 	min-height: 100%;
-	overflow: hidden;
+	overflow-x: clip;
+	overflow-y: auto;
 
 }
 
@@ -942,3 +943,14 @@ body {
   .wallet-form label { @apply grid gap-1.5 text-sm font-semibold text-muted; }
   .wallet-form input, .wallet-form select { @apply w-full rounded-lg border border-line bg-panel px-3 py-2.5 text-ink; }
 }
+
+/* Shared identity and document scrolling across every workspace. */
+app-workspace { display: block; min-height: 100dvh; }
+.workspace-content { width: 100%; height: auto; overflow: visible; }
+.trader-brand { display: inline-flex; align-items: center; gap: .7rem; color: var(--ui-ink); text-decoration: none; }
+.trader-brand-copy { display: flex; flex-direction: column; gap: .1rem; }
+.trader-brand-name { font-size: 1.1rem; font-weight: 700; white-space: nowrap; letter-spacing: -.03em; }
+.trader-brand-byline { font-size: .65rem; color: var(--ui-muted); }
+.history-sort { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; text-align: left; white-space: nowrap; }
+.history-sort:focus-visible { outline: 2px solid var(--ui-brand); outline-offset: 4px; border-radius: 2px; }
+.history-sort:hover, th[aria-sort=ascending] .history-sort, th[aria-sort=descending] .history-sort { color: var(--ui-brand); }

@@ -98,7 +98,7 @@
   </div>
   </dialog>
   <dialog #tradeDialog class="quick-trade-dialog" aria-labelledby="quick-trade-title"
-    (cancel)="closeTrade($event)" (click)="$event.target === tradeDialog && closeTrade()">
+    (cancel)="closeTrade($event)" (click)="closeTradeOnBackdrop($event)">
     <form *ngIf="selectedStock as stock" (ngSubmit)="placeQuickOrder()" class="quick-trade-form">
       <div class="quick-trade-heading">
         <div>

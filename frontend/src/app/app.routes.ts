@@ -56,6 +56,6 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     data: { role: 'analyst' },
   },
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
+  { path: '', loadComponent: () => import('./features/landing/landing.component').then(m => m.LandingComponent), pathMatch: 'full' },
   { path: '**', redirectTo: '/login' },
 ];

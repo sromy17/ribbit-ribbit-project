@@ -1,8 +1,8 @@
 import { UI_COMPONENTS } from '../../../shared/ui';
-import { ChangeDetectorRef, Component } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
@@ -12,7 +12,12 @@ import { AuthService } from '../../../core/services/auth.service';
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
+  private route = inject(ActivatedRoute, { optional: true });
+  ngOnInit(): void {
+    const type = this.route?.snapshot.queryParamMap.get('type');
+    if (type === 'user' || type === 'staff') this.chooseSignIn(type);
+  }
   username = '';
   signInType: 'user' | 'staff' | null = null;
   get staffLogin(): boolean { return this.signInType === 'staff'; }

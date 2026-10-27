@@ -14,7 +14,20 @@ public class DisputeCaseController {
     public DisputeCaseController(DisputeCaseService service) { this.service = service; }
 
     @PostMapping("/disputes")
-    public DisputeCase submit(@Valid @RequestBody DisputeSubmissionRequest request) { return service.submit(request); }
+    public DisputeCaseService.CustomerCase submit(@Valid @RequestBody DisputeSubmissionRequest request) {
+        return DisputeCaseService.CustomerCase.from(service.submit(request));
+    }
+
+    @GetMapping("/accounts/{accountId}/disputes/summary")
+    public java.util.Map<String,Object> customerSummary(@PathVariable int accountId) {
+        return service.customerSummary(accountId);
+    }
+
+    @GetMapping("/accounts/{accountId}/orders/{orderId}/disputes")
+    public java.util.Map<String,Object> customerCases(@PathVariable int accountId,@PathVariable int orderId,
+        @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="10") int size) {
+        return service.customerCases(accountId,orderId,page,size);
+    }
 
     @GetMapping("/api/admin/disputes")
     @PreAuthorize("hasAuthority('PERM_DISPUTE_READ')")

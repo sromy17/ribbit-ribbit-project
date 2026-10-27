@@ -2202,8 +2202,8 @@
 .investor-workspace .news-card-image:has(.news-image-placeholder) { height: 64px; flex-basis: 64px; }
 .news-image-placeholder { justify-items: start; padding: 18px; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
 
-/* Keep news controls visible while headlines scroll inside their own region. */
-.investor-workspace .news-feed { max-height: clamp(240px, calc(100dvh - 390px), 700px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 3px 8px 3px 3px; }
+/* News grows with the document; the browser owns vertical scrolling. */
+.investor-workspace .news-feed { max-height: none; overflow: visible; overscroll-behavior: auto; scrollbar-gutter: auto; padding: 3px 8px 3px 3px; }
 .investor-workspace .news-tabs [data-category="general"], .investor-workspace .news-view[data-category="general"] { --news-accent: var(--ui-chart-1); }
 .investor-workspace .news-tabs [data-category="technology"], .investor-workspace .news-view[data-category="technology"] { --news-accent: var(--ui-chart-2); }
 .investor-workspace .news-tabs [data-category="healthcare"], .investor-workspace .news-view[data-category="healthcare"] { --news-accent: var(--ui-chart-3); }
