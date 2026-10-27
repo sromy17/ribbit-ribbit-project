@@ -1,6 +1,6 @@
 FROM node:24-alpine AS build
 WORKDIR /app
-ENV NG_CLI_ANALYTICS=false
+ENV NG_CLI_ANALYTICS=false NG_BUILD_MAX_WORKERS=2
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .

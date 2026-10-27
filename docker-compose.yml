@@ -1,17 +1,14 @@
 services:
   postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
-    container_name: ribbit-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ribbit-oltp}
       POSTGRES_OLAP_DB: ${POSTGRES_OLAP_DB:-ribbit-olap}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-    ports:
-      - "5432:5432"
     volumes:
       - ./basedSchema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./insert-data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
       - ./scripts/init-olap.sql:/docker-entrypoint-initdb.d/03-olap-database.sql:ro
       - ./olap.sql:/opt/ribbit/olap.sql:ro
 
@@ -24,15 +21,36 @@ services:
       timeout: 5s
       retries: 5
 
-  springboot:
+  migrate:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: ribbit-springboot
+      dockerfile: deploy/init.Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ribbit-oltp}
+      POSTGRES_OLAP_DB: ${POSTGRES_OLAP_DB:-ribbit-olap}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    networks:
+      - ribbit-network
+    restart: "no"
+
+  springboot:
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: container
       SERVER_PORT: 8081
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
       DB_OLTP_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
@@ -51,9 +69,13 @@ services:
       MARKET_DATA_KAFKA_ENABLED: "false"
       FAUXNANCE_BASE_URL: ${FAUXNANCE_BASE_URL:-https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
       FAUXNANCE_API_KEY: ${FAUXNANCE_API_KEY:-}
-      FAUXNANCE_USE_ORDER_PRICE_FALLBACK: ${FAUXNANCE_USE_ORDER_PRICE_FALLBACK:-false}
-    ports:
-      - "8081:8081"
+      FAUXNANCE_DAILY_REQUEST_LIMIT: ${FAUXNANCE_DAILY_REQUEST_LIMIT:-1000}
+      FAUXNANCE_BUDGET_FILE: /app/state/fauxnance-budget.properties
+      MARKET_DATA_DISPLAY_CACHE_MS: ${MARKET_DATA_DISPLAY_CACHE_MS:-3600000}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SERVER_SHUTDOWN: graceful
+    volumes:
+      - quote_state:/app/state
     networks:
       - ribbit-network
     healthcheck:
@@ -64,11 +86,16 @@ services:
       retries: 12
 
   auth:
+    restart: unless-stopped
+    init: true
     build:
       context: ./shared/auth-stub
-    container_name: ribbit-auth
     depends_on:
       postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      springboot:
         condition: service_healthy
     environment:
       AUTH_STUB_PORT: 4000
@@ -81,22 +108,22 @@ services:
       - ribbit-network
 
   frontend:
+    restart: unless-stopped
     build:
       context: ./frontend
-    container_name: ribbit-frontend
     depends_on:
       springboot:
         condition: service_healthy
       auth:
         condition: service_healthy
     ports:
-      - "4200:80"
-
+      - "${HTTP_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-4200}:80"
     networks:
       - ribbit-network
 
 volumes:
   postgres_data:
+  quote_state:
 
 networks:
   ribbit-network:

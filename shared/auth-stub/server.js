@@ -191,8 +191,13 @@ async function ensureDatabaseConnection() {
   }
 }
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+app.get("/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok" });
+  } catch {
+    res.status(503).json({ status: "unavailable" });
+  }
 });
 
 app.post("/register", async (req, res) => {

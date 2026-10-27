@@ -16,3 +16,6 @@
 
 state/fauxnance-budget.properties
 state/quote-budget-*.tmp
+
+deploy/.env
+ribbit-backup.sql

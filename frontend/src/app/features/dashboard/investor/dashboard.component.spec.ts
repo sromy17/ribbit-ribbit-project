@@ -48,6 +48,20 @@ describe('Wallet loading after a refresh', () => {
         return { fixture, component, api, params };
       }
 
+      it('selects heatmap tickers across the catalog while keeping its 50 quote limit', () => {
+        const { component } = createDashboard();
+        const instrument = (symbol: string) => ({ symbol, name: symbol, type: 'Equity', exchange: 'NASDAQ', currency: 'USD' });
+        const catalog = [
+          ...Array.from({ length: 90 }, (_, index) => instrument(`A${index}`)),
+          instrument('MSFT'), instrument('NVDA'), instrument('TSLA'), instrument('ZZZ')
+        ];
+        const selected = component.selectHeatmapInstruments(catalog);
+        expect(selected.length).toBe(50);
+        expect(new Set(selected.map(item => item.symbol)).size).toBe(50);
+        expect(selected.map(item => item.symbol)).toEqual(expect.arrayContaining(['MSFT', 'NVDA', 'TSLA', 'ZZZ']));
+        expect(component.selectHeatmapInstruments([...catalog].reverse())).toEqual(selected);
+      });
+
       it('browses currencies and sorts company names without requesting prices', () => {
         const { component } = createDashboard();
         component.marketInstruments = [

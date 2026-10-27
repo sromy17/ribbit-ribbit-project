@@ -261,7 +261,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.marketHeatmapError = '';
     this.api.getMarketInstruments().pipe(timeout(10000), takeUntil(this.destroy$)).subscribe({
       next: ({ symbols }) => {
-        const instruments = symbols.slice(0, 50);
+        const instruments = this.selectHeatmapInstruments(symbols);
         const batches = this.chunk(instruments, 25);
         from(batches).pipe(
           concatMap((batch) =>
@@ -295,6 +295,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       error: (error) => this.handleMarketHeatmapError(error)
     });
+  }
+
+  selectHeatmapInstruments(symbols: MarketInstrument[]): MarketInstrument[] {
+    const unique = [...new Map(symbols.map(item => [item.symbol.toUpperCase(), item])).values()];
+    const ranked = unique.filter(item => this.getFallbackCapScore(item.symbol) > 0)
+      .sort((a, b) => this.getFallbackCapScore(b.symbol) - this.getFallbackCapScore(a.symbol));
+    const remaining = unique.filter(item => this.getFallbackCapScore(item.symbol) === 0)
+      .sort((a, b) => a.symbol.localeCompare(b.symbol));
+    const slots = Math.max(0, 50 - ranked.length);
+    // Fill remaining slots across the alphabet rather than taking only its beginning.
+    const sample = remaining.length <= slots ? remaining : Array.from({ length: slots }, (_, index) =>
+      remaining[Math.floor((index + 0.5) * remaining.length / slots)]);
+    return [...ranked, ...sample].slice(0, 50);
   }
 
   private handleMarketHeatmapError(error: unknown): void {

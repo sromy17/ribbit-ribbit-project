@@ -17,3 +17,8 @@ shared/auth-stub/node_modules
 
 # Local credentials, logs and database backups never enter the build context.
 .local
+
+state
+**/.env
+**/.env.*
+**/*.log
