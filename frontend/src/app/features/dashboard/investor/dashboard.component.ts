@@ -457,6 +457,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadQuote(symbol);
   }
 
+  get ownedTradeShares(): number | null {
+    if (!this.accountState) return null;
+    return this.portfolio.holdings.find(
+      holding => holding.symbol.toUpperCase() === this.selectedTicker.toUpperCase()
+    )?.quantity ?? 0;
+  }
+
+  get ownedTradeValue(): number | null {
+    const shares = this.ownedTradeShares;
+    if (shares === null) return null;
+    if (shares === 0) return 0;
+    if (this.loadingQuote || this.quoteError || this.currentPrice === null ||
+        !Number.isFinite(this.currentPrice) || this.currentPrice < 0) return null;
+    return shares * this.currentPrice;
+  }
+
   getTradeChartSymbol(): string {
     const exchange = this.selectedTradeInstrument?.exchange?.trim().toUpperCase();
     const prefix = exchange === 'XNAS' ? 'NASDAQ' : exchange === 'XNYS' ? 'NYSE' : exchange;

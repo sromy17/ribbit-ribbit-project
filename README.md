@@ -52,6 +52,13 @@ This repository now includes a Spring Boot backend skeleton for one-order proces
 - `POST /login`
 - `POST /logout`
 
+### Stock order screen
+
+The stock buy/sell screen shows the selected account's shares owned and their
+current value (shares multiplied by the displayed market quote). These figures
+describe the existing position, not the proposed order. Unavailable holdings or
+quotes are labeled rather than displayed as zero.
+
 ### Run locally
 
 1. Start the Node auth-stub

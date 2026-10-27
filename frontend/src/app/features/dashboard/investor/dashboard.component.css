@@ -1973,6 +1973,10 @@ input[type='number'] {
   margin-top: 0;
 }
 
+.trade-holdings {
+  margin-bottom: 16px;
+}
+
 .trade-form-group {
   gap: 10px;
 }

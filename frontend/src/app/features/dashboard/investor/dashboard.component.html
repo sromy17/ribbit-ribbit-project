@@ -178,6 +178,26 @@
                     </p>
                   </ng-template>
 
+                  <section class="order-summary trade-holdings" aria-label="Your position">
+                    <strong>Your position</strong>
+                    <ng-container *ngIf="ownedTradeShares !== null; else holdingsStatus">
+                      <div class="summary-row">
+                        <span>Shares owned</span>
+                        <span>{{ ownedTradeShares | number: '1.0-8' }}</span>
+                      </div>
+                      <div class="summary-row">
+                        <span>Current value</span>
+                        <span *ngIf="ownedTradeValue !== null; else positionPriceStatus">${{ ownedTradeValue | number: '1.2-2' }}</span>
+                        <ng-template #positionPriceStatus>
+                          <span>{{ loadingQuote ? 'Loading price...' : 'Price unavailable' }}</span>
+                        </ng-template>
+                      </div>
+                    </ng-container>
+                    <ng-template #holdingsStatus>
+                      <span>{{ loadingHoldings ? 'Loading holdings...' : 'Holdings unavailable' }}</span>
+                    </ng-template>
+                  </section>
+
                   <div class="form-group trade-form-group">
                     <div class="form-field">
                       <label>Side</label>
