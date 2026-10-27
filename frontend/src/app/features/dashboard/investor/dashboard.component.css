@@ -1906,6 +1906,11 @@ input[type='number'] {
   animation: modal-pop-in 250ms ease-out;
 }
 
+.trade-confirmation-dialog {
+  display: grid;
+  place-items: center;
+}
+
 .trade-details-drawer {
   display: flex;
   flex-direction: column;

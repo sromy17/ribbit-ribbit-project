@@ -18,8 +18,9 @@
       </div>
 
       <div class="form-group">
-        <label for="username">Username</label>
-        <input id="username" type="text" [(ngModel)]="username" name="username" required autocomplete="username" />
+        <label for="username">Username (email address)</label>
+        <input id="username" type="email" [(ngModel)]="username" name="username" required email autocomplete="username" placeholder="you@example.com" #usernameField="ngModel" />
+        <span *ngIf="usernameField.touched && usernameField.errors?.['email']" class="error" role="alert">Username must be a valid email address</span>
       </div>
 
       <div class="form-group">

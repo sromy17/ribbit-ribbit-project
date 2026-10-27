@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../../../core/services/auth.service';
 import { ApiService } from '../../../core/services/api.service';
@@ -8,7 +9,101 @@ import { PortfolioService } from '../../../core/services/portfolio.service';
 import { PortfolioStateService } from '../../../core/services/portfolio-state.service';
 import { DashboardComponent } from './dashboard.component';
 
-describe('Stock order position', () => {
+describe('Wallet loading after a refresh', () => {
+      const bank = {
+        bankId: 7, accountId: 1, accountName: 'Existing bank',
+        routingNumber: '123456789', accountNumber: '12345678', balance: 0
+      };
+      const activity = {
+        movementId: 3, bankId: 7, movementType: 'DEPOSIT' as const,
+        amount: 50, movementDate: '2026-10-27T12:00:00Z'
+      };
+
+      function createDashboard() {
+        const params = new BehaviorSubject(convertToParamMap({ accountId: '1' }));
+        const api = {
+          getWalletBanks: vi.fn(() => of([bank])),
+          getWalletActivity: vi.fn(() => of([activity]))
+        };
+        TestBed.configureTestingModule({
+          providers: [
+            { provide: AuthService, useValue: { getUser: () => ({ role: 'investor' }) } },
+            { provide: Router, useValue: {} },
+            { provide: ActivatedRoute, useValue: { paramMap: params } },
+            { provide: ApiService, useValue: api },
+            { provide: FinnhubNewsService, useValue: {} },
+            { provide: PortfolioService, useValue: {} },
+            { provide: PortfolioStateService, useValue: {
+              persistenceError$: of(''), watchAccount: () => of(null),
+              refreshAccount: vi.fn(() => of(null))
+            } }
+          ]
+        });
+        const fixture = TestBed.createComponent(DashboardComponent);
+        const component = fixture.componentInstance;
+        vi.spyOn(component, 'loadInstrumentCatalog').mockImplementation(() => {});
+        vi.spyOn(component, 'loadAccountDetails').mockImplementation(() => {});
+        vi.spyOn(component, 'loadAccounts').mockImplementation(() => {});
+        vi.spyOn(component, 'loadMarketHeatmap').mockImplementation(() => {});
+        return { fixture, component, api, params };
+      }
+
+      afterEach(() => {
+        TestBed.resetTestingModule();
+        vi.restoreAllMocks();
+      });
+
+      it('fetches existing banks and activity on initialization without adding a bank', () => {
+        const { component, api } = createDashboard();
+        component.ngOnInit();
+        expect(api.getWalletBanks).toHaveBeenCalledWith('1');
+        expect(api.getWalletActivity).toHaveBeenCalledWith('1');
+        expect(component.bankAccounts).toEqual([{
+          id: 7, nickname: 'Existing bank', routingNumber: '123456789', accountNumber: '12345678'
+        }]);
+        expect(component.walletActivity[0].bankNickname).toBe('Existing bank');
+        component.refreshData();
+        expect(api.getWalletBanks).toHaveBeenCalledTimes(2);
+      });
+
+      it('ignores the previous account response after switching accounts', () => {
+        const { component, api, params } = createDashboard();
+        const previousBanks = new Subject<typeof bank[]>();
+        api.getWalletBanks.mockReturnValueOnce(previousBanks);
+        component.ngOnInit();
+        api.getWalletBanks.mockReturnValue(of([]));
+        api.getWalletActivity.mockReturnValue(of([]));
+        params.next(convertToParamMap({ accountId: '2' }));
+        previousBanks.next([bank]);
+        previousBanks.complete();
+        expect(api.getWalletBanks).toHaveBeenLastCalledWith('2');
+        expect(component.bankAccounts).toEqual([]);
+        expect(component.walletActivity).toEqual([]);
+      });
+
+      it('reports load failures and clears the error after a successful retry', () => {
+        const { component, api } = createDashboard();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        api.getWalletBanks.mockReturnValueOnce(throwError(() => new Error('Network failure')));
+        component.ngOnInit();
+        expect(component.walletLoadError).toContain('Unable to load wallet data');
+        component.refreshData();
+        expect(component.walletLoadError).toBe('');
+        expect(component.bankAccounts[0].nickname).toBe('Existing bank');
+      });
+
+      it('does not apply pending wallet responses after the dashboard is destroyed', () => {
+        const { component, api } = createDashboard();
+        const pendingBanks = new Subject<typeof bank[]>();
+        api.getWalletBanks.mockReturnValueOnce(pendingBanks);
+        component.ngOnInit();
+        component.ngOnDestroy();
+        pendingBanks.next([bank]);
+        pendingBanks.complete();
+        expect(component.bankAccounts).toEqual([]);
+      });
+    });
+describe('Stock order position rendering', () => {
   beforeEach(() => {
     vi.spyOn(DashboardComponent.prototype, 'ngOnInit').mockImplementation(() => {});
     TestBed.configureTestingModule({
@@ -52,6 +147,58 @@ describe('Stock order position', () => {
     };
     return { fixture, component };
   }
+
+  it('centers the confirmation without changing the order entry layout', async () => {
+    const { fixture, component } = createScreen();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('.trade-details-dialog');
+    expect(dialog.classList.contains('trade-confirmation-dialog')).toBe(false);
+    component.orderPlaced = true;
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(dialog.classList.contains('trade-confirmation-dialog')).toBe(true);
+    expect(dialog.querySelector('.trade-order-placed')?.textContent).toContain('Order placed');
+    expect(dialog.querySelector('.trade-details-drawer')).toBeNull();
+  });
+
+  it('keeps bank inputs digits-only for typing, paste, and input events while preserving zeros', async () => {
+    const { fixture, component } = createScreen();
+    component.showOrderModal = false;
+    component.showBankAccountModal = true;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (const field of ['routingNumber', 'accountNumber'] as const) {
+      const input: HTMLInputElement = fixture.nativeElement.querySelector(`[name="${field}"]`);
+      const key = new KeyboardEvent('keydown', { key: 'e', bubbles: true, cancelable: true });
+      input.dispatchEvent(key);
+      expect(key.defaultPrevented).toBe(true);
+      const paste = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(paste, 'clipboardData', {
+        value: { getData: () => '00ab12-34.56' }
+      });
+      input.dispatchEvent(paste);
+      await fixture.whenStable();
+      expect(input.value).toBe('00123456');
+      expect(component.bankAccountForm[field]).toBe('00123456');
+      input.value = '00x12.34';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await fixture.whenStable();
+      expect(input.value).toBe('001234');
+      expect(component.bankAccountForm[field]).toBe('001234');
+    }
+  });
+
+  it('rejects invalid bank numbers before submission', () => {
+    const { component } = createScreen();
+    component.bankAccountForm = {
+      nickname: 'Checking', routingNumber: '12345678x', accountNumber: '1234'
+    };
+    component.addBankAccount();
+    expect(component.walletFormError).toContain('9-digit routing number');
+    expect(component.submittingBankAccount).toBe(false);
+  });
 
   it('renders existing shares and market value, independent of order quantity and side', async () => {
     const { fixture, component } = createScreen();

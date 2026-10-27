@@ -65,13 +65,15 @@
   </div>
   <dialog #detailsDialog class="stock-dialog" aria-label="Stock details" (cancel)="cancelDetails($event)" (click)="closeOnBackdrop($event)">
   <div class="details-drawer" *ngIf="selectedStock as stock">
-    <button class="close-button" type="button" (click)="closeDetails()" aria-label="Close stock details">×</button>
+    <button class="close-button" type="button" [disabled]="placingTrade" (click)="closeDetails()" aria-label="Close stock details">×</button>
     <span class="drawer-sector">{{ stock.sector || 'Market' }}</span>
     <h3>{{ stock.ticker }}</h3>
     <p>{{ stock.companyName }}</p>
-    <button type="button" class="trade-stock-button" (click)="tradeSelectedStock()">Trade This Stock</button>
+    <button type="button" class="trade-stock-button" [disabled]="showTrade || placingTrade" [attr.aria-expanded]="showTrade" aria-controls="quick-trade-panel" (click)="tradeSelectedStock()">Trade This Stock</button>
     <div *ngIf="tradeNotice" class="trade-notice" role="status">{{ tradeNotice }}</div>
     <div *ngIf="tradeWarning" class="trade-error" role="alert">{{ tradeWarning }}</div>
+    <div class="stock-details-content" [class.with-trade]="showTrade">
+    <div class="stock-chart-column">
     <div class="drawer-chart">
       <app-tradingview-widget [symbol]="getChartSymbol(stock)"></app-tradingview-widget>
     </div>
@@ -96,10 +98,14 @@
       </a>
     </section>
     </div>
+    </div>
+    <section *ngIf="showTrade" id="quick-trade-panel" class="quick-trade-panel" aria-labelledby="quick-trade-title">
+      <ng-container *ngTemplateOutlet="quickTradeTicket"></ng-container>
+    </section>
+    </div>
   </div>
   </dialog>
-  <dialog #tradeDialog class="quick-trade-dialog" aria-labelledby="quick-trade-title"
-    (cancel)="closeTrade($event)" (click)="$event.target === tradeDialog && closeTrade()">
+  <ng-template #quickTradeTicket>
     <form *ngIf="selectedStock as stock" (ngSubmit)="placeQuickOrder()" class="quick-trade-form">
       <div class="quick-trade-heading">
         <div>
@@ -132,5 +138,5 @@
         {{ placingTrade ? 'Placing order...' : 'Place Order' }}
       </button>
     </form>
-  </dialog>
+  </ng-template>
 </div>

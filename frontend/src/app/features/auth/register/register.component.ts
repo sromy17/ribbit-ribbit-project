@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { finalize, timeout } from 'rxjs';
@@ -30,6 +30,10 @@ export class RegisterComponent {
     }
     if (this.password.length < 12) {
       this.error = 'Password must be at least 12 characters';
+      return;
+    }
+    if (Validators.email(new FormControl(this.username.trim()))) {
+      this.error = 'Username must be a valid email address';
       return;
     }
 

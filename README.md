@@ -59,6 +59,21 @@ current value (shares multiplied by the displayed market quote). These figures
 describe the existing position, not the proposed order. Unavailable holdings or
 quotes are labeled rather than displayed as zero.
 
+On the Graphs screen, Trade This Stock opens a buy/sell panel beside the stock
+chart inside the same details window, rather than a second popup over the chart.
+On narrow screens the panel stacks below the chart with scrolling. Closing the
+panel leaves the chart open; completed orders keep their existing status notice.
+
+The Wallet reloads connected bank accounts and recent activity when the
+dashboard loads or is refreshed. Adding a new bank account is not required
+to retrieve existing connections. Wallet loading failures appear on the Wallet
+page and can be retried with the dashboard refresh action.
+
+Wallet routing and account number inputs accept digits only, preserving leading
+zeros. Routing numbers require 9 digits; account numbers require 4 to 17 digits.
+New profile usernames must be valid email addresses. Sign-in still accepts
+existing non-email usernames.
+
 ### Run locally
 
 1. Start the Node auth-stub

@@ -139,7 +139,7 @@
       </div>
 
       <div *ngIf="showOrderModal" class="modal-overlay" (click)="closeOrderModal()">
-        <div class="trade-details-dialog" (click)="$event.stopPropagation()">
+        <div class="trade-details-dialog" [class.trade-confirmation-dialog]="orderPlaced" (click)="$event.stopPropagation()">
           <ng-container *ngIf="!orderPlaced; else orderPlacedBox">
             <div class="details-drawer trade-details-drawer">
               <button class="close-button" type="button" (click)="closeOrderModal()" aria-label="Close stock details">×</button>
@@ -305,6 +305,7 @@
       </div>
 
       <div *ngIf="activeView === 'wallet'" class="wallet-view">
+        <div *ngIf="walletLoadError" class="error-banner" role="alert">{{ walletLoadError }}</div>
         <div *ngIf="walletSuccessMessage" class="wallet-success-message" role="status">
           {{ walletSuccessMessage }}
           <button type="button" (click)="walletSuccessMessage = ''" aria-label="Dismiss success message">✕</button>
@@ -457,8 +458,8 @@
 
           <form *ngIf="showBankAccountModal" class="wallet-form" (ngSubmit)="addBankAccount()">
             <label>Account nickname<input name="nickname" [(ngModel)]="bankAccountForm.nickname" placeholder="e.g. Main checking" required /></label>
-            <label>Routing number<input name="routingNumber" [(ngModel)]="bankAccountForm.routingNumber" inputmode="numeric" maxlength="9" placeholder="9 digits" required /></label>
-            <label>Account number<input name="accountNumber" [(ngModel)]="bankAccountForm.accountNumber" inputmode="numeric" maxlength="17" placeholder="Account number" required /></label>
+            <label>Routing number<input name="routingNumber" [(ngModel)]="bankAccountForm.routingNumber" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="9 digits" (keydown)="blockInvalidNumberKey($event, false)" (paste)="sanitizeNumberPaste($event, false)" (input)="sanitizeBankNumber($event, 'routingNumber')" required /></label>
+            <label>Account number<input name="accountNumber" [(ngModel)]="bankAccountForm.accountNumber" inputmode="numeric" pattern="[0-9]{4,17}" minlength="4" maxlength="17" placeholder="4 to 17 digits" (keydown)="blockInvalidNumberKey($event, false)" (paste)="sanitizeNumberPaste($event, false)" (input)="sanitizeBankNumber($event, 'accountNumber')" required /></label>
             <span class="error-text" *ngIf="walletFormError">{{ walletFormError }}</span>
             <button type="submit" class="btn-primary btn-full-width" [disabled]="submittingBankAccount">
               {{ submittingBankAccount ? 'Connecting...' : 'Connect bank account' }}

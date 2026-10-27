@@ -91,6 +91,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   bankAccountForm = { nickname: '', routingNumber: '', accountNumber: '' };
   walletTransactionForm = { amount: 1, bankAccountId: 0 };
   walletFormError = '';
+  walletLoadError = '';
   walletSuccessMessage = '';
   submittingBankAccount = false;
   submittingWalletTransaction = false;
@@ -132,6 +133,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   accountState: PortfolioAccountState | null = null;
   private accountStateSubscription?: Subscription;
   private accountLoadSubscription?: Subscription;
+  private walletLoadSubscription?: Subscription;
   private persistenceMessage = '';
   private readonly chartWidth = 1000;
   private readonly chartHeight = 360;
@@ -182,6 +184,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.resetDashboardData();
       this.accountStateSubscription?.unsubscribe();
       this.accountLoadSubscription?.unsubscribe();
+      this.walletLoadSubscription?.unsubscribe();
       this.accountState = null;
       this.valuationNotice = '';
       this.portfolioHistory = [];
@@ -422,6 +425,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!isDigit && !isDecimal) {
       event.preventDefault();
     }
+  }
+
+  sanitizeBankNumber(event: Event, field: 'routingNumber' | 'accountNumber'): void {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    const maxLength = field === 'routingNumber' ? 9 : 17;
+    const digits = input.value.replace(/[^0-9]/g, '').slice(0, maxLength);
+    input.value = digits;
+    this.bankAccountForm[field] = digits;
   }
 
   sanitizeNumberPaste(event: ClipboardEvent, allowDecimal: boolean): void {
@@ -834,10 +846,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.orders = [];
     this.bankAccounts = [];
     this.walletActivity = [];
+    this.walletLoadError = '';
     this.closeWalletModal();
   }
 
   loadDashboardData(recordTrade = false) {
+    this.loadWalletData();
     this.accountLoadSubscription?.unsubscribe();
     this.loadingBalance = this.loadingHoldings = this.loadingOrders = !this.accountState;
     this.error = this.persistenceMessage;
@@ -860,10 +874,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   
   private loadWalletData(): void {
-    forkJoin({
+    this.walletLoadSubscription?.unsubscribe();
+    this.walletLoadError = '';
+    this.walletLoadSubscription = forkJoin({
       accounts: this.api.getWalletBanks(this.accountId),
       activity: this.api.getWalletActivity(this.accountId)
-    }).subscribe({
+    }).pipe(timeout(10000), takeUntil(this.destroy$)).subscribe({
       next: ({ accounts, activity }) => {
         this.bankAccounts = accounts.map((account) => this.mapBankAccount(account));
         this.walletActivity = activity.map((item) => ({
@@ -873,9 +889,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
           bankNickname: this.bankAccounts.find((bank) => bank.id === item.bankId)?.nickname ?? 'Bank account',
           date: new Date(item.movementDate)
         }));
+        this.cdr.markForCheck();
       },
-      error: () => {
-        this.walletFormError = 'Unable to load wallet data.';
+      error: (error) => {
+        console.error('Unable to load wallet data:', error);
+        this.walletLoadError = 'Unable to load wallet data. Refresh to try again.';
+        this.cdr.markForCheck();
       }
     });
   }
