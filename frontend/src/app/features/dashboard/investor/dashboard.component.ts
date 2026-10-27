@@ -126,6 +126,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   bankAccountForm = { nickname: '', routingNumber: '', accountNumber: '' };
   walletTransactionForm = { amount: 1, bankAccountId: 0 };
   walletFormError = '';
+  walletLoadError = '';
   walletSuccessMessage = '';
   submittingBankAccount = false;
   submittingWalletTransaction = false;
@@ -167,6 +168,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   accountState: PortfolioAccountState | null = null;
   private accountStateSubscription?: Subscription;
   private accountLoadSubscription?: Subscription;
+  private walletLoadSubscription?: Subscription;
   private persistenceMessage = '';
   private readonly chartWidth = 1000;
   private readonly chartHeight = 360;
@@ -223,6 +225,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.resetDashboardData();
       this.accountStateSubscription?.unsubscribe();
       this.accountLoadSubscription?.unsubscribe();
+      this.walletLoadSubscription?.unsubscribe();
       this.accountState = null;
       this.valuationNotice = '';
       this.portfolioHistory = [];
@@ -465,6 +468,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  sanitizeBankNumber(event: Event, field: 'routingNumber' | 'accountNumber'): void {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement)) return;
+    const maxLength = field === 'routingNumber' ? 9 : 17;
+    const digits = input.value.replace(/[^0-9]/g, '').slice(0, maxLength);
+    input.value = digits;
+    this.bankAccountForm[field] = digits;
+  }
+
   sanitizeNumberPaste(event: ClipboardEvent, allowDecimal: boolean): void {
     const pastedText = event.clipboardData?.getData('text') ?? '';
     const pattern = allowDecimal ? /[^0-9.]/g : /[^0-9]/g;
@@ -496,6 +508,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.orderPlaced = false;
     this.showOrderModal = true;
     this.loadQuote(symbol);
+  }
+
+  get ownedTradeShares(): number | null {
+    if (!this.accountState) return null;
+    return this.portfolio.holdings.find(
+      holding => holding.symbol.toUpperCase() === this.selectedTicker.toUpperCase()
+    )?.quantity ?? 0;
+  }
+
+  get ownedTradeValue(): number | null {
+    const shares = this.ownedTradeShares;
+    if (shares === null) return null;
+    if (shares === 0) return 0;
+    if (this.loadingQuote || this.quoteError || this.currentPrice === null ||
+        !Number.isFinite(this.currentPrice) || this.currentPrice < 0) return null;
+    return shares * this.currentPrice;
   }
 
   getTradeChartSymbol(): string {
@@ -818,6 +846,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.disputeSummaries = null; this.disputeSummaryError = ''; this.disputeDialogOpen = false;
     this.bankAccounts = [];
     this.walletActivity = [];
+    this.walletLoadError = '';
     this.closeWalletModal();
   }
 
@@ -832,6 +861,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   loadDashboardData(recordTrade = false) {
+    this.loadWalletData();
     this.accountLoadSubscription?.unsubscribe();
     this.loadingBalance = this.loadingHoldings = this.loadingOrders = !this.accountState;
     this.error = this.persistenceMessage;
@@ -854,10 +884,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   
   private loadWalletData(): void {
-    forkJoin({
+    this.walletLoadSubscription?.unsubscribe();
+    this.walletLoadError = '';
+    this.walletLoadSubscription = forkJoin({
       accounts: this.api.getWalletBanks(this.accountId),
       activity: this.api.getWalletActivity(this.accountId)
-    }).subscribe({
+    }).pipe(timeout(10000), takeUntil(this.destroy$)).subscribe({
       next: ({ accounts, activity }) => {
         this.bankAccounts = accounts.map((account) => this.mapBankAccount(account));
         this.walletActivity = activity.map((item) => ({
@@ -867,9 +899,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
           bankNickname: this.bankAccounts.find((bank) => bank.id === item.bankId)?.nickname ?? 'Bank account',
           date: new Date(item.movementDate)
         }));
+        this.cdr.markForCheck();
       },
-      error: () => {
-        this.walletFormError = 'Unable to load wallet data.';
+      error: (error) => {
+        console.error('Unable to load wallet data:', error);
+        this.walletLoadError = 'Unable to load wallet data. Refresh to try again.';
+        this.cdr.markForCheck();
       }
     });
   }

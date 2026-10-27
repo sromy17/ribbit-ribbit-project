@@ -57,7 +57,6 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
     });
   };
   @ViewChild('detailsDialog', { static: true }) detailsDialog!: ElementRef<HTMLDialogElement>;
-  @ViewChild('tradeDialog', { static: true }) tradeDialog!: ElementRef<HTMLDialogElement>;
   @Input() accountNumber = '';
   private companyNewsSubscription?: Subscription;
   private tradeSubscription?: Subscription;
@@ -78,6 +77,7 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
   loadingCompanyNews = false;
   companyNewsError = '';
   tradeSide: 'BUY' | 'SELL' = 'BUY';
+  showTrade = false;
   tradeQuantity = 1;
   tradePrice = 0;
   placingTrade = false;
@@ -132,6 +132,7 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
     this.ngZone.run(() => {
       this.companyNewsSubscription?.unsubscribe();
       this.selectedStock = stock;
+      this.showTrade = false;
       this.tradeNotice = '';
       this.tradeWarning = '';
       this.companyNews = [];
@@ -184,14 +185,14 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
 
   closeDetails(): void {
     if (this.placingTrade) return;
-    this.tradeDialog.nativeElement.close();
+    this.showTrade = false;
     this.companyNewsSubscription?.unsubscribe();
     this.detailsDialog.nativeElement.close();
     this.selectedStock = null;
   }
 
   tradeSelectedStock(): void {
-    if (!this.selectedStock || this.placingTrade) return;
+    if (!this.selectedStock || this.placingTrade || this.showTrade) return;
     this.tradeSide = 'BUY';
     this.tradeQuantity = 1;
     this.tradePrice = this.selectedStock.currentPrice;
@@ -199,8 +200,8 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
     this.tradeNotice = '';
     this.tradeWarning = '';
     this.tradeLocked = false;
-    this.cdr.detectChanges();
-    this.tradeDialog.nativeElement.showModal();
+    this.showTrade = true;
+    this.cdr.markForCheck();
   }
 
   get tradeSubtotal(): number {
@@ -222,7 +223,7 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
 
   closeTrade(event?: Event): void {
     event?.preventDefault();
-    if (!this.placingTrade) this.tradeDialog.nativeElement.close();
+    if (!this.placingTrade) this.showTrade = false;
   }
 
   cancelDetails(event: Event): void {
@@ -252,7 +253,7 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
           this.tradeNotice = quantity !== undefined && price !== undefined
             ? `Order Executed: ${side === 'BUY' ? 'Bought' : 'Sold'} ${quantity} ${quantity === 1 ? 'share' : 'shares'} of ${ticker} @ $${price.toFixed(2)}`
             : `Order ${order.orderId} executed for ${ticker}. See History for execution details.`;
-          this.tradeDialog.nativeElement.close();
+          this.showTrade = false;
           clearTimeout(this.toastTimer);
           this.toastTimer = setTimeout(() => {
             this.tradeNotice = '';

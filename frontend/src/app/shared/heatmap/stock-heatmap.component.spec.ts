@@ -135,7 +135,7 @@ describe('Heatmap stock selection', () => {
     expect(b.observed).toBe(true);
     fixture.componentInstance.tradeSelectedStock();
     expect(fixture.componentInstance.selectedStock?.ticker).toBe('MSFT');
-    expect(fixture.componentInstance.tradeDialog.nativeElement.open).toBe(true);
+    expect(fixture.componentInstance.showTrade).toBe(true);
     expect(fixture.componentInstance.detailsDialog.nativeElement.open).toBe(true);
     expect(fixture.componentInstance.tradePrice).toBe(100);
     expect(fixture.componentInstance.tradeSide).toBe('BUY');
@@ -144,6 +144,43 @@ describe('Heatmap stock selection', () => {
     expect(pane.contains(fixture.nativeElement.querySelector('.details-drawer'))).toBe(false);
     fixture.componentInstance.closeDetails();
     expect(b.observed).toBe(false);
+    fixture.destroy();
+  });
+
+  it('opens and closes the side ticket without replacing or covering the chart with another dialog', async () => {
+    TestBed.configureTestingModule({
+      providers: [{ provide: FinnhubNewsService, useValue: { getCompanyNews: () => of([]) } }]
+    }).overrideComponent(StockHeatmapComponent, {
+      remove: { imports: [TradingviewWidgetComponent] }, add: { imports: [ChartStub] }
+    });
+    const fixture = TestBed.createComponent(StockHeatmapComponent);
+    fixture.componentRef.setInput('accountNumber', '301089');
+    fixture.componentRef.setInput('stocks', [{
+      ticker: 'AMD', companyName: 'AMD', currentPrice: 150, dailyChange: 1
+    }]);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.tile').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    const chart = fixture.nativeElement.querySelector('app-tradingview-widget');
+    fixture.nativeElement.querySelector('.trade-stock-button').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const content: HTMLElement = fixture.nativeElement.querySelector('.stock-details-content');
+    expect(content.classList.contains('with-trade')).toBe(true);
+    expect(content.querySelector('.quick-trade-panel form')).not.toBeNull();
+    expect(content.querySelector('app-tradingview-widget')).toBe(chart);
+    expect(fixture.nativeElement.querySelectorAll('dialog[open]')).toHaveLength(1);
+    component.tradeQuantity = 3;
+    component.tradeSelectedStock();
+    expect(component.tradeQuantity).toBe(3);
+    fixture.nativeElement.querySelector('.ticket-close').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(content.querySelector('.quick-trade-panel')).toBeNull();
+    expect(content.querySelector('app-tradingview-widget')).toBe(chart);
+    expect(component.detailsDialog.nativeElement.open).toBe(true);
     fixture.destroy();
   });
 
@@ -181,10 +218,10 @@ describe('Heatmap stock selection', () => {
       ticker: 'MMM', side: 'BUY', shares: 2, price: 175.21
     });
     component.closeTrade();
-    expect(component.tradeDialog.nativeElement.open).toBe(true);
+    expect(component.showTrade).toBe(true);
     result.next({ order: { orderId: 1, status: 'EXECUTED', executedQuantity: 2, executionPrice: 176 } });
     fixture.detectChanges();
-    expect(component.tradeDialog.nativeElement.open).toBe(false);
+    expect(component.showTrade).toBe(false);
     expect(component.detailsDialog.nativeElement.open).toBe(true);
     expect(component.selectedStock?.ticker).toBe('MMM');
     expect(component.tiles).toBe(tiles);
@@ -209,7 +246,7 @@ describe('Heatmap stock selection', () => {
     component.placeQuickOrder();
     expect(component.tradeError).toContain('rejected');
     expect(component.tradeNotice).toBe('');
-    expect(component.tradeDialog.nativeElement.open).toBe(true);
+    expect(component.showTrade).toBe(true);
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     executeTrade.mockReturnValue(throwError(() => new Error('offline')));
     component.placeQuickOrder();

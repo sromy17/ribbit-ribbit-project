@@ -30,17 +30,20 @@
           <input uiInput id="lastName" type="text" [(ngModel)]="lastName" name="lastName" required autocomplete="family-name" />
         </div>
         <div class="form-group">
-          <label for="username">Username</label
+          <label for="username">Username (email address)</label
           ><input
             uiInput
             id="username"
-            type="text"
+            type="email"
             [(ngModel)]="username"
             name="username"
             required
+            email
             autocomplete="username"
-            placeholder="Choose a username"
+            placeholder="you@example.com"
+            #usernameField="ngModel"
           />
+          <span *ngIf="usernameField.touched && usernameField.errors?.['email']" class="error" role="alert">Username must be a valid email address</span>
         </div>
         <div class="form-group">
           <label for="password">Password</label
@@ -65,6 +68,7 @@
       <div class="auth-divider"></div>
       <button uiButton="ghost" type="button" (click)="router.navigate(['/login'])">
         ← Back to sign in
+
       </button>
     </div>
   </main>

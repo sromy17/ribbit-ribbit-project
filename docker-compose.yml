@@ -1,25 +1,24 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: ribbit-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ribbit-oltp}
+      POSTGRES_DB: ${POSTGRES_DB:-ribbit_oltp}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${DB_OLTP_PASSWORD}}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "5432:5432"
     volumes:
-      - ./basedSchema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./insert-data.sql:/docker-entrypoint-initdb.d/02-data.sql
-      - ./olap-database.sql:/docker-entrypoint-initdb.d/03-olap-database.sql
-      - ./olap.sql:/schemas/olap.sql:ro
+      - ./basedSchema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./insert-data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+      - ./scripts/init-olap.sql:/docker-entrypoint-initdb.d/03-olap-database.sql:ro
+      - ./olap.sql:/opt/ribbit/olap.sql:ro
+
       - postgres_data:/var/lib/postgresql/data
     networks:
       - ribbit-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,22 +32,63 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
-      DB_OLTP_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
+      SERVER_PORT: 8081
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit_oltp}
+      DB_OLTP_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit_oltp}
       DB_OLTP_USER: ${POSTGRES_USER:-postgres}
-      DB_OLTP_PASSWORD: ${POSTGRES_PASSWORD:-${DB_OLTP_PASSWORD}}
-      DB_OLAP_URL: jdbc:postgresql://postgres:5432/ribbit-olap
+      DB_OLTP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      DB_OLAP_URL: jdbc:postgresql://postgres:5432/ribbit_olap
       DB_OLAP_USER: ${POSTGRES_USER:-postgres}
-      DB_OLAP_PASSWORD: ${POSTGRES_PASSWORD:-${DB_OLTP_PASSWORD}}
-      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET}
-      FAUXNANCE_API_KEY: ${FAUXNANCE_API_KEY}
+      DB_OLAP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       ORDER_EXECUTION_KAFKA_ENABLED: "false"
-      ETL_ENABLED: ${ETL_ENABLED}
-      ETL_FIXED_DELAY_MS: ${ETL_FIXED_DELAY_MS}
+      ETL_ENABLED: ${ETL_ENABLED:-true}
+      ETL_FIXED_DELAY_MS: ${ETL_FIXED_DELAY_MS:-300000}
       DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-${DB_OLTP_PASSWORD}}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET:?Set JWT_SHARED_SECRET to at least 32 characters in .env}
+      FAUXNANCE_BASE_URL: ${FAUXNANCE_BASE_URL:-https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
+      FAUXNANCE_API_KEY: ${FAUXNANCE_API_KEY:-}
+      FAUXNANCE_USE_ORDER_PRICE_FALLBACK: ${FAUXNANCE_USE_ORDER_PRICE_FALLBACK:-false}
     ports:
-      - "8082:8082"
+      - "8081:8081"
+    networks:
+      - ribbit-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+
+  auth:
+    build:
+      context: ./shared/auth-stub
+    container_name: ribbit-auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AUTH_STUB_PORT: 4000
+      DB_URL: postgresql://postgres:5432/${POSTGRES_DB:-ribbit_oltp}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      DB_SSL: "false"
+      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET:?Set JWT_SHARED_SECRET to at least 32 characters in .env}
+    networks:
+      - ribbit-network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: ribbit-frontend
+    depends_on:
+      springboot:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    ports:
+      - "4200:80"
+
     networks:
       - ribbit-network
 

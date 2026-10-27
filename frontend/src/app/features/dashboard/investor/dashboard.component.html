@@ -683,6 +683,7 @@
                 <p class="value loading" *ngIf="loadingBalance">Loading...</p>
               </div>
 
+
               <div class="card">
                 <h3>Portfolio Value</h3>
                 <p class="value" *ngIf="!loadingBalance">
@@ -769,6 +770,7 @@
                 </div>
                 <div class="portfolio-date-axis" aria-label="History date axis">
                   <span *ngFor="let date of historyDateTicks">{{ date }}</span>
+
                 </div>
               </div>
             </div>
@@ -779,6 +781,7 @@
               <div *ngIf="loadingHoldings" class="loading-indicator">Loading holdings...</div>
               <div *ngIf="!loadingHoldings && portfolio.holdings.length === 0" class="empty-state">
                 No holdings yet
+
               </div>
               <div class="table-scroll">
                 <table class="table" *ngIf="!loadingHoldings && portfolio.holdings.length > 0">
@@ -808,6 +811,8 @@
           </div>
         </div>
       </div>
+
+
     </div>
 
     <!-- ADMIN DASHBOARD (PLACEHOLDER) -->
