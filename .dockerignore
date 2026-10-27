@@ -8,3 +8,9 @@ target/test-classes
 target/maven-archiver
 target/maven-status
 target/surefire-reports
+.env
+.env.*
+frontend/node_modules
+frontend/dist
+frontend/.angular
+shared/auth-stub/node_modules
