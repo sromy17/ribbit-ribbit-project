@@ -82,7 +82,7 @@
   </div>
 
   <div class="page-body">
-    <p class="mb-3 text-xs text-muted">Local paper trading · Educational prices may be delayed. Orders and balances are saved locally; no broker or bank transfers are made.</p>
+    <p class="mb-3 text-xs text-muted">Local paper trading · Display quotes are cached for up to one hour; execution requires a fresh price. Orders and balances are saved locally; no broker or bank transfers are made.</p>
     <!-- Loading & Error States -->
     <div *ngIf="error" class="error-banner">
       {{ error }}
@@ -153,9 +153,9 @@
             <div class="trade-search-heading">
               <div>
                 <p class="eyebrow">Markets</p>
-                <h2>Find a ticker</h2>
+                <h2>Explore tickers</h2>
               </div>
-              <span class="trade-search-hint">Search the local market catalog</span>
+              <span class="trade-search-hint">Browse by currency or find your next company</span>
             </div>
             <div class="trade-search-box">
               <input
@@ -168,30 +168,33 @@
                 placeholder="Search by ticker or company (e.g., AAPL)"
                 class="search-input"
                 autocomplete="off"
-                role="combobox"
-                [attr.aria-expanded]="
-                  tradeSearch.trim().length > 0 && filteredTradeTickers.length > 0
-                "
-                aria-controls="ticker-suggestions"
               />
-              <div
-                *ngIf="tradeSearch.trim().length > 0 && filteredTradeTickers.length > 0"
-                id="ticker-suggestions"
-                class="ticker-suggestions"
-                role="listbox"
-              >
-                <button
-                  *ngFor="let instrument of filteredTradeTickers"
-                  type="button"
-                  class="ticker-suggestion"
-                  role="option"
-                  (click)="selectTicker(instrument.symbol)"
-                >
-                  <span class="ticker-suggestion-symbol">{{ instrument.symbol }}</span>
-                  <span class="ticker-suggestion-name">{{ instrument.name }}</span>
-                  <span class="ticker-suggestion-exchange">{{ instrument.exchange }}</span>
+            </div>
+            <div class="ticker-browser-controls">
+              <div class="ticker-currency-filters" role="group" aria-label="Filter tickers by currency">
+                <button *ngFor="let currency of tickerCurrencies" type="button"
+                  [class.selected]="tickerCurrency === currency.code"
+                  [attr.aria-pressed]="tickerCurrency === currency.code"
+                  (click)="setTickerCurrency(currency.code)">
+                  {{ currency.label }} <span>{{ tickerCurrencyCount(currency.code) }}</span>
                 </button>
               </div>
+              <label class="ticker-sort">Sort by
+                <select uiInput name="tickerSort" [(ngModel)]="tickerSort" (ngModelChange)="tickerVisibleCount = 24">
+                  <option value="symbol">Ticker A–Z</option>
+                  <option value="name">Company A–Z</option>
+                  <option value="currency">Currency</option>
+                </select>
+              </label>
+            </div>
+            <div class="ticker-recents" *ngIf="recentTickers.length">
+              <div class="ticker-section-heading"><h3>Recent searches</h3>
+                <button uiButton="ghost" type="button" (click)="clearRecentTickers()">Clear history</button>
+              </div>
+              <div class="ticker-recent-chips">
+                <button *ngFor="let symbol of recentTickers" type="button" (click)="selectTicker(symbol)">{{ symbol }} <span aria-hidden="true">↗</span></button>
+              </div>
+              <p class="ticker-browser-note">Recently opened tickers · Saved on this device</p>
             </div>
             <span class="error-text" *ngIf="tradeSearchError">{{ tradeSearchError }}</span>
             <span class="market-data-status" *ngIf="loadingInstrumentCatalog"
@@ -200,12 +203,34 @@
             <span class="error-text" *ngIf="instrumentCatalogError">{{
               instrumentCatalogError
             }}</span>
+            <div class="ticker-directory" *ngIf="!loadingInstrumentCatalog && !instrumentCatalogError">
+              <div class="ticker-section-heading"><h3>{{ tradeSearch.trim() ? 'Search results' : 'Browse the catalog' }}</h3>
+                <span>{{ browsableTickers.length }} instruments</span>
+              </div>
+              <p class="ticker-browser-note">Filter by trading currency. Open a ticker to view its chart and price.</p>
+              <div class="ticker-card-grid">
+                <button class="ticker-browser-card" type="button"
+                  *ngFor="let instrument of browsableTickers | slice:0:tickerVisibleCount"
+                  (click)="selectTicker(instrument.symbol)">
+                  <span class="ticker-card-top"><strong>{{ instrument.symbol }}</strong><span class="ticker-currency-badge">{{ instrument.currency || '—' }}</span></span>
+                  <span class="ticker-company-name">{{ instrument.name }}</span>
+                  <span class="ticker-card-bottom"><span>{{ instrument.exchange || 'Exchange unavailable' }} · {{ instrument.type }}</span><span aria-hidden="true">↗</span></span>
+                </button>
+              </div>
+              <div class="ticker-empty" *ngIf="!browsableTickers.length">
+                <h3>No tickers found</h3><p>Try another company name or currency. Only instruments in the catalog appear here.</p>
+                <button uiButton="secondary" type="button" (click)="tradeSearch = ''; setTickerCurrency('ALL')">Reset filters</button>
+              </div>
+              <button uiButton="secondary" class="ticker-show-more" type="button" *ngIf="browsableTickers.length > tickerVisibleCount"
+                (click)="tickerVisibleCount = tickerVisibleCount + 24">Show more tickers</button>
+            </div>
           </div>
         </div>
 
         <div *ngIf="showOrderModal" class="modal-overlay" (click)="closeOrderModal()">
           <div
             class="modal-box"
+            [class.trade-entry-modal]="!orderPlaced"
             role="dialog"
             aria-modal="true"
             aria-label="Place an order"
@@ -213,6 +238,11 @@
             (click)="$event.stopPropagation()"
           >
             <ng-container *ngIf="!orderPlaced; else orderPlacedBox">
+              <div class="trade-entry-layout">
+                <section class="trade-chart-panel" aria-label="Selected stock chart">
+                  <app-tradingview-widget [symbol]="getTradeChartSymbol()"></app-tradingview-widget>
+                </section>
+                <div class="trade-entry-ticket">
               <div class="modal-header">
                 <h2>{{ selectedTicker }}</h2>
                 <button
@@ -255,13 +285,14 @@
                   <span class="error-text" *ngIf="!loadingQuote && quoteError">{{
                     quoteError
                   }}</span>
+                  <button *ngIf="!loadingQuote && quoteError" uiButton="ghost" type="button" (click)="loadQuote(selectedTicker)">Retry price</button>
                 </p>
               </ng-template>
               <section class="trade-holdings rounded-lg border border-line bg-subtle p-4 mb-4" aria-label="Your position">
                 <h3 class="text-sm font-semibold">Your position · {{ selectedTicker }}</h3>
                 <ng-container *ngIf="ownedTradeShares !== null; else holdingsStatus">
                   <p>Shares owned: {{ ownedTradeShares | number: '1.0-8' }}</p>
-                  <p *ngIf="ownedTradeValue !== null; else positionPriceStatus">Market value: {{ quoteCurrency }} {{ ownedTradeValue | number: '1.2-2' }}</p>
+                  <p *ngIf="ownedTradeValue !== null; else positionPriceStatus">Market value: {{ quoteCurrency === 'UNKNOWN' ? currencyLabel : quoteCurrency }} {{ ownedTradeValue | number: '1.2-2' }}</p>
                   <ng-template #positionPriceStatus><p class="text-muted">{{ loadingQuote ? 'Loading price...' : 'Price unavailable' }}</p></ng-template>
                 </ng-container>
                 <ng-template #holdingsStatus><p class="text-muted">{{ loadingHoldings ? 'Loading holdings...' : 'Holdings unavailable' }}</p></ng-template>
@@ -321,7 +352,7 @@
                 <button
                   uiButton="primary"
                   (click)="placeOrder()"
-                  [disabled]="loading || !isFormValid()"
+                  [disabled]="loading || loadingQuote || !!quoteError || currentPrice === null || !isFormValid()"
                   class="btn-primary btn-full-width"
                 >
                   {{ loading ? 'Placing...' : 'Place Order' }}
@@ -329,6 +360,8 @@
               </div>
               <div class="error-text" *ngIf="orderFormErrors['submit']">
                 {{ orderFormErrors['submit'] }}
+              </div>
+                </div>
               </div>
             </ng-container>
 

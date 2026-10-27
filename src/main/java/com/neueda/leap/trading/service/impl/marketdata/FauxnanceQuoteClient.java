@@ -21,6 +21,12 @@ public class FauxnanceQuoteClient {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String apiKey;
+    private ProviderRequestBudget requestBudget;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setRequestBudget(ProviderRequestBudget requestBudget) { this.requestBudget = requestBudget; }
+
+    private volatile Instant quotaRetryAt = Instant.EPOCH;
 
     public FauxnanceQuoteClient(
         RestClient.Builder restClientBuilder,
@@ -39,8 +45,12 @@ public class FauxnanceQuoteClient {
 
     public MarketQuote fetchMarketQuote(String symbol) {
         String normalized = normalizeSymbol(symbol);
+        if (Instant.now().isBefore(quotaRetryAt)) {
+            throw new IllegalStateException("Market data daily quota exhausted; resets at " + quotaRetryAt);
+        }
 
         try {
+            if (requestBudget != null) requestBudget.reserve();
             RestClient.RequestHeadersUriSpec<?> request = restClient.get();
             request.uri("/quotes/{symbol}", normalized);
             request.headers(headers -> {
@@ -70,6 +80,15 @@ public class FauxnanceQuoteClient {
                 response.meta() == null ? null : response.meta().stale(),
                 response.meta() == null ? null : response.meta().disclaimer());
         } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 429) {
+                String message = extractErrorMessage(ex);
+                // A daily quota applies to all symbols. Do not keep retrying it per tile.
+                if (message.toLowerCase(Locale.ROOT).contains("daily quota")) {
+                    quotaRetryAt = java.time.LocalDate.now(java.time.ZoneOffset.UTC).plusDays(1)
+                        .atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+                    throw new IllegalStateException("Market data daily quota exhausted; resets at " + quotaRetryAt, ex);
+                }
+            }
             throw new IllegalArgumentException(extractErrorMessage(ex) + " for symbol " + normalized, ex);
         }
     }

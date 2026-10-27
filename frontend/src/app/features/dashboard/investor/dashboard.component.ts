@@ -205,8 +205,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.persistenceMessage = message;
       if (message) this.error = message;
     });
-    timer(60000, 60000).pipe(takeUntil(this.destroy$)).subscribe(() => {
+    timer(3600000, 3600000).pipe(takeUntil(this.destroy$)).subscribe(() => {
       if (this.activeView === 'graphs') this.loadMarketHeatmap();
+    });
+    timer(60000, 60000).pipe(takeUntil(this.destroy$)).subscribe(() => {
       if (this.activeView === 'history' && !this.disputeDialogOpen && !this.loadingOrders) this.loadOrderHistory();
       if (!this.loading && this.accountState &&
           this.accountState.history.at(-1)?.timestamp.toDateString() !== new Date().toDateString()) {
@@ -259,7 +261,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.marketHeatmapError = '';
     this.api.getMarketInstruments().pipe(timeout(10000), takeUntil(this.destroy$)).subscribe({
       next: ({ symbols }) => {
-        const instruments = symbols;
+        const instruments = symbols.slice(0, 50);
         const batches = this.chunk(instruments, 25);
         from(batches).pipe(
           concatMap((batch) =>
@@ -411,6 +413,53 @@ export class DashboardComponent implements OnInit, OnDestroy {
       : 'Trading Account';
   }
 
+  tickerCurrency = 'ALL';
+  tickerSort = 'symbol';
+  tickerVisibleCount = 24;
+  readonly tickerCurrencies = [
+    { code: 'ALL', label: 'All currencies' },
+    { code: 'USD', label: 'US · USD' },
+    { code: 'GBP', label: 'UK · GBP' },
+    { code: 'INR', label: 'India · INR' }
+  ];
+  private readonly recentTickerKey = 'leap-trader:recent-tickers';
+  recentTickers: string[] = this.readRecentTickers();
+
+  private readRecentTickers(): string[] {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(this.recentTickerKey) || '[]');
+      return Array.isArray(saved)
+        ? [...new Set(saved.filter((value): value is string => typeof value === 'string' && /^[A-Z][A-Z0-9.-]{0,24}$/.test(value)))].slice(0, 8)
+        : [];
+    } catch { return []; }
+  }
+
+  clearRecentTickers(): void {
+    this.recentTickers = [];
+    try { localStorage.removeItem(this.recentTickerKey); } catch { /* Storage is optional. */ }
+  }
+
+  setTickerCurrency(currency: string): void {
+    this.tickerCurrency = currency;
+    this.tickerVisibleCount = 24;
+  }
+
+  tickerCurrencyCount(currency: string): number {
+    return this.marketInstruments.filter(item => currency === 'ALL' || item.currency?.toUpperCase() === currency).length;
+  }
+
+  get browsableTickers(): MarketInstrument[] {
+    const search = this.tradeSearch.trim().toUpperCase();
+    return this.marketInstruments.filter(item =>
+      (this.tickerCurrency === 'ALL' || item.currency?.toUpperCase() === this.tickerCurrency) &&
+      (!search || item.symbol.toUpperCase().includes(search) || item.name.toUpperCase().includes(search))
+    ).sort((left, right) => {
+      if (this.tickerSort === 'name') return left.name.localeCompare(right.name) || left.symbol.localeCompare(right.symbol);
+      if (this.tickerSort === 'currency') return left.currency.localeCompare(right.currency) || left.symbol.localeCompare(right.symbol);
+      return left.symbol.localeCompare(right.symbol);
+    });
+  }
+
   get filteredTradeTickers(): MarketInstrument[] {
     const search = this.tradeSearch.trim().toUpperCase();
     if (!search) {
@@ -452,6 +501,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   onTradeSearchChange(): void {
     this.tradeSearchError = '';
+    this.tickerVisibleCount = 24;
   }
 
   blockInvalidNumberKey(event: KeyboardEvent, allowDecimal: boolean): void {
@@ -499,6 +549,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
     this.tradeSearchError = '';
+    this.recentTickers = [symbol, ...this.recentTickers.filter(item => item !== symbol)].slice(0, 8);
+    try { localStorage.setItem(this.recentTickerKey, JSON.stringify(this.recentTickers)); } catch { /* Storage is optional. */ }
     this.selectedTicker = symbol;
     this.selectedTradeInstrument = this.marketInstruments.find(
       (instrument) => instrument.symbol.toUpperCase() === symbol
@@ -552,9 +604,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error loading quote:', err);
-        this.quoteError = err?.status === 503
+        this.quoteError = err?.error?.detail || (err?.status === 503
           ? 'Market data provider is temporarily unavailable'
-          : 'Unable to load the market price';
+          : 'Unable to load the market price');
         this.loadingQuote = false;
         this.cdr.detectChanges();
       }

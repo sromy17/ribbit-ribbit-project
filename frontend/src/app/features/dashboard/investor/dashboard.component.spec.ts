@@ -48,6 +48,42 @@ describe('Wallet loading after a refresh', () => {
         return { fixture, component, api, params };
       }
 
+      it('browses currencies and sorts company names without requesting prices', () => {
+        const { component } = createDashboard();
+        component.marketInstruments = [
+          { symbol: 'Z.L', name: 'Alpha UK', currency: 'GBP', exchange: 'LSE', type: 'Equity' },
+          { symbol: 'AAPL', name: 'Apple', currency: 'USD', exchange: 'NASDAQ', type: 'Equity' },
+          { symbol: 'INFY', name: 'Infosys', currency: 'INR', exchange: 'NSE', type: 'Equity' }
+        ];
+        const prices = vi.spyOn(component, 'loadQuote');
+        expect(component.browsableTickers.length).toBe(3);
+        component.setTickerCurrency('GBP');
+        expect(component.browsableTickers.map(item => item.symbol)).toEqual(['Z.L']);
+        component.tradeSearch = 'Infosys';
+        expect(component.browsableTickers).toEqual([]);
+        component.setTickerCurrency('INR');
+        expect(component.browsableTickers[0].symbol).toBe('INFY');
+        component.tradeSearch = '';
+        component.setTickerCurrency('ALL');
+        component.tickerSort = 'name';
+        expect(component.browsableTickers.map(item => item.name)).toEqual(['Alpha UK', 'Apple', 'Infosys']);
+        expect(prices).not.toHaveBeenCalled();
+      });
+
+      it('remembers opened tickers, deduplicates them and clears saved history', () => {
+        const { component } = createDashboard();
+        component.clearRecentTickers();
+        vi.spyOn(component, 'loadQuote').mockImplementation(() => {});
+        component.selectTicker('AAPL');
+        component.selectTicker('MSFT');
+        component.selectTicker('AAPL');
+        expect(component.recentTickers).toEqual(['AAPL', 'MSFT']);
+        expect(JSON.parse(localStorage.getItem('leap-trader:recent-tickers')!)).toEqual(['AAPL', 'MSFT']);
+        component.clearRecentTickers();
+        expect(component.recentTickers).toEqual([]);
+        expect(localStorage.getItem('leap-trader:recent-tickers')).toBeNull();
+      });
+
       afterEach(() => {
         TestBed.resetTestingModule();
         vi.restoreAllMocks();
@@ -155,6 +191,8 @@ describe('Stock order position rendering', () => {
     await fixture.whenStable();
     const dialog: HTMLElement = fixture.nativeElement.querySelector('.modal-box');
     expect(dialog.querySelector('.order-placed')).toBeNull();
+    expect(dialog.querySelector('app-tradingview-widget')).not.toBeNull();
+    expect(dialog.querySelector('.trade-entry-ticket')).not.toBeNull();
     component.orderPlaced = true;
     fixture.changeDetectorRef.markForCheck();
     fixture.detectChanges();
@@ -162,6 +200,19 @@ describe('Stock order position rendering', () => {
     expect(dialog.querySelector('.trade-holdings')).toBeNull();
     expect(dialog.querySelector('.order-placed')?.textContent).toContain('Order placed');
     expect(dialog.querySelector('.quote-card')).toBeNull();
+  });
+
+  it('keeps the chart and side ticket visible when the quote provider fails, with retry and submission disabled', () => {
+    const { fixture, component } = createScreen();
+    component.quoteError = 'Market data provider is temporarily unavailable';
+    component.currentPrice = null;
+    fixture.detectChanges();
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('.modal-box');
+    expect(dialog.querySelector('app-tradingview-widget')).not.toBeNull();
+    expect(dialog.querySelector('.trade-entry-ticket')).not.toBeNull();
+    const submit = Array.from(dialog.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Place Order');
+    expect(submit?.disabled).toBe(true);
+    expect(dialog.textContent).toContain('Retry price');
   });
 
   it('keeps bank inputs digits-only for typing, paste, and input events while preserving zeros', async () => {

@@ -24,6 +24,18 @@ class FauxnanceQuoteClientTest {
     }
 
     @Test
+    void dailyQuotaFailureStopsFurtherProviderRequestsAcrossSymbols() {
+        server.expect(requestTo("https://quotes.test/quotes/AAPL"))
+            .andRespond(withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"error\":{\"message\":\"Daily quota of 2000 requests exhausted. Resets at 00:00 UTC.\"}}"));
+        assertTrue(assertThrows(IllegalStateException.class, () -> client.fetchMarketQuote("AAPL"))
+            .getMessage().contains("daily quota exhausted"));
+        assertThrows(IllegalStateException.class, () -> client.fetchMarketQuote("MSFT"));
+        server.verify();
+    }
+
+    @Test
     void fullQuotePreservesChangeFieldsAndNormalizesSymbol() {
         server.expect(requestTo("https://quotes.test/quotes/AAPL"))
             .andExpect(header("X-Api-Key", "test-key"))

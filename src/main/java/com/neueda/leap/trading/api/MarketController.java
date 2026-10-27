@@ -32,10 +32,24 @@ public class MarketController {
         } catch (IllegalStateException ex) {
             throw new ResponseStatusException(
                 HttpStatus.SERVICE_UNAVAILABLE,
-                "Market data provider is unavailable for " + normalized,
+                unavailableReason(ex, "Market data provider is unavailable for " + normalized),
                 ex
             );
         }
+    }
+
+    private String unavailableReason(Throwable error, String fallback) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause.getMessage() != null && (cause.getMessage().startsWith("Market data daily quota exhausted;") || cause.getMessage().startsWith("Market data daily budget reached;"))) {
+                return cause.getMessage();
+            }
+        }
+        return fallback;
+    }
+
+    @org.springframework.web.bind.annotation.ExceptionHandler(ResponseStatusException.class)
+    public org.springframework.http.ProblemDetail marketError(ResponseStatusException error) {
+        return org.springframework.http.ProblemDetail.forStatusAndDetail(error.getStatusCode(), error.getReason());
     }
 
     @GetMapping("/quotes")

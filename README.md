@@ -315,3 +315,21 @@ VM, use `sudo systemctl status docker`; if it is stopped, start it with
 `sudo systemctl start docker`. A permission-denied error may require running
 the Docker commands with `sudo`. The local Windows Docker engine is not used.
 
+
+### Conserving the quote API quota
+
+Display quotes are cached per symbol for one hour on the backend, shared across
+users and tabs. Concurrent requests for a symbol share its refresh. The heatmap
+automatically refreshes hourly and requests at most 50 symbols. These display
+quotes can therefore be up to one hour old; execution uses its separate freshness
+check and never falls back to an old display price.
+
+All Fauxnance requests (including execution, validation and Kafka polling) pass
+through a 1,000-attempt daily cap, controlled by `FAUXNANCE_DAILY_REQUEST_LIMIT`.
+The count is saved in `state/fauxnance-budget.properties` before each attempt and
+resets at midnight UTC. Keep this file across restarts and mount persistent state
+when running in a container. This budget covers one backend instance; other apps
+or instances using the same API key consume the provider quota separately. Calls
+made before enabling the budget are not counted. Leave Kafka polling disabled
+for conservative local use; enabling its frequent polling can consume the cap
+quickly. When the cap is reached, new quotes and execution checks fail explicitly.

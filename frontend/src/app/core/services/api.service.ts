@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, concat, of, map, shareReplay, tap } from 'rxjs';
+import { Observable, concat, of, map, shareReplay, tap, timeout } from 'rxjs';
 import { delay } from 'rxjs/operators';
 
 // Component -> ApiService -> HttpClient -> API
@@ -360,7 +360,7 @@ export class ApiService {
   // Market data
 
   getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }> {
-    return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>(`/api/market/quotes/${encodeURIComponent(symbol)}`);
+    return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>(`/api/market/quotes/${encodeURIComponent(symbol)}`).pipe(timeout(10000));
   }
 
   getMarketQuotes(symbols: string[]): Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>> {
@@ -380,6 +380,7 @@ export class ApiService {
       `${this.apiUrl}/market/quotes`,
       { params: { symbols: normalizedSymbols.join(',') } }
     ).pipe(
+      timeout(10000),
       tap((quotes) => {
         quotes.forEach((quote) => this.marketQuoteCache.set(quote.symbol.toUpperCase(), quote));
         this.persistMarketQuoteCache();

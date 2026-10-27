@@ -88,16 +88,15 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
         }
         try {
             String symbol = ticker.trim().toUpperCase(Locale.ROOT);
-            var cached = displayedQuotes.get(symbol);
-            if (cached != null && cached.receivedAtUtc() != null
-                    && Duration.between(cached.receivedAtUtc(), java.time.Instant.now()).toMillis() < 15000) return cached;
-            MarketQuote quote = fauxnanceQuoteClient.fetchMarketQuote(symbol);
-            if (quote.receivedAtUtc() != null) {
-                quoteCache.upsert(QuoteSnapshot.from(quote));
-                if (displayedQuotes.size() >= 512) displayedQuotes.clear();
-                displayedQuotes.put(symbol, quote);
-            }
-            return quote;
+            // compute serializes refreshes for the same symbol across tabs and batch requests.
+            DisplayQuote cached = displayedQuotes.compute(symbol, (key, previous) -> {
+                long now = System.currentTimeMillis();
+                if (previous != null && now - previous.fetchedAtMs() < displayCacheMs) return previous;
+                MarketQuote quote = fauxnanceQuoteClient.fetchMarketQuote(key);
+                if (quote.receivedAtUtc() != null) quoteCache.upsert(QuoteSnapshot.from(quote));
+                return new DisplayQuote(quote, now);
+            });
+            return cached.quote();
         } catch (RuntimeException ex) {
             throw new IllegalStateException("Price unavailable for " + ticker, ex);
 
@@ -139,7 +138,10 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
         } finally { batchSlots.release(); }
     }
 
-    private final java.util.concurrent.ConcurrentHashMap<String,MarketQuote> displayedQuotes = new java.util.concurrent.ConcurrentHashMap<>();
+    @Value("${market-data.refresh.display-cache-ms:3600000}")
+    private long displayCacheMs = 3600000;
+    private record DisplayQuote(MarketQuote quote, long fetchedAtMs) {}
+    private final java.util.concurrent.ConcurrentHashMap<String,DisplayQuote> displayedQuotes = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.Semaphore batchSlots = new java.util.concurrent.Semaphore(2);
     private final java.util.concurrent.ExecutorService quoteWorkers = new java.util.concurrent.ThreadPoolExecutor(
         8, 8, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,

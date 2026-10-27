@@ -12,6 +12,28 @@ import org.junit.jupiter.api.Test;
 
 class StaticMarketDataVerificationServiceTest {
     @Test
+    void concurrentDisplayRequestsShareRefreshButExecutionRequiresFreshPrice() throws Exception {
+        var provider = mock(FauxnanceQuoteClient.class);
+        var service = new StaticMarketDataVerificationService(provider, new QuoteCache(), mock(KafkaQuoteProducer.class), 1500);
+        var oldQuote = new MarketQuote("AAPL", BigDecimal.TEN, BigDecimal.ONE, BigDecimal.ONE,
+            "feed", Instant.now().minusSeconds(120), Instant.now().minusSeconds(120), "USD", "LAST");
+        when(provider.fetchMarketQuote("AAPL")).thenReturn(oldQuote);
+        try (var workers = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+            var futures = java.util.stream.IntStream.range(0, 20)
+                .mapToObj(i -> workers.submit(() -> service.getQuote("aapl"))).toList();
+            for (var future : futures) assertEquals(oldQuote, future.get());
+            assertEquals(oldQuote, service.getQuote("AAPL"));
+            verify(provider, times(1)).fetchMarketQuote("AAPL");
+            var instrument = new Instrument();
+            instrument.setTicker("AAPL");
+            var order = new Order();
+            order.setInstrument(instrument);
+            service.verifyExecutionQuote(order);
+            verify(provider, times(2)).fetchMarketQuote("AAPL");
+        } finally { service.stopQuoteWorkers(); }
+    }
+
+    @Test
     void liveAndCachedExecutionPreserveSameProvenanceAndQualifiedSymbol() {
         var provider = mock(FauxnanceQuoteClient.class);
         var publisher = mock(KafkaQuoteProducer.class);

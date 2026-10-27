@@ -13,3 +13,6 @@
 **/shared/auth-stub/node_modules
 
 .local/
+
+state/fauxnance-budget.properties
+state/quote-budget-*.tmp
