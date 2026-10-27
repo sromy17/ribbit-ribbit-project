@@ -50,3 +50,10 @@ In **History**, each executed trade offers **Dispute trade** or **View tickets /
 Open the admin dispute queue with `local_admin`. The customer and account links open the actual customer record. Claim the ticket, accept it for investigation, add internal notes and resolve it with a reason. Customer History shows **Under review** while any ticket is active and **Resolved** when all tickets are resolved. Opening the customer's ticket list shows its public resolution reason; private staff notes and assignment details stay hidden. Refresh History for immediate changes; its status also refreshes every minute when a ticket dialog is closed. The admin queue refreshes every 15 seconds when idle.
 
 Persistent verification records: trade 2009 has one active ticket; trade 2008 has two resolved tickets. These are clearly named local verification records, not hardcoded UI data. Creating and resolving these tickets left the educational account balance unchanged at 998 USD. Resolution records a decision; it does not automatically refund cash or alter holdings.
+
+
+## Checking merged deployments
+
+Run `npm test --prefix frontend -- --watch=false` and `mvn test` for the frontend/backend suites. `bash scripts/verify-merged-connection.sh` starts disposable databases and separate ports, validates the configured OLAP initializer, and exercises the same customer/staff workflows through both Angular's proxy and production Nginx. It installs missing local dependencies and removes its temporary containers/services on exit. `bash scripts/verify-admin-postgres.sh` checks PostgreSQL concurrency, replay and reporting recovery.
+
+Direct `npm start` uses backend port 8081 for every API family. `scripts/start-local.sh` generates a proxy for its configured backend port (8082 by default), including admin and analytics routes. Docker Nginx retains the `/api` prefix for admin, analytics and ETL controllers and removes it for customer controllers. Compose uses `POSTGRES_DB` and `POSTGRES_OLAP_DB` consistently during initialization and application startup. Preserve existing names; no database rename or destructive reinitialization is required.

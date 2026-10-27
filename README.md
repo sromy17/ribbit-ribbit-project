@@ -225,9 +225,9 @@ characters. Both application services receive the same secret and database
 credentials from Compose. Set a valid `FAUXNANCE_API_KEY` to test live quotes
 and trades. The default `FAUXNANCE_USE_ORDER_PRICE_FALLBACK=false` intentionally
 fails trades when the provider is unavailable rather than using a fake price.
-For a new deployment, keep `POSTGRES_DB=ribbit_oltp`; `ribbit_olap` is a separate
+For a new deployment, keep `POSTGRES_DB=ribbit-oltp` and `POSTGRES_OLAP_DB=ribbit-olap`; the latter is a separate
 analytics database. For an existing deployment, preserve the actual OLTP database
-name in `POSTGRES_DB` and ensure the reporting database matches `DB_OLAP_URL`
+name in `POSTGRES_DB` and set `POSTGRES_OLAP_DB` to the existing reporting database name
 before starting. Host-side `DB_*_URL` and `SERVER_PORT` values are overridden
 inside containers.
 
@@ -284,8 +284,7 @@ needed for the SSH tunnel.
 5. Check Portfolio to confirm the executed holding and quantity.
 6. Refresh the browser and verify the holding is reloaded for the same account.
 
-The incoming trade-screen Your position summary is not included in this
-resolution; its markup conflicted with unrelated redesigned portfolio sections.
+The order form includes Your position from the loaded account holdings. Missing holdings or quotes show an unavailable/loading state instead of invented values.
 
 ### 5. Inspect failures and stop safely
 
@@ -309,7 +308,7 @@ docker compose -p ribbit-smoketest down
 ```
 
 Explicit container names and published ports mean these two stacks cannot run
-simultaneously. If an older volume lacks `ribbit_olap`, use the isolated test
+simultaneously. If an older volume lacks its configured reporting database, use the isolated test
 first; do not rerun the destructive schema scripts against existing data.
 If `docker info` fails on the VM, check Docker Engine there. On a systemd-based
 VM, use `sudo systemctl status docker`; if it is stopped, start it with

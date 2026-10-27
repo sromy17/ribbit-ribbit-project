@@ -3,7 +3,8 @@ services:
     image: postgres:16-alpine
     container_name: ribbit-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ribbit_oltp}
+      POSTGRES_DB: ${POSTGRES_DB:-ribbit-oltp}
+      POSTGRES_OLAP_DB: ${POSTGRES_OLAP_DB:-ribbit-olap}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
@@ -33,11 +34,11 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8081
-      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit_oltp}
-      DB_OLTP_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit_oltp}
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
+      DB_OLTP_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
       DB_OLTP_USER: ${POSTGRES_USER:-postgres}
       DB_OLTP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      DB_OLAP_URL: jdbc:postgresql://postgres:5432/ribbit_olap
+      DB_OLAP_URL: jdbc:postgresql://postgres:5432/${POSTGRES_OLAP_DB:-ribbit-olap}
       DB_OLAP_USER: ${POSTGRES_USER:-postgres}
       DB_OLAP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       ORDER_EXECUTION_KAFKA_ENABLED: "false"
@@ -46,6 +47,8 @@ services:
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       JWT_SHARED_SECRET: ${JWT_SHARED_SECRET:?Set JWT_SHARED_SECRET to at least 32 characters in .env}
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      MARKET_DATA_KAFKA_ENABLED: "false"
       FAUXNANCE_BASE_URL: ${FAUXNANCE_BASE_URL:-https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
       FAUXNANCE_API_KEY: ${FAUXNANCE_API_KEY:-}
       FAUXNANCE_USE_ORDER_PRICE_FALLBACK: ${FAUXNANCE_USE_ORDER_PRICE_FALLBACK:-false}
@@ -69,7 +72,7 @@ services:
         condition: service_healthy
     environment:
       AUTH_STUB_PORT: 4000
-      DB_URL: postgresql://postgres:5432/${POSTGRES_DB:-ribbit_oltp}
+      DB_URL: postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       DB_SSL: "false"

@@ -62,7 +62,7 @@ async function call(path, token, body) {
   await call('/auth/logout',null,{accessToken:refreshed.token});
   const denied=await fetch(base+`/api/accounts/user/${customer.userId}`,{headers:{Authorization:`Bearer ${refreshed.token}`}});
   assert.equal(denied.status,401);
-  const newUsername='connection_'+crypto.randomUUID().slice(0,8);
+  const newUsername='connection_'+crypto.randomUUID().slice(0,8)+'@example.com';
   const password='connection-test-password';
   const registered=await call('/auth/register',null,{username:newUsername,password,firstName:'Connection',lastName:'Fixture'});
   const fresh=await call('/auth/login',null,{username:newUsername,password});

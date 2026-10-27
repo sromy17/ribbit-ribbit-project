@@ -1,16 +1,16 @@
 {
   "/api/etl": {
-    "target": "http://localhost:8082",
+    "target": "http://localhost:8081",
     "secure": false,
     "changeOrigin": true
   },
   "/api/analytics": {
-    "target": "http://localhost:8082",
+    "target": "http://localhost:8081",
     "secure": false,
     "changeOrigin": true
   },
   "/api/admin": {
-    "target": "http://localhost:8082",
+    "target": "http://localhost:8081",
     "secure": false,
     "changeOrigin": true
   },

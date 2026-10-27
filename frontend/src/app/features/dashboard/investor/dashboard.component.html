@@ -257,6 +257,15 @@
                   }}</span>
                 </p>
               </ng-template>
+              <section class="trade-holdings rounded-lg border border-line bg-subtle p-4 mb-4" aria-label="Your position">
+                <h3 class="text-sm font-semibold">Your position · {{ selectedTicker }}</h3>
+                <ng-container *ngIf="ownedTradeShares !== null; else holdingsStatus">
+                  <p>Shares owned: {{ ownedTradeShares | number: '1.0-8' }}</p>
+                  <p *ngIf="ownedTradeValue !== null; else positionPriceStatus">Market value: {{ quoteCurrency }} {{ ownedTradeValue | number: '1.2-2' }}</p>
+                  <ng-template #positionPriceStatus><p class="text-muted">{{ loadingQuote ? 'Loading price...' : 'Price unavailable' }}</p></ng-template>
+                </ng-container>
+                <ng-template #holdingsStatus><p class="text-muted">{{ loadingHoldings ? 'Loading holdings...' : 'Holdings unavailable' }}</p></ng-template>
+              </section>
               <div class="form-group">
                 <div class="form-field">
                   <label for="field-dashboard-component-1">Side</label>
@@ -610,6 +619,9 @@
                 >Routing number<input
                   uiInput
                   name="routingNumber"
+                  (keydown)="blockInvalidNumberKey($event, false)"
+                  (paste)="sanitizeNumberPaste($event, false)"
+                  (input)="sanitizeBankNumber($event, 'routingNumber')"
                   [(ngModel)]="bankAccountForm.routingNumber"
                   inputmode="numeric"
                   maxlength="9"
@@ -620,6 +632,9 @@
                 >Account number<input
                   uiInput
                   name="accountNumber"
+                  (keydown)="blockInvalidNumberKey($event, false)"
+                  (paste)="sanitizeNumberPaste($event, false)"
+                  (input)="sanitizeBankNumber($event, 'accountNumber')"
                   [(ngModel)]="bankAccountForm.accountNumber"
                   inputmode="numeric"
                   maxlength="17"

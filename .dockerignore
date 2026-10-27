@@ -14,3 +14,6 @@ frontend/node_modules
 frontend/dist
 frontend/.angular
 shared/auth-stub/node_modules
+
+# Local credentials, logs and database backups never enter the build context.
+.local

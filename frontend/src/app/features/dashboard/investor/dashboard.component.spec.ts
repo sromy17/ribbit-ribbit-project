@@ -31,7 +31,7 @@ describe('Wallet loading after a refresh', () => {
             { provide: Router, useValue: {} },
             { provide: ActivatedRoute, useValue: { paramMap: params } },
             { provide: ApiService, useValue: api },
-            { provide: FinnhubNewsService, useValue: {} },
+            { provide: FinnhubNewsService, useValue: { availability$: of('available') } },
             { provide: PortfolioService, useValue: {} },
             { provide: PortfolioStateService, useValue: {
               persistenceError$: of(''), watchAccount: () => of(null),
@@ -112,7 +112,7 @@ describe('Stock order position rendering', () => {
         { provide: Router, useValue: {} },
         { provide: ActivatedRoute, useValue: {} },
         { provide: ApiService, useValue: {} },
-        { provide: FinnhubNewsService, useValue: {} },
+        { provide: FinnhubNewsService, useValue: { availability$: of('available') } },
         { provide: PortfolioService, useValue: {} },
         { provide: PortfolioStateService, useValue: {} }
       ]
@@ -137,6 +137,7 @@ describe('Stock order position rendering', () => {
     component.selectedTicker = 'AMD';
     component.orderForm = { symbol: 'AMD', side: 'BUY', quantity: 1 };
     component.currentPrice = 150.25;
+    component.quoteCurrency = 'USD';
     component.accountState = {
       accountNumber: '1', cash: 10000, orders: [], history: [],
       holdings: [{ symbol: 'amd', shares: 4, avgPrice: 100, currentPrice: 140 }]
@@ -152,15 +153,15 @@ describe('Stock order position rendering', () => {
     const { fixture, component } = createScreen();
     fixture.detectChanges();
     await fixture.whenStable();
-    const dialog: HTMLElement = fixture.nativeElement.querySelector('.trade-details-dialog');
-    expect(dialog.classList.contains('trade-confirmation-dialog')).toBe(false);
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('.modal-box');
+    expect(dialog.querySelector('.order-placed')).toBeNull();
     component.orderPlaced = true;
     fixture.changeDetectorRef.markForCheck();
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(dialog.classList.contains('trade-confirmation-dialog')).toBe(true);
-    expect(dialog.querySelector('.trade-order-placed')?.textContent).toContain('Order placed');
-    expect(dialog.querySelector('.trade-details-drawer')).toBeNull();
+    expect(dialog.querySelector('.trade-holdings')).toBeNull();
+    expect(dialog.querySelector('.order-placed')?.textContent).toContain('Order placed');
+    expect(dialog.querySelector('.quote-card')).toBeNull();
   });
 
   it('keeps bank inputs digits-only for typing, paste, and input events while preserving zeros', async () => {
@@ -208,13 +209,13 @@ describe('Stock order position rendering', () => {
     const position: HTMLElement = fixture.nativeElement.querySelector('.trade-holdings');
     expect(position.textContent).toContain('Shares owned');
     expect(position.textContent).toContain('4');
-    expect(position.textContent).toContain('$601.00');
+    expect(position.textContent).toContain('USD 601.00');
     component.orderForm.side = 'SELL';
     component.currentPrice = 160;
     fixture.changeDetectorRef.markForCheck();
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(position.textContent).toContain('$640.00');
+    expect(position.textContent).toContain('USD 640.00');
     expect(component.ownedTradeShares).toBe(4);
   });
 
@@ -223,7 +224,7 @@ describe('Stock order position rendering', () => {
     component.selectedTicker = 'MSFT';
     fixture.detectChanges();
     expect(component.ownedTradeShares).toBe(0);
-    expect(fixture.nativeElement.querySelector('.trade-holdings').textContent).toContain('$0.00');
+    expect(fixture.nativeElement.querySelector('.trade-holdings').textContent).toContain('USD 0.00');
   });
 
   it('updates when account holdings change or the account is switched', () => {
@@ -249,7 +250,7 @@ describe('Stock order position rendering', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(position.textContent).toContain('Holdings unavailable');
-    expect(position.textContent).not.toContain('$0.00');
+    expect(position.textContent).not.toContain('USD 0.00');
   });
 
   it('keeps shares visible while pricing is loading or unavailable, without using cost basis', async () => {
@@ -268,6 +269,6 @@ describe('Stock order position rendering', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(position.textContent).toContain('Price unavailable');
-    expect(position.textContent).not.toContain('$400.00');
+    expect(position.textContent).not.toContain('USD 400.00');
   });
 });
