@@ -54,6 +54,29 @@ describe('Heatmap stock selection', () => {
     expect(area('S3') / area('S4')).toBeLessThan(1.1);
     expect(area('S0')).toBeGreaterThan(0);
   });
+  it('keeps all fifty tiles inside the available viewport after resizing', () => {
+    TestBed.configureTestingModule({ providers: [{ provide: FinnhubNewsService, useValue: { getCompanyNews: () => of([]) } }] });
+    const fixture = TestBed.createComponent(StockHeatmapComponent);
+    fixture.componentRef.setInput('stocks', Array.from({ length: 50 }, (_, index) => ({
+      ticker: `S${index}`, companyName: `Company ${index}`, currentPrice: 100, dailyChange: index % 7 - 3
+    })));
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const measure = vi.spyOn(component.mapViewport.nativeElement, 'getBoundingClientRect');
+    for (const width of [1000, 320]) {
+      measure.mockReturnValue(new DOMRect(0, 250, width, 0));
+      window.dispatchEvent(new Event('resize'));
+      expect(component.layoutWidth).toBe(width);
+      expect(component.layoutHeight).toBe(Math.max(180, window.innerHeight - 250 - 24));
+      expect(component.tiles).toHaveLength(50);
+      for (const tile of component.tiles) {
+        expect(tile.left).toBeGreaterThanOrEqual(0);
+        expect(tile.top).toBeGreaterThanOrEqual(0);
+        expect(tile.left + tile.width).toBeLessThanOrEqual(component.layoutWidth);
+        expect(tile.top + tile.height).toBeLessThanOrEqual(component.layoutHeight);
+      }
+    }
+  });
   it('selects another tile after company news fails', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     TestBed.configureTestingModule({

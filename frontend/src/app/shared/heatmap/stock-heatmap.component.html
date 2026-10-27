@@ -3,7 +3,7 @@
     <span>Tile area: magnitude of daily % change · Minimum size below 1%</span>
     <span><i class="legend-loss"></i>Down</span><span><i class="legend-flat"></i>Unchanged</span><span><i class="legend-gain"></i>Up</span>
   </div>
-  <div class="heatmap-pane">
+  <div class="heatmap-pane" #mapViewport>
   <div class="heatmap-skeleton" *ngIf="loading && tiles.length === 0" aria-label="Loading market heatmap">
     <span *ngFor="let block of skeletonBlocks"></span>
   </div>
@@ -19,6 +19,7 @@
       [style.width.%]="tile.width / layoutWidth * 100"
       [style.height.px]="tile.height"
       [class.tile-compact]="tile.height < 140 || tile.width < 140"
+      [class.tile-tiny]="tile.height < 76 || tile.width < 75"
       tabindex="0"
       [attr.aria-label]="tile.ticker + ' ' + formatChange(tile.dailyChange)"
       [attr.aria-pressed]="selectedStock?.ticker === tile.ticker"

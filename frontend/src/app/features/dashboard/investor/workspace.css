@@ -2201,3 +2201,16 @@
 .investor-workspace .news-view { flex: 0 0 auto; min-height: min-content; max-height: none; overflow: visible; }
 .investor-workspace .news-card-image:has(.news-image-placeholder) { height: 64px; flex-basis: 64px; }
 .news-image-placeholder { justify-items: start; padding: 18px; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
+
+/* Keep news controls visible while headlines scroll inside their own region. */
+.investor-workspace .news-feed { max-height: clamp(240px, calc(100dvh - 390px), 700px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 3px 8px 3px 3px; }
+.investor-workspace .news-tabs [data-category="general"], .investor-workspace .news-view[data-category="general"] { --news-accent: var(--ui-chart-1); }
+.investor-workspace .news-tabs [data-category="technology"], .investor-workspace .news-view[data-category="technology"] { --news-accent: var(--ui-chart-2); }
+.investor-workspace .news-tabs [data-category="healthcare"], .investor-workspace .news-view[data-category="healthcare"] { --news-accent: var(--ui-chart-3); }
+.investor-workspace .news-tabs [data-category="finance"], .investor-workspace .news-view[data-category="finance"] { --news-accent: var(--ui-chart-6); }
+.investor-workspace .news-tabs [data-category="energy"], .investor-workspace .news-view[data-category="energy"] { --news-accent: var(--ui-chart-4); }
+.investor-workspace .news-tabs button { background: color-mix(in srgb, var(--news-accent) 12%, var(--ui-panel)); border-color: color-mix(in srgb, var(--news-accent) 30%, var(--ui-line)); color: var(--ui-ink); }
+.investor-workspace .news-tabs button.active { background: color-mix(in srgb, var(--news-accent) 28%, var(--ui-panel)); border-color: var(--news-accent); color: var(--ui-ink); box-shadow: inset 0 -2px var(--news-accent); }
+.investor-workspace .news-image-placeholder, .investor-workspace .news-badge { background: color-mix(in srgb, var(--news-accent) 12%, var(--ui-panel)); color: var(--news-accent); }
+.investor-workspace .modal-overlay { align-items: center; justify-items: center; padding: 24px; }
+.investor-workspace .modal-box { max-height: calc(100dvh - 48px); overflow-y: auto; margin: auto; }

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, NgZone, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, NgZone, OnChanges, OnDestroy, SimpleChanges, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { hierarchy, treemap, treemapSquarify } from 'd3';
@@ -40,7 +40,22 @@ interface PerformanceNode { stock?: HeatmapStock; weight?: number; children?: Pe
   styleUrl: './stock-heatmap.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class StockHeatmapComponent implements OnChanges, OnDestroy {
+export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewInit {
+  @ViewChild('mapViewport', { static: true }) mapViewport!: ElementRef<HTMLElement>;
+  private resizeObserver?: ResizeObserver;
+  private readonly fitViewport = () => {
+    const box = this.mapViewport.nativeElement.getBoundingClientRect();
+    if (box.width <= 0) return;
+    const width = Math.floor(box.width);
+    const height = Math.max(180, Math.floor(window.innerHeight - box.top - 24));
+    if (width === this.layoutWidth && height === this.layoutHeight) return;
+    this.ngZone.run(() => {
+      this.layoutWidth = width;
+      this.layoutHeight = height;
+      this.tiles = this.createTiles(this.stocks);
+      this.cdr.markForCheck();
+    });
+  };
   @ViewChild('detailsDialog', { static: true }) detailsDialog!: ElementRef<HTMLDialogElement>;
   @ViewChild('tradeDialog', { static: true }) tradeDialog!: ElementRef<HTMLDialogElement>;
   @Input() accountNumber = '';
@@ -49,8 +64,8 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy {
   private toastTimer?: ReturnType<typeof setTimeout>;
   @Input() stocks: HeatmapStock[] = [];
   @Input() loading = false;
-  readonly layoutWidth = 1000;
-  layoutHeight = 760;
+  layoutWidth = 1000;
+  layoutHeight = 600;
 
   tiles: HeatmapTile[] = [];
   selectedStock: HeatmapStock | null = null;
@@ -77,6 +92,16 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy {
     private readonly ngZone: NgZone,
     private readonly cdr: ChangeDetectorRef
   ) {}
+
+  ngAfterViewInit(): void {
+    if (typeof window === 'undefined') return;
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(this.fitViewport);
+      this.resizeObserver.observe(this.mapViewport.nativeElement);
+    }
+    window.addEventListener('resize', this.fitViewport);
+    this.fitViewport();
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['accountNumber'] && !changes['accountNumber'].firstChange) {
@@ -256,6 +281,8 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    if (typeof window !== 'undefined') window.removeEventListener('resize', this.fitViewport);
     this.companyNewsSubscription?.unsubscribe();
     this.tradeSubscription?.unsubscribe();
     clearTimeout(this.toastTimer);
@@ -273,11 +300,10 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy {
       && Number.isFinite(stock.dailyChange)).slice(0, 50);
     // Both gains and losses matter. The one-point floor keeps quiet stocks readable.
     const children = eligible.map(stock => ({ stock, weight: Math.max(1, Math.abs(stock.dailyChange)) }));
-    this.layoutHeight = Math.max(760, Math.ceil(children.reduce((sum, node) => sum + node.weight, 0) * 14));
     const root = hierarchy<PerformanceNode>({ children }).sum(node => node.weight ?? 0)
       .sort((left, right) => (right.value ?? 0) - (left.value ?? 0));
     return treemap<PerformanceNode>().tile(treemapSquarify.ratio(1))
-      .size([this.layoutWidth, this.layoutHeight]).paddingInner(6).paddingOuter(8)(root).leaves()
+      .size([this.layoutWidth, this.layoutHeight]).paddingInner(4).paddingOuter(4)(root).leaves()
       .filter(node => !!node.data.stock)
       .map(node => ({ ...node.data.stock!, color: getHeatmapColor(node.data.stock!.dailyChange),
         left: node.x0, top: node.y0, width: node.x1 - node.x0, height: node.y1 - node.y0 }));

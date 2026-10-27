@@ -512,7 +512,7 @@
           <app-stock-heatmap [stocks]="marketStocks" [loading]="loadingMarketHeatmap" [accountNumber]="accountId"></app-stock-heatmap>
         </div>
 
-        <section *ngIf="activeView === 'news'" class="news-view section full-width" aria-labelledby="news-heading">
+        <section *ngIf="activeView === 'news'" class="news-view section full-width" [attr.data-category]="newsCategory" aria-labelledby="news-heading">
           <div class="news-header">
             <div>
               <span class="news-badge">NEWS</span>
@@ -523,11 +523,11 @@
 
           <div class="news-controls">
             <div class="news-tabs" role="tablist" aria-label="News categories">
-              <button uiButton="ghost" type="button" [class.active]="newsCategory === 'general'" (click)="setNewsCategory('general')">Top Stories</button>
-              <button uiButton="ghost" type="button" [class.active]="newsCategory === 'technology'" (click)="setNewsCategory('technology')">Tech &amp; AI</button>
-              <button uiButton="ghost" type="button" [class.active]="newsCategory === 'healthcare'" (click)="setNewsCategory('healthcare')">Healthcare</button>
-              <button uiButton="ghost" type="button" [class.active]="newsCategory === 'finance'" (click)="setNewsCategory('finance')">Finance &amp; Banks</button>
-              <button uiButton="ghost" type="button" [class.active]="newsCategory === 'energy'" (click)="setNewsCategory('energy')">Energy &amp; Oil</button>
+              <button uiButton="ghost" type="button" data-category="general" [attr.aria-pressed]="newsCategory === 'general'" [class.active]="newsCategory === 'general'" (click)="setNewsCategory('general')">Top Stories</button>
+              <button uiButton="ghost" type="button" data-category="technology" [attr.aria-pressed]="newsCategory === 'technology'" [class.active]="newsCategory === 'technology'" (click)="setNewsCategory('technology')">Tech &amp; AI</button>
+              <button uiButton="ghost" type="button" data-category="healthcare" [attr.aria-pressed]="newsCategory === 'healthcare'" [class.active]="newsCategory === 'healthcare'" (click)="setNewsCategory('healthcare')">Healthcare</button>
+              <button uiButton="ghost" type="button" data-category="finance" [attr.aria-pressed]="newsCategory === 'finance'" [class.active]="newsCategory === 'finance'" (click)="setNewsCategory('finance')">Finance &amp; Banks</button>
+              <button uiButton="ghost" type="button" data-category="energy" [attr.aria-pressed]="newsCategory === 'energy'" [class.active]="newsCategory === 'energy'" (click)="setNewsCategory('energy')">Energy &amp; Oil</button>
             </div>
             <form class="news-search" (ngSubmit)="searchNews()">
               <input uiInput name="newsSearch" [(ngModel)]="newsSearch" placeholder="Search ticker (AAPL, NVDA...)" aria-label="Search news by ticker" />
@@ -535,6 +535,7 @@
             </form>
           </div>
 
+          <div class="news-feed" tabindex="0" role="region" aria-label="Scrollable news articles">
           <div *ngIf="newsError" class="error-banner">{{ newsError }}</div>
           <div *ngIf="loadingNews" class="news-grid news-grid-skeleton" aria-label="Loading financial news">
             <article *ngFor="let skeleton of skeletonBlocks" class="news-card-skeleton">
@@ -566,6 +567,7 @@
           </div>
           <div *ngIf="!loadingNews && !newsError && filteredNewsArticles.length === 0" class="news-empty">
             No market news matched this filter.
+          </div>
           </div>
         </section>
 
