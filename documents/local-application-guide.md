@@ -1,6 +1,6 @@
 # Persistent local application
 
-Run `bash scripts/start-local.sh` from the repository root. Open http://127.0.0.1:4200. The launcher starts the backend on 8082, authentication on 4000, and Angular on 4200 with matching proxies. PostgreSQL must already be available; existing databases are preserved. Ctrl-C stops the app services, leaving the data intact. Service logs and process IDs are in the ignored `.local/` directory.
+Run `bash scripts/start-local.sh` from the repository root. Open http://127.0.0.1:4200. The launcher starts the backend on 8081, authentication on 4000, and Angular on 4200 with matching proxies. PostgreSQL must already be available; existing databases are preserved. Ctrl-C stops the app services, leaving the data intact. Service logs and process IDs are in the ignored `.local/` directory.
 
 The older port 14300 belongs to the disposable integration demo. Use port 4200 for persistent work.
 
@@ -56,4 +56,4 @@ Persistent verification records: trade 2009 has one active ticket; trade 2008 ha
 
 Run `npm test --prefix frontend -- --watch=false` and `mvn test` for the frontend/backend suites. `bash scripts/verify-merged-connection.sh` starts disposable databases and separate ports, validates the configured OLAP initializer, and exercises the same customer/staff workflows through both Angular's proxy and production Nginx. It installs missing local dependencies and removes its temporary containers/services on exit. `bash scripts/verify-admin-postgres.sh` checks PostgreSQL concurrency, replay and reporting recovery.
 
-Direct `npm start` uses backend port 8081 for every API family. `scripts/start-local.sh` generates a proxy for its configured backend port (8082 by default), including admin and analytics routes. Docker Nginx retains the `/api` prefix for admin, analytics and ETL controllers and removes it for customer controllers. Compose uses `POSTGRES_DB` and `POSTGRES_OLAP_DB` consistently during initialization and application startup. Preserve existing names; no database rename or destructive reinitialization is required.
+Direct `npm start` uses backend port 8081 for every API family. `scripts/start-local.sh` generates a proxy for its configured backend port (8081 by default), including admin and analytics routes. Docker Nginx retains the `/api` prefix for admin, analytics and ETL controllers and removes it for customer controllers. Compose uses `POSTGRES_DB` and `POSTGRES_OLAP_DB` consistently during initialization and application startup. Preserve existing names; no database rename or destructive reinitialization is required.

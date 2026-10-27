@@ -15,7 +15,7 @@ Start Spring with the values in your shell or local IDE launch configuration:
 FAUXNANCE_API_KEY=<local secret>
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 MARKET_DATA_KAFKA_ENABLED=true
-SERVER_PORT=8082
+SERVER_PORT=8081
 ```
 
 Do not put real values in a Postman collection or commit them to the project.
@@ -27,7 +27,7 @@ Create an environment named `Ribbit Local Demo` with these variables:
 | Variable | Initial value | Current value | Type |
 | --- | --- | --- | --- |
 | `authBaseUrl` | `http://localhost:4001` | same | default |
-| `apiBaseUrl` | `http://localhost:8082` | same | default |
+| `apiBaseUrl` | `http://localhost:8081` | same | default |
 | `demoUsername` | `demo_recorder` | same | default |
 | `demoPassword` | blank | local password | secret |
 | `jwtToken` | blank | blank | secret |

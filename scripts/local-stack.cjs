@@ -11,7 +11,7 @@ if(!fs.existsSync(envPath)){
  const source=legacy.DB_OLTP_URL||legacy.DB_URL||'jdbc:postgresql://127.0.0.1:5432/ribbit_oltp';
  const target=source.includes('oltp')?source.replace(/oltp/g,'olap'):'jdbc:postgresql://127.0.0.1:5432/ribbit_olap';
  const user=legacy.DB_OLTP_USER||legacy.DB_USER||'postgres';const password=legacy.DB_OLTP_PASSWORD||legacy.DB_PASSWORD||'';
- const values={...legacy,DB_URL:source,DB_OLTP_URL:source,DB_OLAP_URL:target,DB_USER:user,DB_PASSWORD:password,DB_OLTP_USER:user,DB_OLTP_PASSWORD:password,DB_OLAP_USER:user,DB_OLAP_PASSWORD:password,AUTH_STUB_PORT:'4000',SERVER_PORT:'8082',FRONTEND_PORT:'4200',JWT_SHARED_SECRET:legacy.JWT_SHARED_SECRET||require('node:crypto').randomBytes(48).toString('base64url'),ORDER_EXECUTION_KAFKA_ENABLED:'false',MARKET_DATA_KAFKA_ENABLED:'false',ETL_ENABLED:'true',ETL_FIXED_DELAY_MS:'10000',SPRING_PROFILES_ACTIVE:'local'};
+ const values={...legacy,DB_URL:source,DB_OLTP_URL:source,DB_OLAP_URL:target,DB_USER:user,DB_PASSWORD:password,DB_OLTP_USER:user,DB_OLTP_PASSWORD:password,DB_OLAP_USER:user,DB_OLAP_PASSWORD:password,AUTH_STUB_PORT:'4000',SERVER_PORT:'8081',FRONTEND_PORT:'4200',JWT_SHARED_SECRET:legacy.JWT_SHARED_SECRET||require('node:crypto').randomBytes(48).toString('base64url'),ORDER_EXECUTION_KAFKA_ENABLED:'false',MARKET_DATA_KAFKA_ENABLED:'false',ETL_ENABLED:'true',ETL_FIXED_DELAY_MS:'10000',SPRING_PROFILES_ACTIVE:'local'};
  fs.writeFileSync(envPath,Object.entries(values).map(([k,v])=>`${k}=${JSON.stringify(v)}`).join('\n')+'\n',{mode:0o600});
  console.log('Created .env using the existing local auth/database configuration. Secrets were not printed.');
 }
@@ -48,7 +48,7 @@ async function wait(url,proc){for(let i=0;i<90;i++){if(proc.exitCode!==null)thro
 async function main(){
  if(process.argv.includes('--load-only')){console.log('Configuration loaded; values omitted.');return;}
  await prepare();if(process.argv.includes('--prepare'))return;
- const ports=[Number(config.SERVER_PORT||8082),Number(config.AUTH_STUB_PORT||4000),Number(config.FRONTEND_PORT||4200)];
+ const ports=[Number(config.SERVER_PORT||8081),Number(config.AUTH_STUB_PORT||4000),Number(config.FRONTEND_PORT||4200)];
  for(const port of ports){await new Promise((resolve,reject)=>{const s=require('node:net').createServer();s.once('error',()=>reject(new Error(`Port ${port} is already in use. Stop that service before starting this stack.`)));s.listen(port,'127.0.0.1',()=>s.close(resolve));});}
  console.log('Building backend...');const build=spawnSync('mvn',['-q','package','-DskipTests'],{cwd:root,env:config,stdio:['ignore',fs.openSync(path.join(runtime,'build.log'),'w'),fs.openSync(path.join(runtime,'build-error.log'),'w')]});if(build.status!==0)throw new Error('Backend build failed; see .local/build logs');
  const children=[];let stopping=false;

@@ -10,7 +10,7 @@ Prerequisites: Java 25, Maven, Node/npm, Docker, installed frontend and auth-stu
 bash scripts/verify-merged-connection.sh
 ```
 
-This creates disposable PostgreSQL source and reporting databases from the repository schema/seed scripts. It builds and starts Spring on 18082, customer authentication on 14000, and Angular on 14200. Requests pass through the real Angular proxy. It checks staff permissions, admin account history, ETL publication, analyst OLAP queries, customer accounts/wallet reads, both refresh providers and logout revocation. It cleans up its processes and database when finished. Logs are retained in the printed temporary directory. Ports 18082, 14000 and 14200 must be free.
+This creates disposable PostgreSQL source and reporting databases from the repository schema/seed scripts. It builds and starts Spring on 18081, customer authentication on 14000, and Angular on 14200. Requests pass through the real Angular proxy. It checks staff permissions, admin account history, ETL publication, analyst OLAP queries, customer accounts/wallet reads, both refresh providers and logout revocation. It cleans up its processes and database when finished. Logs are retained in the printed temporary directory. Ports 18081, 14000 and 14200 must be free.
 
 For interactive testing:
 
@@ -46,11 +46,11 @@ Before starting this merge against an older Hibernate-created source database, i
 
 Staff permissions are issued by the Java backend from database roles. The customer auth stub cannot assign staff roles. Both providers store SHA-256 token hashes in `access_tokens` and `refresh_tokens`; the backend validates the access record, owning user, expiry and refresh-family revocation on every protected request. Role changes revoke the user's stored token families. Staff session routing uses `/api/admin/session` permissions, and refresh uses the same provider as sign-in.
 
-The normal development proxy forwards customer auth to 4000 and Spring to 8082. `/api/admin`, `/api/analytics` and `/api/etl` retain their prefix; investor APIs strip `/api`. A deployed frontend needs equivalent reverse-proxy routes; Angular's development proxy is not part of the production bundle.
+The normal development proxy forwards customer auth to 4000 and Spring to 8081. `/api/admin`, `/api/analytics` and `/api/etl` retain their prefix; investor APIs strip `/api`. A deployed frontend needs equivalent reverse-proxy routes; Angular's development proxy is not part of the production bundle.
 
 ## Container configuration
 
-The backend image now copies its artifact from the Maven build stage, and Compose maps port 8082 to the actual server port. Compose syntax was checked; a Docker image build was not run. Supply `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and a container-reachable `DB_URL`, and configure a separate `DB_OLAP_URL` with the reporting schema. The verified disposable launcher supplies separate source/reporting databases automatically.
+The backend image now copies its artifact from the Maven build stage, and Compose maps port 8081 to the actual server port. Compose syntax was checked; a Docker image build was not run. Supply `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and a container-reachable `DB_URL`, and configure a separate `DB_OLAP_URL` with the reporting schema. The verified disposable launcher supplies separate source/reporting databases automatically.
 
 ## Business approvals still outstanding
 

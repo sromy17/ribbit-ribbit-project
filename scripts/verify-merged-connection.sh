@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 if [[ ! -d shared/auth-stub/node_modules ]]; then npm ci --prefix shared/auth-stub; fi
 if [[ ! -d frontend/node_modules ]]; then npm ci --prefix frontend; fi
 connection_demo=false
-connection_backend_port=18082; connection_auth_port=14000; connection_ui_port=14200
+connection_backend_port=18081; connection_auth_port=14000; connection_ui_port=14200
 if [[ "${1:-}" == '--demo' ]]; then
   connection_demo=true
   connection_backend_port=18182; connection_auth_port=14100; connection_ui_port=14300
