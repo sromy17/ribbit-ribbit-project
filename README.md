@@ -218,6 +218,16 @@ intentionally want to delete all users, accounts, and trades. Initialization
 SQL runs only when the PostgreSQL data volume is empty; changing a password
 in `.env` does not update the password stored in an existing database.
 
+For an explicitly approved clean reset, preserve a database backup outside
+Docker, transfer the latest initialization SQL to the VM, and set
+`POSTGRES_DB=ribbit_oltp` and `ETL_ENABLED=true` in `.env`. Run
+`docker compose down --volumes` to delete this Compose project's database
+volume, then `docker compose up -d postgres`. Check
+`docker compose logs --tail=150 postgres` for successful completion of all
+initialization scripts before starting the rest of the stack. If any SQL script
+fails, stop and fix it: restarting PostgreSQL alone does not rerun initialization
+against the partially initialized volume.
+
 For an isolated clean test without deleting your normal database, stop the
 normal stack and use a separate project/volume:
 

@@ -13,6 +13,7 @@ drop table if exists bank cascade;
 drop table if exists bank_movement cascade;
 drop table if exists refresh_tokens cascade;
 drop table if exists access_tokens cascade;
+DROP TABLE IF EXISTS watchlist cascade;
 
 CREATE TABLE users
 (
@@ -167,6 +168,6 @@ CREATE table bank_movement
 CREATE TABLE watchlist
 (
 	watchlist_id INT PRIMARY KEY,
-	accountid NOT NULL REFERENCES accounts(accountid),
-	instrumentid INT NOT NULL REFERENCES instruments(instrumentid),
+	accountid INT NOT NULL REFERENCES accounts(accountid),
+	instrumentid INT NOT NULL REFERENCES instruments(instrumentid)
 );
