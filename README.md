@@ -89,17 +89,16 @@ source's global Tailwind/theme migration is not imported.
   account result. Cash balances are those returned by the account lookup;
   refresh the lookup to update them. Retrieval times are browser request
   completion times, not published dataset timestamps.
-- **Analyst:** the commercial analytics workspace and overview labels are
-  integrated, but metrics are explicitly unavailable. No mock totals or
-  unsupported analytics requests are used. The existing ETL/schema alone does
-  not expose the source dashboard's reporting API.
-- **Excluded:** global orders/reporting, lifecycle/settlement evidence,
-  dataset provenance/versioning, monthly/timezone analysis, instrument
-  rankings/internal-activity heatmaps, client segmentation, and saved/issued
+- **Analyst:** platform-wide investor activity from the existing OLAP tables,
+  top stocks by executed shares, requested-order-size statistics, customer-service
+  aggregates, and an on-demand ETL refresh. See the metric definitions below.
+- **Excluded:** lifecycle/settlement evidence, durable dataset provenance/versioning,
+  custom date/timezone analysis, internal-activity heatmaps, client segmentation, and saved/issued
   reports. These depend on source backend or database changes.
 
-The dashboard integration does not include Kafka, producers/consumers, new
-reporting tables, or new analytics endpoints. The separate employee-authentication
+The dashboard integration does not include Kafka, producers/consumers, or new
+reporting tables. The analyst follow-up adds a read-only analytics endpoint and
+reuses the existing ETL endpoint. The separate employee-authentication
 follow-up adds employee session tables and the login flow described below.
 The `/admin-dashboard` and `/analyst-dashboard` routes retain their role guards.
 
@@ -161,8 +160,123 @@ No OLAP changes or volume deletion are required.
 Verify both employee logins redirect to the correct dashboard, refresh the
 page to verify the session persists, then sign out. Confirm employee login has
 no create-account button, an investor's credentials fail there, and investor
-registration/sign-in still work at `/login`. The analyst metrics remain
-unavailable until a separate reporting backend is implemented.
+registration/sign-in still work at `/login`. Sign in as an analyst and follow
+the reporting checks below to verify real analytics.
+
+### Analyst reporting and manual ETL
+
+Sign in at `/employee-login` with an `ANALYST` employee, then open
+`/analyst-dashboard`. This is **platform investor activity**, not
+trading by employees or external exchange sentiment. No sample rankings or
+success-shaped fallback data are shown.
+
+- **Refresh reporting data (OLTP to OLAP)** calls `POST /api/etl/run`.
+  This runs the existing ETL immediately, replacing only the reporting copy.
+  It does not modify OLTP orders, balances, or tickets. `ETL_ENABLED=true`
+  continues to enable startup/scheduled refresh; manual refresh works independently
+  of that flag. Keep it enabled if you want automatic updates.
+- **Reload analytics** calls `GET /api/analyst/overview` without running ETL.
+  Both backend routes (without the proxy's `/api` prefix) require a validated
+  employee analyst session. Admin and investor sessions cannot call them.
+- **Graph/table period:** `ALL` (default), `LAST_30_DAYS`, or `LAST_90_DAYS`,
+  passed as the overview's `period` query parameter. Unknown values return 400.
+  The six visual insight sections share this filter; existing all-time overview,
+  order-size and support metrics remain explicitly all-time.
+  Date boundaries are inclusive UTC calendar dates, through today. Weeks start
+  Monday; first/last weeks can be partial. Gaps are filled with zeros for activity,
+  but undefined averages/rates stay N/A. No future-dated events enter these insights.
+- Refreshes are serialized with a database transaction lock, including
+  scheduled/manual overlaps. Reporting reads share the lock so every response
+  describes one committed copy. Source reads use a repeatable-read snapshot;
+  failed refreshes roll back the OLAP replacement and preserve the previous copy.
+  Multiple dispute/cancellation/rejection records cannot multiply executed shares.
+- **Top stocks:** top ten by summed executed shares, then submitted-order count,
+  then ticker for stable ties; excludes stocks with no executions. Buy/sell
+  shares, all submitted orders, and distinct clients are shown per symbol.
+- **Funding:** weekly deposit/withdrawal bars and a net-deposit line, with exact
+  tables. Net deposits are recorded deposits minus withdrawals, not revenue,
+  profit or assets under management. Deposit statistics use transfer amounts:
+  mean/median, counts, distinct depositing user IDs across accounts, and size bands
+  under $100 / $100 to under $1,000 / $1,000 to under $10,000 /
+  $10,000 to under $100,000 / $100,000 and over. Weekly distinct-client counts
+  must not be summed to get period-wide clients.
+- **Stock graphs:** buy/sell executed-share stacked bars and a weekly heatmap of
+  submitted orders plus distinct clients, for the same selected period's top ten.
+  This is trading popularity, not market price or investment performance.
+  Executed quantities on selected orders include all their recorded fills;
+  they cannot be accurately allocated to individual fill days with this schema.
+- **Order outcomes:** bars/table for mutually exclusive rejected, cancelled,
+  fully filled, partially filled, and unfilled orders. Rejected/cancelled status
+  takes precedence even if some shares executed. Other orders with executed
+  quantity at least the positive requested quantity are fully filled; nonzero
+  execution below that is partial. Share-fill rate sums executed/requested shares,
+  across all selected orders, and is not capped to conceal source inconsistencies.
+  This is the current state of selected orders, not historical weekly status.
+- **Growth/participation:** new-account bars, trading-account trend and a separate
+  percentage trend, plus exact weekly values. Period participation is distinct
+  accounts submitting orders divided by accounts created before period end;
+  weekly denominators use accounts created by that week's end. These use the
+  current account roster, not historical closures, retention or unique people.
+  No bank details, individual customer names or account numbers are exposed.
+- **Mean/median/modes:** requested share quantity per order across every status
+  and symbol. All tied modes are returned; all-unique sizes show no repeated mode.
+  Median averages the middle two sizes for even-sized datasets. Empty datasets
+  have no mean, median, or execution rate.
+- **Execution participation:** orders with any executed shares divided by all
+  submitted orders, including partial executions. This is not a share-fill rate.
+  Active clients/accounts have at least one submitted order in the copy.
+  Available cash is summed across all accounts and excludes holdings value.
+- **Recent activity:** latest 30 active UTC order-submission dates, not necessarily
+  30 consecutive days. Executed shares are grouped by order date, not fill date.
+- **Customer service:** total/open support tickets and orders with disputes.
+  Disputes count orders, not every historical claim: ETL keeps one claim per order,
+  preferring an open claim, otherwise the highest dispute ID. Admin ticket review
+  and resolution are unchanged.
+
+The existing schema needs **no migration** for these features. Latest order-row
+sync time is shown separately from retrieval time and event coverage; it is not
+a durable ETL completion/source-cutoff marker. An empty fact table has no sync
+timestamp, even after a successful refresh. Dollar traded volume/P&L are deliberately
+omitted: the existing reporting price is not a weighted multi-fill notional.
+
+#### Verify on the Linux VM
+
+Rebuild/recreate `springboot` and `frontend` using your existing Compose CLI;
+do not reset the volume or rerun the fresh-install schema/seed scripts.
+
+1. Sign in as the analyst. Click **Refresh reporting data (OLTP to OLAP)**;
+   wait for the committed-success message and the updated report. A missing
+   OLAP schema or connection problem must show an error, not fake zeros.
+2. Compare orders, executed shares and rankings with known investor orders.
+   Partial/multiple fills contribute their executed quantities once, even
+   when an order has multiple dispute records.
+3. Submit an investor order in a separate session, then refresh as the analyst.
+   Submitted-order totals change; executed-share rankings change only when
+   recorded executions change. Reload alone does not run ETL (a scheduled
+   refresh may independently update the copy).
+4. Confirm admin/investor sessions cannot open the analyst dashboard, and admin
+   ticket review still works.
+5. Check all six visual insight sections and expand their exact-value tables.
+   Change to 30/90 days: graphs/tables should share the new displayed UTC range,
+   while the all-time overview stays unchanged. Empty periods must not retain
+   old rankings; undefined rates/averages should display N/A.
+6. Make a known deposit/withdrawal as an investor, refresh reporting as the
+   analyst, and compare the funding totals and weekly values. Negative net
+   deposits should appear below zero on the line chart. Changing the graph period
+   reloads OLAP analytics only, never triggers ETL.
+
+For automated regression checks:
+
+```bash
+cd frontend
+npm test -- --watch=false --include=src/app/features/dashboard/analyst/analyst-dashboard.component.spec.ts --include=src/app/features/dashboard/analyst/analytics-chart.component.spec.ts
+cd ..
+mvn -B -Dtest=AnalyticsControllerTest,EmployeeAuthenticationTest,OlapDataSourceConfigurationTest test
+# Optional PostgreSQL test: provide a DISPOSABLE cluster admin URL with CREATE DATABASE rights.
+# The test creates/drops two uniquely named databases; never point this at production.
+ANALYTICS_TEST_DATABASE_URL='jdbc:postgresql://127.0.0.1:55439/postgres?user=postgres' \
+  mvn -B -Dtest=AnalyticsIntegrationTest test
+```
 
 #### Authentication regression tests
 

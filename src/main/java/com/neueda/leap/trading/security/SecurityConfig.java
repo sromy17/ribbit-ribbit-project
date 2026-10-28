@@ -49,6 +49,11 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/analyst/**", "/etl/**").access((authentication, context) -> {
+                    var auth = authentication.get();
+                    return new AuthorizationDecision(isEmployee(auth) && auth.getAuthorities().stream()
+                        .anyMatch(authority -> "ROLE_ANALYST".equals(authority.getAuthority())));
+                })
                 .requestMatchers("/admin/tickets/**").access((authentication, context) -> {
                     var auth = authentication.get();
                     return new AuthorizationDecision(isEmployee(auth) && auth.getAuthorities().stream()

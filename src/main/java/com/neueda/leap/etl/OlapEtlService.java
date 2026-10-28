@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +14,9 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +30,7 @@ public class OlapEtlService {
     private final JdbcTemplate oltp;
     private final JdbcTemplate olap;
     private final boolean enabled;
+    private final TransactionTemplate sourceSnapshot;
 
     public OlapEtlService(
         @Qualifier("oltpJdbcTemplate") JdbcTemplate oltp,
@@ -35,6 +40,10 @@ public class OlapEtlService {
         this.oltp = oltp;
         this.olap = olap;
         this.enabled = enabled;
+        this.sourceSnapshot = new TransactionTemplate(new DataSourceTransactionManager(
+            Objects.requireNonNull(oltp.getDataSource())));
+        this.sourceSnapshot.setReadOnly(true);
+        this.sourceSnapshot.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -60,12 +69,16 @@ public class OlapEtlService {
 
     private EtlResult executeEtl() {
         try {
+            // Shared with analyst reads; serialize scheduled/manual refreshes until commit.
+            olap.execute("SELECT pg_advisory_xact_lock(724182031)");
             clearReportingData();
-            loadAccounts();
-            loadBanks();
-            loadBankMovements();
-            loadTradeFacts();
-            loadEmployees();
+            sourceSnapshot.executeWithoutResult(status -> {
+                loadAccounts();
+                loadBanks();
+                loadBankMovements();
+                loadTradeFacts();
+                loadEmployees();
+            });
             log.info("OLTP to OLAP data refresh completed successfully");
             return new EtlResult(true, "OLTP to OLAP data refresh completed successfully");
         } catch (RuntimeException exception) {
@@ -225,9 +238,17 @@ public class OlapEtlService {
             JOIN users u ON u.userid = a.userid
             JOIN instruments i ON i.instrumentid = tr.instrumentid
             LEFT JOIN trades_executed te ON te.requestid = tr.requestid
-            LEFT JOIN canceled_order co ON co.request_id = tr.requestid
-            LEFT JOIN rejected_orders ro ON ro.request_id = tr.requestid
-            LEFT JOIN disputed_orders d ON d.requestid = tr.requestid
+            LEFT JOIN LATERAL (
+                SELECT * FROM canceled_order WHERE request_id = tr.requestid ORDER BY cancel_id DESC LIMIT 1
+            ) co ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT * FROM rejected_orders WHERE request_id = tr.requestid ORDER BY reject_id DESC LIMIT 1
+            ) ro ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT * FROM disputed_orders WHERE requestid = tr.requestid
+                ORDER BY CASE WHEN status IN ('DISPUTED', 'UNDER-REVIEW') THEN 0 ELSE 1 END,
+                         disputeid DESC LIMIT 1
+            ) d ON TRUE
             LEFT JOIN employees e ON e.employeeid = d.employeeid
             GROUP BY tr.requestid, tr.accountid, a.userid, tr.instrumentid, tr.side,
                      tr.quantity, tr.bidprice, tr.date_request, co.cancel_id,
