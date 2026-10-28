@@ -166,9 +166,9 @@ h1 {
 }
 
 .error-banner {
-  background: #ffdad6;
-  color: #410002;
-  border: 1px solid #ffb4ab;
+  background: var(--md-danger-bg);
+  color: var(--md-danger-fg);
+  border: 1px solid var(--md-danger-fg);
   border-radius: 14px;
   padding: 12px 14px;
   margin-bottom: 16px;

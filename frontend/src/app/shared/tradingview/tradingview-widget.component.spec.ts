@@ -1,11 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TradingviewWidgetComponent } from './tradingview-widget.component';
+import { ThemeService } from '../../core/services/theme.service';
 
 describe('TradingView widget lifecycle', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     Reflect.deleteProperty(window, 'TradingView');
+    localStorage.removeItem('theme');
+    document.body.classList.remove('theme-dark');
   });
 
   it('creates an autosized dark chart, updates symbols, and cleans up', async () => {
@@ -39,6 +42,24 @@ describe('TradingView widget lifecycle', () => {
     fixture.destroy();
     await Promise.resolve();
     expect(widget).not.toHaveBeenCalled();
+  });
+
+  it('recreates the vendor chart in light mode when the application theme changes', async () => {
+    const remove = vi.fn();
+    const widget = vi.fn(function (options: { container_id: string }) {
+      return { id: options.container_id, remove };
+    });
+    Object.defineProperty(window, 'TradingView', { configurable: true, value: { widget } });
+    const theme = TestBed.inject(ThemeService);
+    const fixture = TestBed.createComponent(TradingviewWidgetComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    theme.toggleTheme();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(widget).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'light' }));
+    expect(remove).toHaveBeenCalledTimes(1);
+    fixture.destroy();
   });
 
   it('does not call the vendor removal API for an already detached iframe', async () => {

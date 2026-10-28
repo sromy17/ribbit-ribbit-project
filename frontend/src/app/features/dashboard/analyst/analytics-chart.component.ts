@@ -57,7 +57,7 @@ export class AnalyticsChartComponent implements OnChanges {
   @Input() unit = 'count';
   @Input() points: ChartPoint[] = [];
   @Input() series: ChartSeries[] = [];
-  readonly colors = ['#1976d2', '#e67700', '#8e44ad'];
+  readonly colors = ['var(--ui-chart-1)', 'var(--ui-chart-2)', 'var(--ui-chart-3)'];
   ticks: { y: number; label: string }[] = [];
   labels: { x: number; text: string }[] = [];
   bars: { x: number; y: number; width: number; height: number; color: string; title: string }[] = [];

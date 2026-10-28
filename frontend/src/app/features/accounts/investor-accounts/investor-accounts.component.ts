@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService, User } from '../../../core/services/auth.service';
 import { ApiService, TradingAccount } from '../../../core/services/api.service';
+import { ThemeToggleComponent } from '../../../shared/theme-toggle/theme-toggle.component';
 
 @Component({
   selector: 'app-investor-accounts',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ThemeToggleComponent],
   templateUrl: './investor-accounts.component.html',
   styleUrls: ['./investor-accounts.component.css']
 })

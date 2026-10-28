@@ -16,6 +16,7 @@ import { HelpComponent } from './help/help.component';
 import { TradingviewWidgetComponent } from '../../../shared/tradingview/tradingview-widget.component';
 import { TicketComposerComponent } from '../../../shared/tickets/ticket-composer.component';
 import { TicketListComponent } from '../../../shared/tickets/ticket-list.component';
+import { ThemeToggleComponent } from '../../../shared/theme-toggle/theme-toggle.component';
 
 interface WalletBankAccount {
   id: number;
@@ -36,7 +37,7 @@ interface WalletActivity {
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule, FormsModule, StockHeatmapComponent, AssetAllocationComponent, HelpComponent,
-    TradingviewWidgetComponent, TicketComposerComponent, TicketListComponent],
+    TradingviewWidgetComponent, TicketComposerComponent, TicketListComponent, ThemeToggleComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -1111,7 +1112,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   updateTotalValue(): void {
     const holdingsValue = this.portfolio.holdings.reduce((sum, h) => {
-      const price = h.currentPrice || h.averageCost;
+      const price = h.currentPrice ?? h.averageCost;
       return sum + (h.quantity * price);
     }, 0);
     this.portfolio.totalValue = this.portfolio.cash + holdingsValue;
@@ -1137,7 +1138,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getPortfolioAreaPath(): string {
     if (this.portfolioHistory.length === 0) return '';
-    return `${this.getPortfolioLinePath()} L ${this.chartWidth} ${this.chartHeight} L 0 ${this.chartHeight} Z`;
+    return `${this.getPortfolioLinePath()} L ${this.getChartX(this.portfolioHistory.length - 1)} ${this.chartHeight} L ${this.getChartX(0)} ${this.chartHeight} Z`;
   }
 
   getChartX(index: number): number {
@@ -1152,23 +1153,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getHistoryColor(): string {
-    return this.portfolioHistory.length > 1 && this.portfolioHistory[this.portfolioHistory.length - 1].value >= this.portfolioHistory[0].value
-      ? '#22c55e'
-      : '#ef4444';
+    return this.getHistoryChange() >= 0 ? 'var(--ui-portfolio-up)' : 'var(--ui-portfolio-down)';
   }
 
-  getHistoryChange(): number {
+  getHistoryChange(index = this.portfolioHistory.length - 1): number {
     if (this.portfolioHistory.length < 2) return 0;
-    return this.portfolioHistory[this.portfolioHistory.length - 1].value - this.portfolioHistory[0].value;
+    return this.portfolioHistory[index].value - this.portfolioHistory[0].value;
   }
 
-  getHistoryChangePercent(): number {
+  getHistoryChangePercent(index = this.portfolioHistory.length - 1): number | null {
     const initial = this.portfolioHistory[0]?.value ?? 0;
-    return initial ? (this.getHistoryChange() / initial) * 100 : 0;
+    return initial !== 0 ? (this.getHistoryChange(index) / Math.abs(initial)) * 100 : null;
+  }
+
+  formatHistoryChangePercent(index = this.portfolioHistory.length - 1): string {
+    const percent = this.getHistoryChangePercent(index);
+    return percent === null ? 'N/A' :
+      `${percent >= 0 ? '+' : ''}${percent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  }
+
+  getHistoryTooltipLeft(): string {
+    const percent = this.getChartX(this.hoveredHistoryIndex ?? 0) / this.chartWidth * 100;
+    return `clamp(0px, ${percent}%, max(0px, calc(100% - 180px)))`;
   }
 
   formatHistoryDate(date: Date): string {
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return date.toLocaleString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
   }
 
   formatHistoryValue(value: number): string {
@@ -1186,8 +1198,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const values = this.portfolioHistory.map(point => point.value);
     const min = values.length ? Math.min(...values) : 0;
     const max = values.length ? Math.max(...values) : 0;
-    const padding = Math.max((max - min) * 0.16, max * 0.002, 0.04);
-    const low = Math.max(0, min - padding);
+    const padding = Math.max((max - min) * 0.16, Math.max(Math.abs(min), Math.abs(max)) * 0.002, 0.04);
+    const low = min >= 0 ? Math.max(0, min - padding) : min - padding;
     const rawStep = (max + padding - low) / 4;
     const magnitude = 10 ** Math.floor(Math.log10(rawStep));
     const step = Math.ceil(rawStep / magnitude) * magnitude;
@@ -1201,7 +1213,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.historyDateTicks = first === undefined || last === undefined ? [] :
       [0, 0.5, 1].map(fraction => {
         const date = new Date(first + fraction * (last - first));
-        return last - first < 86400000
+        return last - first <= 86400000
           ? date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
           : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       });

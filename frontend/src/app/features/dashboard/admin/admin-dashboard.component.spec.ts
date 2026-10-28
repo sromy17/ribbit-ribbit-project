@@ -66,7 +66,7 @@ describe('Frontend-only admin integration', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(fixture.nativeElement.textContent).toContain('Order #7');
-    expect(fixture.nativeElement.textContent).toContain('Recorded order fields only');
+    expect(fixture.nativeElement.textContent).not.toContain('Recorded order fields only');
   });
 
   it('filters by UTC dates, status and symbol and resets pagination', () => {
@@ -165,7 +165,7 @@ describe('Frontend-only admin integration', () => {
 
   it('signs out through the existing auth service', () => {
     const { fixture } = createScreen();
-    const button: HTMLButtonElement = fixture.nativeElement.querySelector('app-workspace header button');
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('app-workspace header .actions > button');
     button.click();
     expect(auth.logout).toHaveBeenCalledOnce();
     expect(router.navigate).toHaveBeenCalledWith(['/employee-login']);

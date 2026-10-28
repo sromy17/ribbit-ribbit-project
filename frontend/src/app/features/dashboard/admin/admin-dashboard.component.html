@@ -1,7 +1,5 @@
 <app-workspace area="Administration" [username]="currentUser?.username || ''" (logout)="logout()">
-  <app-page-heading eyebrow="Operations workspace" title="Administration"
-    description="Find a customer's account and review its recorded trading activity." />
-  <p class="notice">Review account activity, order disputes, and general support tickets. Ticket resolution does not change financial records.</p>
+  <app-page-heading eyebrow="Operations workspace" title="Administration" />
   <div class="staff-layout">
     <aside>
       <nav aria-label="Admin sections">
@@ -16,7 +14,6 @@
       <app-ticket-list *ngIf="activeTab === 'tickets'" [admin]="true" (accountRequested)="inspectTicketAccount($event)" />
       <section *ngIf="activeTab !== 'tickets'" class="panel" aria-labelledby="account-lookup-title">
         <h2 id="account-lookup-title">User lookup</h2>
-        <p class="description">Look up trading accounts by user ID. The current API does not provide a user directory or profile lookup.</p>
         <form class="filters" (ngSubmit)="lookupUser()">
           <label>User ID<input name="userId" type="number" min="1" step="1" required [(ngModel)]="userId" /></label>
           <button type="submit" class="primary" [disabled]="loading">Look up accounts</button>
@@ -34,7 +31,7 @@
 
       <section *ngIf="activeTab === 'orders'" class="panel" aria-labelledby="orders-title">
         <div class="panel-heading">
-          <div><h2 id="orders-title">Account orders</h2><p class="description">Filter recorded orders for the selected account. Dates are compared in UTC.</p></div>
+          <div><h2 id="orders-title">Account orders</h2></div>
           <button type="button" [disabled]="!accountId || loading" (click)="loadOrders()">Refresh orders</button>
         </div>
         <form class="filters" (ngSubmit)="applyFilters()">
@@ -46,7 +43,7 @@
           </select></label>
           <button type="submit" [disabled]="!accountId">Apply filters</button>
         </form>
-        <p *ngIf="ordersAsOf" class="freshness">Retrieved {{ ordersAsOf | date:'medium':'UTC' }} UTC. This is not a reporting-dataset timestamp.</p>
+        <p *ngIf="ordersAsOf" class="freshness">Retrieved {{ ordersAsOf | date:'medium':'UTC' }} UTC</p>
         <div class="table-scroll" *ngIf="visibleOrders.length">
           <table>
             <thead><tr><th scope="col">Order</th><th scope="col">Account</th><th scope="col">Symbol</th><th scope="col">Side</th><th scope="col">Quantity</th><th scope="col">Status</th><th scope="col">Requested (UTC)</th></tr></thead>
@@ -77,7 +74,6 @@
           <div><dt>Order price</dt><dd>{{ selectedOrder.price == null ? 'Not supplied' : (selectedOrder.price | currency:'USD') }}</dd></div>
           <div><dt>Status</dt><dd>{{ selectedOrder.status }}</dd></div>
         </dl>
-        <p class="description">Recorded order fields only. Open Tickets to review customer disputes or support requests.</p>
       </section>
 
       <section *ngIf="activeTab === 'users'" class="panel" aria-labelledby="history-title">
@@ -89,7 +85,7 @@
           <option value="orders">Order history</option><option value="trades">Trade history</option>
           <option value="holdings">Current holdings</option><option value="cash">Wallet deposits and withdrawals</option>
         </select></label>
-        <p class="description">Wallet activity excludes trade settlement movements. Holdings and balances describe the current position, not a historical snapshot.</p>
+        <p class="description">Current holdings; wallet transfers exclude trade settlement.</p>
         <p *ngIf="historyLoading" role="status">Loading account history...</p>
         <p *ngIf="historyAsOf" class="freshness">Retrieved {{ historyAsOf | date:'medium':'UTC' }} UTC</p>
         <div class="table-scroll" *ngIf="historyRows.length">

@@ -1,8 +1,9 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component,
-  ElementRef, Inject, Input, NgZone, OnChanges, OnDestroy, PLATFORM_ID, ViewChild
+  effect, ElementRef, Inject, Input, NgZone, OnChanges, OnDestroy, PLATFORM_ID, ViewChild
 } from '@angular/core';
+import { ThemeService } from '../../core/services/theme.service';
 
 interface TradingViewOptions {
   autosize: boolean;
@@ -70,9 +71,9 @@ function loadTradingView(): Promise<TradingViewApi> {
     :host { display: flex; position: relative; flex: 1; width: 100%; height: 100%; min-width: 0; min-height: 0; }
     .chart { flex: 1; width: 100%; height: 100%; min-width: 0; min-height: 0; }
     .status { position: absolute; inset: 0; display: grid; place-content: center; gap: 12px;
-      padding: 16px; background: #131a23; color: #e6edf3; text-align: center; white-space: normal; }
-    button { padding: 8px; border: 1px solid #8fa2b8; border-radius: 6px; background: #1f2937;
-      color: #e6edf3; cursor: pointer; }
+      padding: 16px; background: var(--md-surface); color: var(--md-on-surface); text-align: center; white-space: normal; }
+    button { padding: 8px; border: 1px solid var(--md-outline); border-radius: 6px; background: var(--md-surface-container);
+      color: var(--md-on-surface); cursor: pointer; }
   `]
 })
 export class TradingviewWidgetComponent implements AfterViewInit, OnChanges, OnDestroy {
@@ -85,12 +86,18 @@ export class TradingviewWidgetComponent implements AfterViewInit, OnChanges, OnD
   private destroyed = false;
   private revision = 0;
   private widget?: TradingViewInstance;
+  private renderedTheme?: string;
 
   constructor(
     @Inject(PLATFORM_ID) private readonly platformId: object,
     private readonly zone: NgZone,
-    private readonly cdr: ChangeDetectorRef
-  ) {}
+    private readonly cdr: ChangeDetectorRef,
+    private readonly theme: ThemeService
+  ) {
+    effect(() => {
+      if (this.theme.mode() !== this.renderedTheme && this.ready) this.render();
+    });
+  }
 
   ngAfterViewInit(): void {
     this.ready = isPlatformBrowser(this.platformId);
@@ -101,6 +108,9 @@ export class TradingviewWidgetComponent implements AfterViewInit, OnChanges, OnD
 
   render(): void {
     if (!this.ready || this.destroyed) return;
+    this.renderedTheme = this.theme.mode();
+    const theme = this.renderedTheme;
+    const toolbar = getComputedStyle(this.container.nativeElement).getPropertyValue('--md-surface-container').trim();
     const revision = ++this.revision;
     this.loading = true;
     this.error = '';
@@ -112,7 +122,7 @@ export class TradingviewWidgetComponent implements AfterViewInit, OnChanges, OnD
         if (this.destroyed || revision !== this.revision) return;
         this.widget = new api.widget({
           autosize: true, symbol: this.symbol, interval: 'D', timezone: 'Etc/UTC',
-          theme: 'dark', style: '1', locale: 'en', toolbar_bg: '#1f2937',
+          theme, style: '1', locale: 'en', toolbar_bg: toolbar,
           enable_publishing: false, allow_symbol_change: true, container_id: this.containerId
         });
         this.zone.run(() => { this.loading = false; this.cdr.markForCheck(); });

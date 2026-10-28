@@ -5,6 +5,7 @@
       <span class="brand-name">Leap Trader <strong>Pro</strong></span>
     </div>
     <div class="header-actions">
+      <app-theme-toggle />
       <span class="user-badge">INVESTOR • {{ currentUser?.username }}</span>
       <button (click)="logout()" class="btn-logout">Logout</button>
     </div>

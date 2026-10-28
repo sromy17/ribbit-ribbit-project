@@ -78,8 +78,9 @@ existing non-email usernames.
 
 The staff dashboards selectively adopt the workspace/header, section navigation,
 account lookup/history, and analytics overview structure from the integration
-copy. Styles are scoped to these dashboards and reuse the current theme; the
-source's global Tailwind/theme migration is not imported.
+copy. Dashboard layouts remain scoped. The subsequent app-wide theme update
+reuses that checkout's Tailwind v4/PostCSS setup with Everforest colors, without
+importing its unrelated layouts or backend changes.
 
 - **Admin:** look up accounts by user ID, select an account, filter/paginate its
   orders, inspect recorded order fields, and view orders, executed trades,
@@ -101,6 +102,64 @@ reporting tables. The analyst follow-up adds a read-only analytics endpoint and
 reuses the existing ETL endpoint. The separate employee-authentication
 follow-up adds employee session tables and the login flow described below.
 The `/admin-dashboard` and `/analyst-dashboard` routes retain their role guards.
+
+### Tailwind and Everforest light/dark themes
+
+The Angular frontend uses Tailwind CSS v4 through `@tailwindcss/postcss`, matching
+the integration checkout's setup. Everforest tokens in
+[`frontend/src/styles.css`](frontend/src/styles.css) power both semantic Tailwind
+utilities (`tw:bg-canvas`, `tw:bg-panel`, `tw:text-ink`, `tw:text-muted`, `tw:border-line`,
+`tw:bg-brand`, `tw:text-brand-ink`) and existing component CSS variables. Use these
+tokens instead of hard-coded dark colors. Tailwind scans Angular templates and
+inline component templates in `src/app`; keep utility names statically written.
+The `tw:dark:` variant follows the `theme-dark` class rather than the OS theme.
+Utilities use the `tw:` prefix to avoid collisions with established classes such
+as `container`, `grid` or `hidden`; variants follow the prefix (`tw:sm:p-7`).
+
+Use the **sun/moon icon** on login/registration/account forms or in the top-right
+workspace header, before account information and actions. The icon shows the
+theme you can switch to; its tooltip and accessible label describe the action.
+Everforest dark remains the default; a selected mode is
+saved as `localStorage.theme` and restored across reloads, navigation and sign-out.
+This preference is local to the browser and does not change account data.
+Blocked browser storage is logged; switching still works for the current page.
+
+Tailwind's theme and utilities layers are enabled app-wide. Its Preflight reset
+is intentionally omitted to preserve the established forms, headings, dialogs
+and trading layouts while migrating incrementally. Existing component CSS is
+retained; Tailwind is actively used by shared theme controls and workspace layout.
+Analyst/portfolio charts, heatmap tiles, Help and trade panels use theme tokens.
+The embedded TradingView chart follows light/dark mode via its supported vendor
+themes; a cross-origin chart cannot be fully restyled with our CSS.
+
+After pulling this frontend change, run `npm ci` in `frontend` and restart the
+Angular dev server, or rebuild the frontend image on the Linux VM. No backend
+changes or database migrations are needed. Check both themes on employee and
+investor login, registration, account selection/creation, and all three dashboards;
+reload and navigate between pages to confirm the preference persists. On mobile,
+long forms/graphs/tables remain scrollable. Run `npm test -- --watch=false` and
+`npm run build` in `frontend` for regression/build validation.
+
+### Portfolio balance history
+
+The portfolio graph uses browser-local account snapshots, not a server-side
+historical market-price series. Each recorded value is cash plus held shares
+valued at available quotes, with an explicit notice when cost basis is used.
+The last observed value is carried to the selected range's start/end when
+available; nothing is invented before the first observation. Connected points
+are not evidence of intraday prices. Deposits, withdrawals and fees affect
+balance changes, so the dollar/percentage summary is **not investment return**.
+A zero starting balance has no defined percentage change and displays `N/A`.
+
+Ranges use local calendar dates; month/year subtraction clamps to the target
+month's last day. Equal-time observations use the last snapshot, future
+observations are excluded, and snapshots are plotted chronologically. Focus,
+tap or hover on a point for its value/change since range start.
+
+The chart uses the [Everforest palette](https://everforest.vercel.app/palette):
+medium-contrast light/dark backgrounds and foregrounds, light green `#8da101`
+and red `#f85552`, dark green `#a7c080` and red `#e67e80`. The line and gradient
+use the same direction color; axes, grid and tooltip follow the active theme.
 
 ### Employee login (admin and analyst)
 

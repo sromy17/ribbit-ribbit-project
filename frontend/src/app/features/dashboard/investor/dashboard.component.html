@@ -5,6 +5,7 @@
       <span class="brand-name">Leap Trader <strong class="brand-pro-badge">PRO</strong></span>
     </div>
     <div class="header-actions">
+      <app-theme-toggle />
       <div class="account-switcher">
         <button
           type="button"
@@ -101,7 +102,6 @@
               <p class="eyebrow">Markets</p>
               <h2>Find a ticker</h2>
             </div>
-            <span class="trade-search-hint">Search the local market catalog</span>
           </div>
           <div class="trade-search-box">
             <input
@@ -326,11 +326,11 @@
               <div class="wallet-actions">
                 <button type="button" class="wallet-action-button" [disabled]="bankAccounts.length === 0" (click)="openWalletTransaction('Deposit')">
                   <span aria-hidden="true">↓</span>
-                  <span><strong>Deposit</strong><small>Move cash in</small></span>
+                  <span><strong>Deposit</strong></span>
                 </button>
                 <button type="button" class="wallet-action-button" [disabled]="bankAccounts.length === 0 || portfolio.cash <= 0" (click)="openWalletTransaction('Withdrawal')">
                   <span aria-hidden="true">↑</span>
-                  <span><strong>Withdraw</strong><small>Move cash out</small></span>
+                  <span><strong>Withdraw</strong></span>
                 </button>
               </div>
             </div>
@@ -392,7 +392,6 @@
         <app-help />
         <section class="section">
           <h2>Need account support?</h2>
-          <p>For issues with a specific order, use Dispute in History. For other account issues, contact support here.</p>
           <app-ticket-composer [accountId]="accountId" (submitted)="supportTickets.refresh()" />
         </section>
         <app-ticket-list #supportTickets kind="support" [accountId]="accountId" />
@@ -410,7 +409,6 @@
           <div>
             <span class="news-badge">LIVE FINNHUB FEED</span>
             <h2 id="news-heading">Market News &amp; FinNews Catalysts</h2>
-            <p class="description">Live market headlines, ticker sentiment, and breaking catalysts from Finnhub.</p>
           </div>
         </div>
 
@@ -446,7 +444,7 @@
             <div class="news-card-body">
               <div class="news-meta"><span>{{ article.source }}</span><time>{{ getTimeAgo(article.datetime) }}</time></div>
               <h3>{{ article.headline }}</h3>
-              <p>{{ article.summary || 'Read the latest market context and catalyst details from this source.' }}</p>
+              <p *ngIf="article.summary">{{ article.summary }}</p>
               <div class="news-card-footer">
                 <div class="news-tickers">
                   <button *ngFor="let ticker of getArticleTickers(article)" type="button" (click)="openNewsTicker(ticker)">${{ ticker }}</button>
@@ -526,18 +524,19 @@
         <div class="portfolio-chart-heading">
           <div>
             <h2>Portfolio Balance History</h2>
-            <small>Recorded account snapshots since this browser first observed the account.</small>
+            <small class="portfolio-history-note" title="Snapshots are saved in this browser. The last observed balance is carried forward between refreshes.">Browser-recorded balances · Includes deposits and withdrawals, not investment return.</small>
             <small *ngIf="valuationNotice" class="portfolio-valuation-note" [title]="valuationNotice">Estimated valuation · some positions use cost basis</small>
             <span class="portfolio-chart-summary" [style.color]="getHistoryColor()">
               {{ formatSignedHistoryValue(getHistoryChange()) }}
-              ({{ getHistoryChangePercent() >= 0 ? '+' : '' }}{{ getHistoryChangePercent() | number: '1.2-2' }}%)
+              ({{ formatHistoryChangePercent() }})
             </span>
           </div>
-          <div class="portfolio-range-tabs" role="tablist" aria-label="Portfolio history range">
+          <div class="portfolio-range-tabs" role="group" aria-label="Portfolio history range">
             <button
               *ngFor="let range of portfolioRanges"
               type="button"
               [class.active]="portfolioRange === range"
+              [attr.aria-pressed]="portfolioRange === range"
               (click)="setPortfolioRange(range)">{{ range }}</button>
           </div>
         </div>
@@ -553,19 +552,15 @@
             role="img"
             aria-label="Portfolio balance history chart">
             <defs>
-              <linearGradient id="portfolio-positive-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#22c55e" stop-opacity=".25"></stop>
-                <stop offset="100%" stop-color="#22c55e" stop-opacity="0"></stop>
-              </linearGradient>
-              <linearGradient id="portfolio-negative-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#ef4444" stop-opacity=".25"></stop>
-                <stop offset="100%" stop-color="#ef4444" stop-opacity="0"></stop>
+              <linearGradient id="portfolio-history-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" [attr.stop-color]="getHistoryColor()" stop-opacity=".25"></stop>
+                <stop offset="100%" [attr.stop-color]="getHistoryColor()" stop-opacity="0"></stop>
               </linearGradient>
             </defs>
             <g class="portfolio-gridlines">
               <line *ngFor="let line of [0, 1, 2, 3, 4]" x1="0" [attr.y1]="line * 90" x2="1000" [attr.y2]="line * 90"></line>
             </g>
-            <path class="portfolio-area" [attr.d]="getPortfolioAreaPath()" [attr.fill]="getHistoryColor() === '#22c55e' ? 'url(#portfolio-positive-fill)' : 'url(#portfolio-negative-fill)'"></path>
+            <path class="portfolio-area" [attr.d]="getPortfolioAreaPath()" fill="url(#portfolio-history-fill)"></path>
             <path class="portfolio-line" [attr.d]="getPortfolioLinePath()" [style.stroke]="getHistoryColor()"></path>
             <g *ngIf="hoveredHistoryIndex !== null">
               <line
@@ -578,22 +573,28 @@
             <circle
               *ngFor="let point of portfolioHistory; let index = index"
               class="portfolio-hover-point"
+              tabindex="0"
+              role="img"
+              [attr.aria-label]="formatHistoryDate(point.date) + ': ' + formatHistoryValue(point.value)"
               [attr.cx]="getChartX(index)"
               [attr.cy]="getChartY(point.value)"
-              r="13"
+              [attr.r]="portfolioHistory.length === 1 ? 4 : 13"
+              [style.fill]="portfolioHistory.length === 1 ? getHistoryColor() : null"
+              (focus)="hoveredHistoryIndex = index"
+              (blur)="hoveredHistoryIndex = null"
+              (click)="hoveredHistoryIndex = index"
               (mouseenter)="hoveredHistoryIndex = index"
               (mouseleave)="hoveredHistoryIndex = null"></circle>
           </svg>
           <div
             *ngIf="hoveredHistoryIndex !== null"
             class="portfolio-chart-tooltip"
-            [style.left.%]="getChartX(hoveredHistoryIndex!) / chartWidth * 100"
-            [style.top.%]="getChartY(portfolioHistory[hoveredHistoryIndex!].value) / chartHeight * 100">
+            [style.left]="getHistoryTooltipLeft()">
             <strong>{{ formatHistoryDate(portfolioHistory[hoveredHistoryIndex!].date) }}</strong>
             <span>{{ formatHistoryValue(portfolioHistory[hoveredHistoryIndex!].value) }}</span>
-            <small [style.color]="getHistoryColor()">
-              {{ formatSignedHistoryValue(getHistoryChange()) }}
-              ({{ getHistoryChangePercent() >= 0 ? '+' : '' }}{{ getHistoryChangePercent() | number: '1.2-2' }}%)
+            <small [style.color]="getHistoryChange(hoveredHistoryIndex!) >= 0 ? 'var(--ui-portfolio-up)' : 'var(--ui-portfolio-down)'">
+              {{ formatSignedHistoryValue(getHistoryChange(hoveredHistoryIndex!)) }}
+              ({{ formatHistoryChangePercent(hoveredHistoryIndex!) }}) since range start
             </small>
           </div>
           </div>
@@ -601,6 +602,7 @@
             <span *ngFor="let date of historyDateTicks">{{ date }}</span>
           </div>
         </div>
+        <p *ngIf="!loadingBalance && !loadingHoldings && portfolioHistory.length === 0" class="empty-state">No recorded balance snapshots are available yet. Refresh to record the current account value.</p>
       </div>
 
       <div class="section">

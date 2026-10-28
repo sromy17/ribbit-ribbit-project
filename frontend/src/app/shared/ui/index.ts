@@ -1,28 +1,30 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { ThemeToggleComponent } from '../theme-toggle/theme-toggle.component';
 
 @Component({
   selector: 'app-workspace',
   standalone: true,
+  imports: [ThemeToggleComponent],
   template: `
     <a class="skip-link" href="#workspace-content" (click)="$event.preventDefault(); content.focus()">Skip to workspace</a>
     <header>
       <div class="brand"><strong>Leap Trader Pro</strong><span>{{ area }}</span></div>
-      <div class="actions"><span>{{ username }}</span><button type="button" (click)="logout.emit()">Sign out</button></div>
+      <div class="actions"><app-theme-toggle /><span>{{ username }}</span><button type="button" (click)="logout.emit()">Sign out</button></div>
     </header>
-    <main #content id="workspace-content" tabindex="-1"><ng-content /></main>
+    <main #content id="workspace-content" class="tw:min-h-0 tw:flex-1 tw:overflow-auto tw:p-4 tw:sm:p-7" tabindex="-1"><ng-content /></main>
   `,
   styles: [`
     :host { display: flex; flex-direction: column; height: 100%; color: var(--md-on-surface); background: var(--md-surface); }
     header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 20px 28px; border-bottom: 1px solid var(--md-outline-variant); }
     .brand, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
     .brand span { color: var(--md-on-surface-variant); }
+    .actions { margin-left: auto; }
     .actions span { overflow-wrap: anywhere; }
     button { border: 1px solid var(--md-outline); border-radius: 8px; padding: 8px 14px; color: inherit; background: var(--md-surface-container); cursor: pointer; }
-    main { flex: 1; min-height: 0; overflow: auto; padding: 28px; }
     .skip-link { position: fixed; top: -100px; left: 16px; z-index: 100; padding: 12px; color: var(--md-on-primary); background: var(--md-primary); }
     .skip-link:focus { top: 8px; }
-    @media (max-width: 640px) { header, main { padding: 16px; } }
+    @media (max-width: 640px) { header { padding: 16px; } }
   `]
 })
 export class UiWorkspaceComponent {

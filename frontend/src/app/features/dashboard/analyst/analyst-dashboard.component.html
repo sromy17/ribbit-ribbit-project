@@ -1,13 +1,11 @@
 <app-workspace area="Commercial analytics" [username]="currentUser?.username || ''" (logout)="logout()">
-  <app-page-heading eyebrow="Commercial analysis" title="Trading activity"
-    description="Investor funding, trading and participation from the OLAP reporting copy. Not employee trading, exchange sentiment, or investment advice." />
+  <app-page-heading eyebrow="Commercial analysis" title="Trading activity" description="Customer activity · OLAP reporting" />
   <div class="filters">
     <button class="primary" type="button" [disabled]="refreshing" (click)="refreshReporting()">
       {{ refreshing ? 'Refreshing reporting data...' : 'Refresh reporting data (OLTP to OLAP)' }}
     </button>
     <button type="button" [disabled]="loading || refreshing" (click)="load()">Reload analytics</button>
   </div>
-  <p class="description">Refresh runs the existing ETL now, replacing reporting data only. It never deletes OLTP orders or accounts. Scheduled ETL remains enabled according to your configuration.</p>
   <p *ngIf="refreshing" role="status">Refresh in progress. Do not submit another refresh or assume leaving this page cancels it.</p>
   <p *ngIf="notice" role="status">{{ notice }}</p>
   <p *ngIf="refreshError" class="error-banner" role="alert">{{ refreshError }} Any displayed report is the previously loaded copy.</p>
@@ -19,7 +17,7 @@
       <ng-container *ngIf="data.lastSyncedAt; else unknownSync">Latest order-row sync: {{ data.lastSyncedAt | date:'medium':'UTC' }} UTC.</ng-container>
       <ng-template #unknownSync>No order-row sync timestamp is available; an empty report does not prove a successful refresh.</ng-template>
     </p>
-    <p class="description" *ngIf="data.summary.firstOrderAt">Order coverage: {{ data.summary.firstOrderAt | date:'medium':'UTC' }} through {{ data.summary.lastOrderAt | date:'medium':'UTC' }} UTC. This is recorded event coverage, not the ETL source cutoff.</p>
+    <p class="description" *ngIf="data.summary.firstOrderAt">Order coverage: {{ data.summary.firstOrderAt | date:'medium':'UTC' }} through {{ data.summary.lastOrderAt | date:'medium':'UTC' }} UTC.</p>
     <div class="filters">
       <label for="insights-period">Graph and table period (UTC)</label>
       <select id="insights-period" [(ngModel)]="period" (ngModelChange)="load()" [disabled]="loading || refreshing">
@@ -28,13 +26,10 @@
         <option value="LAST_90_DAYS">Last 90 days including today</option>
       </select>
     </div>
-    <p class="description">The six sections below cover {{ data.insights.fromDate }} to {{ data.insights.toDate }} inclusive.
-      Weeks start Monday in UTC; boundary weeks may be partial. Weeks without recorded activity are zero-filled.
-      All-time overview cards further below do not change with this filter.</p>
+    <p class="description">{{ data.insights.fromDate }} – {{ data.insights.toDate }} · Weekly, Monday UTC</p>
 
     <section class="panel" aria-labelledby="funding-title">
       <h2 id="funding-title">1. Customer funding: deposits, withdrawals and net deposits</h2>
-      <p class="description">Recorded transfers into and out of trading accounts, not revenue, profit or portfolio value. Net deposits = deposits minus withdrawals.</p>
       <div class="metric-grid">
         <article class="metric"><h3>Deposits</h3><strong>{{ data.insights.funding.deposits | currency:'USD' }}</strong></article>
         <article class="metric"><h3>Withdrawals</h3><strong>{{ data.insights.funding.withdrawals | currency:'USD' }}</strong></article>
@@ -58,7 +53,6 @@
         <article class="metric"><h3>Mean deposit</h3><strong>{{ data.insights.funding.meanDeposit == null ? 'N/A' : (data.insights.funding.meanDeposit | currency:'USD') }}</strong></article>
         <article class="metric"><h3>Median deposit</h3><strong>{{ data.insights.funding.medianDeposit == null ? 'N/A' : (data.insights.funding.medianDeposit | currency:'USD') }}</strong></article>
       </div>
-      <p class="description">Size statistics describe individual deposit transfers, not customer balances. Customers are deduplicated across accounts; weekly customer counts must not be added to get the period total.</p>
       <app-analytics-chart title="Deposit-size distribution" unit="deposit transfers" [points]="distributionPoints" [series]="depositSeries" />
       <div class="table-scroll"><table><caption>Deposit-size bands (USD; upper boundary excluded)</caption>
         <thead><tr><th scope="col">Deposit size</th><th scope="col">Transfers</th></tr></thead>
@@ -76,11 +70,10 @@
 
     <section class="panel" aria-labelledby="stock-activity-title">
       <h2 id="stock-activity-title">3. Top 10 stocks: buy versus sell activity</h2>
-      <p class="description">Ranked by executed shares on orders submitted in the selected period, then order count, then ticker.
-        No-execution stocks are excluded. This is customer activity, not price performance or investment advice.</p>
+      <p class="description">Ranked by executed shares · Order submission period</p>
       <div class="legend"><span class="buy-key">Buy shares</span><span class="sell-key">Sell shares</span></div>
       <figure *ngIf="data.insights.topStocks.length" aria-label="Top stocks by executed shares, split into buys and sells">
-        <figcaption>Executed share volume; all bars use the same scale</figcaption>
+        <figcaption>Executed shares</figcaption>
         <div *ngFor="let stock of data.insights.topStocks" class="stock-bar-row">
           <strong>{{ stock.symbol }}</strong>
           <div class="stock-track">
@@ -95,34 +88,28 @@
         <tbody><tr *ngFor="let stock of data.insights.topStocks"><th scope="row">{{ stock.symbol }} - {{ stock.name }}</th><td>{{ stock.executedShares | number }}</td>
           <td>{{ stock.buyExecutedShares | number }}</td><td>{{ stock.sellExecutedShares | number }}</td><td>{{ stock.orders | number }}</td><td>{{ stock.clients | number }}</td></tr></tbody>
       </table></div>
-      <app-empty-state *ngIf="!data.insights.topStocks.length" title="No executed stock activity" description="No recorded executions on orders submitted in this period. No sample rankings are used." />
+      <app-empty-state *ngIf="!data.insights.topStocks.length" title="No executed stock activity" description="No executions in this period." />
     </section>
 
     <section class="panel" aria-labelledby="popularity-title">
       <h2 id="popularity-title">4. Top-stock popularity over time</h2>
-      <p class="description">Uses the same period's top ten stocks, not a separately ranked top ten each week. Darker cells mean more submitted orders, across all statuses.
-        Each cell shows orders / distinct clients; values are grouped by order-submission date, not fill day. No market-price history is implied.</p>
       <p *ngIf="!data.insights.topStocks.length">No top-stock activity in this period.</p>
       <div class="table-scroll" *ngIf="data.insights.topStocks.length"><table class="heatmap"><caption>Weekly popularity heatmap and exact values: orders / clients</caption>
         <thead><tr><th scope="col">Week starting</th><th scope="col" *ngFor="let stock of data.insights.topStocks">{{ stock.symbol }}</th></tr></thead>
         <tbody><tr *ngFor="let week of stockWeeks"><th scope="row">{{ week.week }}</th>
-          <td *ngFor="let cell of week.cells" [style.background-color]="'rgba(25,118,210,' + (cell.intensity * 0.65) + ')'">
+          <td *ngFor="let cell of week.cells" [style.background-color]="'color-mix(in srgb, var(--ui-chart-1) ' + (cell.intensity * 40) + '%, transparent)'">
             {{ cell.orders | number }} / {{ cell.clients | number }}</td></tr></tbody>
       </table></div>
     </section>
 
     <section class="panel" aria-labelledby="outcome-title">
       <h2 id="outcome-title">5. Order outcomes and execution quality</h2>
-      <p class="description">Based on orders submitted in the selected period and their current recorded fills.
-        Rejected/cancelled status takes precedence; remaining orders are fully filled, partially filled or unfilled.
-        This is a current snapshot, not historical status at each week-end.</p>
+      <p class="description">Current outcomes for orders submitted in this period.</p>
       <div class="metric-grid">
         <article class="metric"><h3>Requested shares</h3><strong>{{ data.insights.execution.requestedShares | number }}</strong></article>
         <article class="metric"><h3>Executed shares</h3><strong>{{ data.insights.execution.executedShares | number }}</strong></article>
         <article class="metric"><h3>Share-fill rate</h3><strong>{{ data.insights.execution.shareFillRate == null ? 'N/A' : (data.insights.execution.shareFillRate | number:'1.0-2') + '%' }}</strong></article>
       </div>
-      <p class="description">Share-fill rate = executed shares / requested shares across all selected orders. Unlike execution participation, this measures quantity filled.
-        Values above 100% are not capped and can indicate source-data inconsistencies.</p>
       <app-analytics-chart title="Current order outcomes" unit="orders" [points]="outcomePoints" [series]="outcomeSeries" />
       <div class="table-scroll"><table><caption>Current outcome counts and percentage of selected orders</caption>
         <thead><tr><th scope="col">Outcome</th><th scope="col">Orders</th><th scope="col">Percentage</th></tr></thead>
@@ -139,8 +126,6 @@
         <article class="metric"><h3>Accounts placing orders in period</h3><strong>{{ data.insights.participation.tradingAccounts | number }}</strong></article>
         <article class="metric"><h3>Trading account participation</h3><strong>{{ data.insights.participation.tradingAccountRate == null ? 'N/A' : (data.insights.participation.tradingAccountRate | number:'1.0-2') + '%' }}</strong></article>
       </div>
-      <p class="description">Participation = distinct accounts submitting an order / accounts created before period end.
-        Weekly rates use accounts created by that week's end. Accounts are not unique people; this is not customer retention or an account-closure history.</p>
       <app-analytics-chart title="Weekly new accounts and trading accounts" unit="accounts" [points]="growthPoints" [series]="growthSeries" />
       <app-analytics-chart title="Weekly trading account participation" unit="percent" [points]="participationPoints" [series]="participationSeries" />
       <details><summary>Exact weekly growth and participation values</summary>
@@ -153,7 +138,7 @@
     </section>
     <section class="panel" aria-labelledby="overview-title">
       <h2 id="overview-title">Activity overview</h2>
-      <p class="description">All-time reporting-copy totals, independent of the graph period.</p>
+      <p class="description">All-time totals</p>
       <div class="metric-grid">
         <article class="metric"><h3>Submitted orders</h3><strong>{{ data.summary.orders | number }}</strong></article>
         <article class="metric"><h3>Orders with executions</h3><strong>{{ data.summary.executedOrders | number }}</strong></article>
@@ -164,7 +149,6 @@
         <article class="metric"><h3>Accounts with orders / all accounts</h3><strong>{{ data.summary.activeAccounts | number }} / {{ data.summary.totalAccounts | number }}</strong></article>
         <article class="metric"><h3>Available cash across accounts</h3><strong>{{ data.summary.availableCash | currency:'USD' }}</strong></article>
       </div>
-      <p class="description">Active means at least one submitted order in the reporting copy. Execution participation counts orders with any executed shares, including partial fills; it is not the percentage of requested shares filled. Available cash excludes holdings value.</p>
       <p>Buy orders: <strong>{{ data.summary.buyOrders | number }}</strong> |
         Sell orders: <strong>{{ data.summary.sellOrders | number }}</strong> |
         Pending: <strong>{{ data.summary.pendingOrders | number }}</strong> |
@@ -173,18 +157,17 @@
     </section>
     <section class="panel" aria-labelledby="statistics-title">
       <h2 id="statistics-title">Order-size statistics</h2>
-      <p class="description">Requested shares per submitted order, across all symbols and statuses. Share counts across differently priced stocks are not dollar values.</p>
+      <p class="description">Requested shares per order · All time</p>
       <div class="metric-grid">
         <article class="metric"><h3>Mean</h3><strong>{{ data.summary.meanOrderSize == null ? 'N/A' : (data.summary.meanOrderSize | number:'1.0-2') }}</strong></article>
         <article class="metric"><h3>Median</h3><strong>{{ data.summary.medianOrderSize == null ? 'N/A' : (data.summary.medianOrderSize | number:'1.0-2') }}</strong></article>
         <article class="metric"><h3>Mode(s)</h3><strong>{{ data.summary.modeOrderSizes.length ? data.summary.modeOrderSizes.join(', ') : 'No repeated size' }}</strong>
           <p *ngIf="data.summary.modeFrequency">Each occurs {{ data.summary.modeFrequency | number }} times.</p></article>
       </div>
-      <p class="description">Mean is the average; median is the middle value (or average of the middle two); modes list every tied most-frequent size. If every size appears once, no repeated mode is shown. Empty datasets have no mean, median, or execution rate.</p>
     </section>
     <section class="panel">
       <h2>Recent active days (UTC)</h2>
-      <p class="description">Latest 30 dates containing submitted orders, newest first; not necessarily 30 consecutive days. Executed shares are grouped by order submission day, not fill day.</p>
+      <p class="description">Latest 30 active dates · By order submission</p>
       <div class="table-scroll" *ngIf="data.dailyActivity.length"><table><thead><tr><th>Order date</th><th>Orders</th><th>Executed shares</th></tr></thead>
         <tbody><tr *ngFor="let day of data.dailyActivity"><td>{{ day.date }}</td><td>{{ day.orders | number }}</td><td>{{ day.executedShares | number }}</td></tr></tbody></table></div>
       <p *ngIf="!data.dailyActivity.length">No recorded order dates.</p>
@@ -195,7 +178,28 @@
         open or in progress: <strong>{{ data.summary.openSupportTickets | number }}</strong>.</p>
       <p>Orders with a dispute: <strong>{{ data.summary.ordersWithDisputes | number }}</strong>;
         orders with an open dispute: <strong>{{ data.summary.ordersWithOpenDisputes | number }}</strong>.</p>
-      <p class="description">Dispute figures count orders, not all historical claims. The reporting model stores one dispute per order, preferring an open claim, otherwise the highest dispute ID. Ticket review and resolution remain admin-only.</p>
+      <p class="description">All-time totals · Disputes count orders</p>
     </section>
+    <details class="panel">
+      <summary>Metric definitions</summary>
+      <p>Funding measures transfers, not profit. Net deposits = deposits minus withdrawals.
+        Deposit sizes describe individual transfers; customers are deduplicated across accounts.
+        Weekly customer counts are not additive.</p>
+      <p>Top stocks rank by executed shares, then order count and ticker, excluding stocks without executions.
+        Popularity uses that period's top ten; cells show orders / distinct clients across all statuses,
+        grouped by order submission, not fill day.</p>
+      <p>Outcomes use current fills, with rejected/cancelled status taking precedence.
+        Share-fill rate = executed / requested shares; values above 100% can indicate source-data inconsistencies.
+        Execution participation is the percentage of orders with any executed shares, including partial fills.</p>
+      <p>Participation = accounts submitting orders / accounts created by period end.
+        Weekly rates use each week's end. Accounts are not unique people or a retention measure.
+        Active means at least one submitted order; available cash excludes holdings.</p>
+      <p>Weeks start Monday UTC; boundary weeks may be partial and inactive weeks are zero-filled.
+        Overview, order-size and support totals are all-time and ignore the period filter.
+        Order coverage describes event dates, not the ETL cutoff.</p>
+      <p>Modes include all tied repeated sizes; all-unique sizes have no repeated mode.
+        Disputes count orders, not all historical claims: one dispute per order, preferring an open claim,
+        otherwise the highest dispute ID.</p>
+    </details>
   </ng-container>
 </app-workspace>

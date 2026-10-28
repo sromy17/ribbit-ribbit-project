@@ -1,6 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme) prefix(tw);
+@import 'tailwindcss/utilities.css' layer(utilities) prefix(tw);
+@source './app';
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
+
+@theme inline {
+	--font-sans: 'Roboto', 'Segoe UI', sans-serif;
+	--color-canvas: var(--md-surface);
+	--color-panel: var(--md-surface-container);
+	--color-subtle: var(--md-surface-container-high);
+	--color-ink: var(--md-on-surface);
+	--color-muted: var(--md-on-surface-variant);
+	--color-line: var(--md-outline-variant);
+	--color-brand: var(--md-primary);
+	--color-brand-soft: var(--md-primary-container);
+	--color-brand-ink: var(--md-on-primary);
+	--color-danger: var(--md-danger-fg);
+	--color-success: var(--md-success-fg);
+}
 
 :root {
+	color-scheme: light;
 	/* Everforest light palette */
 	--md-primary: #8da101;
 	--md-on-primary: #fdf6e3;
@@ -27,9 +48,23 @@
 	--md-danger-fg: #c14a4a;
 	--md-warning-bg: #f5ebc6;
 	--md-warning-fg: #a96b2c;
+	--ui-chart-1: #076678;
+	--ui-chart-2: #9d5a12;
+	--ui-chart-3: #854875;
+	--ui-chart-grid: #d3c6aa;
+	--ui-portfolio-up: #8da101;
+	--ui-portfolio-down: #f85552;
+	--ui-heat-up-1: #e3ebcf;
+	--ui-heat-up-2: #c3d6a0;
+	--ui-heat-up-3: #a4bc76;
+	--ui-heat-down-1: #f8dcd6;
+	--ui-heat-down-2: #efb6b0;
+	--ui-heat-down-3: #e39395;
+	--ui-heat-ink: #3a454b;
 }
 
 body.theme-dark {
+	color-scheme: dark;
 	/* Everforest dark palette */
 	--md-primary: #a7c080;
 	--md-on-primary: #2d353b;
@@ -56,6 +91,19 @@ body.theme-dark {
 	--md-danger-fg: #e67e80;
 	--md-warning-bg: #5a4d33;
 	--md-warning-fg: #dbbc7f;
+	--ui-chart-1: #7fbbb3;
+	--ui-chart-2: #dbbc7f;
+	--ui-chart-3: #d699b6;
+	--ui-chart-grid: #4f585e;
+	--ui-portfolio-up: #a7c080;
+	--ui-portfolio-down: #e67e80;
+	--ui-heat-up-1: #344b40;
+	--ui-heat-up-2: #41634b;
+	--ui-heat-up-3: #4c7756;
+	--ui-heat-down-1: #543a3f;
+	--ui-heat-down-2: #75464c;
+	--ui-heat-down-3: #944e58;
+	--ui-heat-ink: #fdf6e3;
 }
 
 * {
@@ -85,4 +133,19 @@ button,
 input,
 select {
 	font: inherit;
+}
+
+textarea { font: inherit; }
+
+:where(button, a, input, select, textarea, summary):focus-visible {
+	outline: 2px solid var(--md-secondary);
+	outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
 }

@@ -194,7 +194,7 @@ describe('OLAP analyst dashboard', () => {
     const fixture = TestBed.createComponent(AnalystDashboardComponent);
     fixture.detectChanges();
     http.expectOne('/api/analyst/overview').flush(report);
-    fixture.nativeElement.querySelector('header button').click();
+    fixture.nativeElement.querySelector('header .actions > button').click();
     expect(logout).toHaveBeenCalledOnce();
     expect(router.navigate).toHaveBeenCalledWith(['/employee-login']);
   });

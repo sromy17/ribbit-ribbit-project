@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService, User } from '../../../core/services/auth.service';
 import { ApiService, TradingAccount } from '../../../core/services/api.service';
+import { ThemeToggleComponent } from '../../../shared/theme-toggle/theme-toggle.component';
 
 @Component({
   selector: 'app-account-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ThemeToggleComponent],
   templateUrl: './account-dashboard.component.html',
   styleUrls: ['./account-dashboard.component.css']
 })
