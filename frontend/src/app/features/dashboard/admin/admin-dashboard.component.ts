@@ -1,191 +1,249 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService, User } from '../../../core/services/auth.service';
-import { ApiService, InvestorInfo, Trade, Order, PlatformStats, SymbolTrend } from '../../../core/services/api.service';
+import { Observable, Subscription, timeout } from 'rxjs';
+import { AuthService } from '../../../core/services/auth.service';
+import { ApiService, Holding, Order, Trade, TradingAccount, WalletActivity } from '../../../core/services/api.service';
+import { UiEmptyStateComponent, UiPageHeadingComponent, UiStatusBadgeComponent, UiWorkspaceComponent } from '../../../shared/ui';
+import { TicketListComponent } from '../../../shared/tickets/ticket-list.component';
+import { Ticket } from '../../../core/services/ticket.service';
+
+type HistoryKind = 'orders' | 'trades' | 'holdings' | 'cash';
+interface HistoryColumn { key: string; label: string; }
+interface HistoryRow { [key: string]: string | number; }
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, UiWorkspaceComponent, UiPageHeadingComponent, UiStatusBadgeComponent, UiEmptyStateComponent, TicketListComponent],
   templateUrl: './admin-dashboard.component.html',
-  styleUrls: ['./admin-dashboard.component.css']
+  styleUrls: ['../../../shared/ui/staff-dashboard.css', './admin-dashboard.component.css']
 })
-export class AdminDashboardComponent implements OnInit {
-  currentUser: User | null = null;
-  loading = true;
-  error = '';
-
-  // Data
-  investors: InvestorInfo[] = [];
-  trades: Trade[] = [];
+export class AdminDashboardComponent implements OnDestroy {
+  readonly currentUser;
+  activeTab: 'orders' | 'users' | 'tickets' = 'orders';
+  readonly tabs = ['orders', 'users', 'tickets'] as const;
+  private readonly errors = { lookup: '', orders: '', history: '', filters: '' };
+  get error(): string { return Object.values(this.errors).filter(Boolean).join(' '); }
+  loading = false;
+  historyLoading = false;
+  userId: number | null = null;
+  lookupComplete = false;
+  accounts: TradingAccount[] = [];
+  accountId = '';
   orders: Order[] = [];
-  stats: PlatformStats | null = null;
-  symbolTrends: SymbolTrend[] = [];
-
-  // UI State
-  activeTab: 'overview' | 'heatmap' | 'investors' | 'trades' | 'orders' = 'overview';
-  searchText = '';
+  symbol = '';
+  status = '';
+  from = '';
+  to = '';
+  page = 0;
+  readonly pageSize = 25;
+  selectedOrder: Order | null = null;
+  ordersAsOf = '';
+  historyKind: HistoryKind = 'orders';
+  historyRows: HistoryRow[] = [];
+  historyColumns: HistoryColumn[] = [];
+  historyAsOf = '';
+  private lookupRequest?: Subscription;
+  private ordersRequest?: Subscription;
+  private historyRequest?: Subscription;
 
   constructor(
-    private auth: AuthService,
-    private router: Router,
-    private api: ApiService,
-    private cdr: ChangeDetectorRef
+    private readonly auth: AuthService,
+    private readonly router: Router,
+    private readonly api: ApiService,
+    private readonly cdr: ChangeDetectorRef
   ) {
-    this.currentUser = this.auth.getUser();
-    if (!this.currentUser || this.currentUser.role !== 'admin') {
-      this.router.navigate(['/login']);
+    this.currentUser = auth.getUser();
+  }
+
+  lookupUser(preferredAccountId = ''): void {
+    if (!this.userId || !Number.isSafeInteger(this.userId) || this.userId < 1) {
+      this.errors.lookup = 'Enter a positive whole-number user ID.';
+      return;
     }
-  }
-
-  ngOnInit() {
-    this.loadAdminData();
-  }
-
-  loadAdminData() {
+    this.lookupRequest?.unsubscribe();
+    this.ordersRequest?.unsubscribe();
+    this.historyRequest?.unsubscribe();
+    this.accounts = [];
+    this.accountId = '';
+    this.orders = [];
+    this.ordersAsOf = '';
+    this.historyRows = [];
+    this.historyColumns = [];
+    this.historyAsOf = '';
+    this.selectedOrder = null;
+    this.page = 0;
+    this.lookupComplete = false;
+    this.errors.lookup = this.errors.orders = this.errors.history = '';
     this.loading = true;
-    this.error = '';
-
-    // Load platform stats
-    this.api.getPlatformStats().subscribe({
-      next: (stats) => {
-        this.stats = stats;
-        this.cdr.detectChanges();
+    this.historyLoading = false;
+    this.lookupRequest = this.api.getAccountsForUser(String(this.userId)).pipe(timeout(10000)).subscribe({
+      next: accounts => {
+        this.accounts = accounts;
+        this.lookupComplete = true;
+        this.loading = false;
+        if (accounts.length) {
+          this.accountId = String(accounts.find(account => String(account.accountId) === preferredAccountId)?.accountId
+            ?? accounts[0].accountId);
+          this.loadAccount();
+        }
+        this.cdr.markForCheck();
       },
-      error: (err) => {
-        console.error('Error loading stats:', err);
-        this.error = 'Failed to load platform stats';
-        this.cdr.detectChanges();
+      error: error => {
+        this.loading = false;
+        this.showError('lookup', 'Unable to look up accounts for this user.', error);
       }
     });
+  }
 
-    // Load symbol trends (for heatmap)
-    this.api.getSymbolTrends().subscribe({
-      next: (trends) => {
-        this.symbolTrends = trends.sort((a, b) => b.popularityScore - a.popularityScore);
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error loading symbol trends:', err);
-        this.cdr.detectChanges();
-      }
-    });
+  loadAccount(): void {
+    this.historyRequest?.unsubscribe();
+    this.historyRows = [];
+    this.historyColumns = [];
+    this.historyAsOf = '';
+    this.historyLoading = false;
+    this.errors.history = '';
+    this.loadOrders();
+    if (this.activeTab === 'users') this.loadHistory();
+  }
 
-    // Load investors
-    this.api.getAllInvestors().subscribe({
-      next: (investors) => {
-        this.investors = investors;
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error loading investors:', err);
-        this.error = 'Failed to load investors';
-        this.cdr.detectChanges();
-      }
-    });
+  inspectTicketAccount(ticket: Ticket): void {
+    this.userId = ticket.userId;
+    this.activeTab = 'users';
+    this.lookupUser(String(ticket.accountId));
+  }
 
-    // Load trades
-    this.api.getAllTrades().subscribe({
-      next: (trades) => {
-        this.trades = trades;
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error loading trades:', err);
-        this.error = 'Failed to load trades';
-        this.cdr.detectChanges();
-      }
-    });
+  setTab(tab: 'orders' | 'users' | 'tickets'): void {
+    this.activeTab = tab;
+    if (tab === 'users' && this.accountId) this.loadHistory();
+  }
 
-    // Load orders
-    this.api.getAllOrders().subscribe({
-      next: (orders) => {
+  loadOrders(): void {
+    this.ordersRequest?.unsubscribe();
+    this.orders = [];
+    this.ordersAsOf = '';
+    this.selectedOrder = null;
+    this.page = 0;
+    if (!this.accountId) return;
+    this.errors.orders = '';
+    this.loading = true;
+    this.ordersRequest = this.api.getOrders(this.accountId).pipe(timeout(10000)).subscribe({
+      next: orders => {
         this.orders = orders;
+        this.ordersAsOf = new Date().toISOString();
         this.loading = false;
-        this.cdr.detectChanges();
+        this.cdr.markForCheck();
       },
-      error: (err) => {
-        console.error('Error loading orders:', err);
-        this.error = 'Failed to load orders';
+      error: error => {
         this.loading = false;
-        this.cdr.detectChanges();
+        this.showError('orders', 'Unable to load account orders.', error);
       }
     });
   }
 
-  getFilteredInvestors(): InvestorInfo[] {
-    if (!this.searchText) return this.investors;
-    return this.investors.filter(
-      (inv) =>
-        inv.email.toLowerCase().includes(this.searchText.toLowerCase()) ||
-        inv.firstName.toLowerCase().includes(this.searchText.toLowerCase()) ||
-        inv.lastName.toLowerCase().includes(this.searchText.toLowerCase())
-    );
+  applyFilters(): void {
+    this.page = 0;
+    this.selectedOrder = null;
+    this.errors.filters = this.from && this.to && this.from > this.to
+      ? 'The start date must be on or before the end date.' : '';
   }
 
-  getFilteredTrades(): Trade[] {
-    if (!this.searchText) return this.trades;
-    return this.trades.filter((trade) => trade.symbol?.toLowerCase().includes(this.searchText.toLowerCase()));
+  get filteredOrders(): Order[] {
+    if (this.from && this.to && this.from > this.to) return [];
+    const symbol = this.symbol.trim().toUpperCase();
+    return this.orders.filter(order => {
+      const date = order.dateRequested ? new Date(order.dateRequested).toISOString().slice(0, 10) : '';
+      return (!symbol || order.symbol.toUpperCase().includes(symbol)) &&
+        (!this.status || order.status === this.status) &&
+        (!this.from || (!!date && date >= this.from)) &&
+        (!this.to || (!!date && date <= this.to));
+    });
   }
 
-  getFilteredOrders(): Order[] {
-    if (!this.searchText) return this.orders;
-    return this.orders.filter((order) => order.symbol.toLowerCase().includes(this.searchText.toLowerCase()));
+  get visibleOrders(): Order[] {
+    return this.filteredOrders.slice(this.page * this.pageSize, (this.page + 1) * this.pageSize);
   }
 
-  // Get sector for symbol
-  getSymbolSector(symbol: string): string {
-    const techSymbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'TSLA', 'NVIDIA', 'AMD', 'INTEL'];
-    const financeSymbols = ['JPM', 'BAC', 'GS', 'MS', 'AXP', 'PYPL', 'SQ', 'CIB', 'USB', 'WFC'];
-    const healthSymbols = ['JNJ', 'PFE', 'MRK', 'ABBV', 'LLY', 'AbbVie', 'UNH', 'CVS', 'MCK', 'TMDX'];
-    const energySymbols = ['XOM', 'CVX', 'MPC', 'PSX', 'COP', 'SLB', 'EOG', 'MUR', 'FANG', 'DVN'];
-    
-    if (techSymbols.includes(symbol)) return 'Technology';
-    if (financeSymbols.includes(symbol)) return 'Finance';
-    if (healthSymbols.includes(symbol)) return 'Healthcare';
-    if (energySymbols.includes(symbol)) return 'Energy';
-    return 'Other';
-  }
-
-  getBuySellDeltaPercent(trend: SymbolTrend): number {
-    const total = trend.buyCount + trend.sellCount;
-    if (!total) return 0;
-    return ((trend.buyCount - trend.sellCount) / total) * 100;
-  }
-
-  getHeatmapColor(trend: SymbolTrend): string {
-    const delta = this.getBuySellDeltaPercent(trend);
-    const intensity = Math.min(Math.abs(delta), 100);
-
-    if (delta >= 0) {
-      const lightness = 42 - intensity * 0.12;
-      return `hsl(148 62% ${Math.max(lightness, 28)}%)`;
+  loadHistory(): void {
+    this.historyRequest?.unsubscribe();
+    this.historyRows = [];
+    this.historyColumns = [];
+    this.historyAsOf = '';
+    if (!this.accountId) return;
+    this.errors.history = '';
+    this.historyLoading = true;
+    switch (this.historyKind) {
+      case 'orders':
+        this.readHistory(this.api.getOrders(this.accountId), [
+          { key: 'id', label: 'Order' }, { key: 'symbol', label: 'Symbol' }, { key: 'side', label: 'Side' },
+          { key: 'quantity', label: 'Quantity' }, { key: 'status', label: 'Status' }, { key: 'date', label: 'Requested' }
+        ], (order: Order) => ({
+          id: order.orderId, symbol: order.symbol, side: order.side, quantity: order.quantity,
+          status: order.status, date: order.dateRequested ?? 'Not supplied'
+        }));
+        break;
+      case 'trades':
+        this.readHistory(this.api.getTrades(this.accountId), [
+          { key: 'id', label: 'Trade' }, { key: 'quantity', label: 'Executed quantity' },
+          { key: 'price', label: 'Execution price' }, { key: 'date', label: 'Executed' }
+        ], (trade: Trade) => ({
+          id: trade.tradeId, quantity: trade.executedQuantity,
+          price: trade.executionPrice, date: trade.executedAt ?? 'Not supplied'
+        }));
+        break;
+      case 'holdings':
+        this.readHistory(this.api.getHoldings(this.accountId), [
+          { key: 'symbol', label: 'Symbol' }, { key: 'quantity', label: 'Quantity' }, { key: 'cost', label: 'Average cost' }
+        ], (holding: Holding) => ({ symbol: holding.symbol, quantity: holding.quantity, cost: holding.averageCost }));
+        break;
+      case 'cash':
+        this.readHistory(this.api.getWalletActivity(this.accountId), [
+          { key: 'id', label: 'Movement' }, { key: 'bank', label: 'Bank ID' }, { key: 'type', label: 'Type' },
+          { key: 'amount', label: 'Amount' }, { key: 'date', label: 'Recorded' }
+        ], (movement: WalletActivity) => ({
+          id: movement.movementId, bank: movement.bankId, type: movement.movementType,
+          amount: movement.amount, date: movement.movementDate
+        }));
+        break;
     }
-
-    const lightness = 44 - intensity * 0.12;
-    return `hsl(2 72% ${Math.max(lightness, 30)}%)`;
   }
 
-  getSizeMultiplier(trend: SymbolTrend): number {
-    const volumeWeight = Math.min(trend.totalVolume / 550, 2.6);
-    const popularityWeight = trend.popularityScore / 100;
-    return Number((0.9 + volumeWeight + popularityWeight).toFixed(2));
+  private readHistory<T>(request: Observable<T[]>, columns: HistoryColumn[], row: (item: T) => HistoryRow): void {
+    this.historyRequest = request.pipe(timeout(10000)).subscribe({
+      next: items => {
+        this.historyRows = items.map(row);
+        this.historyColumns = columns;
+        this.historyAsOf = new Date().toISOString();
+        this.historyLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: error => {
+        this.historyLoading = false;
+        this.showError('history', 'Unable to load account history.', error);
+      }
+    });
   }
 
-  getHeatmapCellSize(trend: SymbolTrend): number {
-    return Math.max(54, Math.min(126, 44 + trend.totalVolume * 0.06 + trend.popularityScore * 0.3));
+  get selectedAccount(): TradingAccount | undefined {
+    return this.accounts.find(account => String(account.accountId) === this.accountId);
   }
 
-  getHeatmapTitle(trend: SymbolTrend): string {
-    const delta = this.getBuySellDeltaPercent(trend);
-    const direction = delta >= 0 ? 'Bullish flow' : 'Bearish flow';
-    return `${trend.symbol} | ${direction} ${delta.toFixed(1)}% | Volume ${trend.totalVolume}`;
+  private showError(scope: keyof AdminDashboardComponent['errors'], message: string, error: unknown): void {
+    console.error(message, error);
+    this.errors[scope] = `${message} Retry when the service is available.`;
+    this.cdr.markForCheck();
   }
 
-  logout() {
+  ngOnDestroy(): void {
+    this.lookupRequest?.unsubscribe();
+    this.ordersRequest?.unsubscribe();
+    this.historyRequest?.unsubscribe();
+  }
+
+  logout(): void {
     this.auth.logout();
-    this.router.navigate(['/login']);
+    this.router.navigate(['/employee-login']);
   }
 }

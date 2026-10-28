@@ -20,10 +20,11 @@ INSERT INTO employees (
     employeeHashedSaltedPassword,
     employeeRoles
 ) VALUES
-    (1, 'admin_user', 'emp_salt1', 'emp_hashed_1', 'ADMIN'),
+    (1, 'admin_user', 'bcrypt', '$2a$10$EAco3KtOvxLGwcz0G0aeauOx7KiBu1tKkSxOtyteuR8DeVrAhyJn6', 'ADMIN'),
     (2, 'support_staff', 'emp_salt2', 'emp_hashed_2', 'SUPPORT'),
     (3, 'compliance_officer', 'emp_salt3', 'emp_hashed_3', 'COMPLIANCE'),
-    (4, 'dispute_resolver', 'emp_salt4', 'emp_hashed_4', 'DISPUTE_HANDLER');
+    (4, 'dispute_resolver', 'emp_salt4', 'emp_hashed_4', 'DISPUTE_HANDLER'),
+    (5, 'analyst_user', 'bcrypt', '$2a$10$5aBDMtqcyF2rqep.RtCnI.vProRwMEidkf//iG.Qb8l0Vo/AOIT.a', 'ANALYST');
 
 INSERT INTO accounts (
     accountid,

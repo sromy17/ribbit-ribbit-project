@@ -12,5 +12,6 @@ export const AuthGuard: CanActivateFn = (route) => {
     return true;
   }
 
-  return router.createUrlTree(['/login']);
+  return router.createUrlTree([requiredRole === 'admin' || requiredRole === 'analyst'
+    ? '/employee-login' : '/login']);
 };

@@ -10,6 +10,7 @@ import { AccountDashboardComponent } from './features/accounts/account-dashboard
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
+  { path: 'employee-login', component: LoginComponent, data: { employeeLogin: true } },
   { path: 'register', component: RegisterComponent },
   {
     path: 'accounts',

@@ -3,7 +3,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
-COPY server.js .
+COPY server.js employee-auth.js ./
 USER node
 EXPOSE 4000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=6 \

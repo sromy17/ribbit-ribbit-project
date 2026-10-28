@@ -24,12 +24,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import com.neueda.leap.trading.api.AccountController;
 import com.neueda.leap.trading.domain.User;
 import com.neueda.leap.trading.repository.jpa.UserRepository;
 import com.neueda.leap.trading.service.impl.TradingAccountService;
+import com.neueda.leap.trading.security.SessionTokenValidationFilter;
 
 class OlapDataSourceConfigurationTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
@@ -69,6 +71,8 @@ class OlapDataSourceConfigurationTest {
                 .isSameAs(olap).isNotSameAs(primary);
             assertThat(context.getBean("oltpJdbcTemplate", JdbcTemplate.class).getDataSource())
                 .isSameAs(context.getBean("oltpDataSource"));
+            assertThat(ReflectionTestUtils.getField(context.getBean(SessionTokenValidationFilter.class), "jdbcTemplate"))
+                .isSameAs(context.getBean("oltpJdbcTemplate"));
 
             User user = new User();
             user.setUserId(1);
@@ -100,7 +104,8 @@ class OlapDataSourceConfigurationTest {
     @Configuration(proxyBeanMethods = false)
     @EntityScan("com.neueda.leap.trading.domain")
     @EnableJpaRepositories("com.neueda.leap.trading.repository.jpa")
-    @Import({OlapDataSourceConfiguration.class, AccountController.class, TradingAccountService.class})
+    @Import({OlapDataSourceConfiguration.class, AccountController.class, TradingAccountService.class,
+        SessionTokenValidationFilter.class})
     static class TestConfiguration {
     }
 }

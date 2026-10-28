@@ -14,6 +14,8 @@ import { PortfolioAccountState, PortfolioStateService } from '../../../core/serv
 import { AssetAllocationComponent } from '../../../shared/asset-allocation/asset-allocation.component';
 import { HelpComponent } from './help/help.component';
 import { TradingviewWidgetComponent } from '../../../shared/tradingview/tradingview-widget.component';
+import { TicketComposerComponent } from '../../../shared/tickets/ticket-composer.component';
+import { TicketListComponent } from '../../../shared/tickets/ticket-list.component';
 
 interface WalletBankAccount {
   id: number;
@@ -33,7 +35,8 @@ interface WalletActivity {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, StockHeatmapComponent, AssetAllocationComponent, HelpComponent, TradingviewWidgetComponent],
+  imports: [CommonModule, FormsModule, StockHeatmapComponent, AssetAllocationComponent, HelpComponent,
+    TradingviewWidgetComponent, TicketComposerComponent, TicketListComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })

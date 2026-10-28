@@ -74,6 +74,166 @@ zeros. Routing numbers require 9 digits; account numbers require 4 to 17 digits.
 New profile usernames must be valid email addresses. Sign-in still accepts
 existing non-email usernames.
 
+### Admin and analyst dashboard integration
+
+The staff dashboards selectively adopt the workspace/header, section navigation,
+account lookup/history, and analytics overview structure from the integration
+copy. Styles are scoped to these dashboards and reuse the current theme; the
+source's global Tailwind/theme migration is not imported.
+
+- **Admin:** look up accounts by user ID, select an account, filter/paginate its
+  orders, inspect recorded order fields, and view orders, executed trades,
+  holdings, or wallet deposits/withdrawals. These views use only the existing
+  `/accounts/user/{userId}` and `/accounts/{accountId}/...` GET endpoints.
+  The current API cannot confirm a user's profile/existence from an empty
+  account result. Cash balances are those returned by the account lookup;
+  refresh the lookup to update them. Retrieval times are browser request
+  completion times, not published dataset timestamps.
+- **Analyst:** the commercial analytics workspace and overview labels are
+  integrated, but metrics are explicitly unavailable. No mock totals or
+  unsupported analytics requests are used. The existing ETL/schema alone does
+  not expose the source dashboard's reporting API.
+- **Excluded:** global orders/reporting, lifecycle/settlement evidence,
+  dataset provenance/versioning, monthly/timezone analysis, instrument
+  rankings/internal-activity heatmaps, client segmentation, and saved/issued
+  reports. These depend on source backend or database changes.
+
+The dashboard integration does not include Kafka, producers/consumers, new
+reporting tables, or new analytics endpoints. The separate employee-authentication
+follow-up adds employee session tables and the login flow described below.
+The `/admin-dashboard` and `/analyst-dashboard` routes retain their role guards.
+
+### Employee login (admin and analyst)
+
+Open `/employee-login` at the same address as the app, for example
+`http://localhost:4200/employee-login` through your SSH tunnel. The page uses
+the investor login styling but has **no account-creation button**. A link from
+the investor login opens it. Investor registration still creates only investor
+records in `users`; there is no employee-registration endpoint.
+
+Employees are provisioned in the OLTP `employees` table. Login uses bcrypt
+password hashes and accepts only `ADMIN` and `ANALYST`. The database role
+determines the destination; the browser does not choose or submit a staff role:
+
+| Demo username | Demo password | Destination |
+| --- | --- | --- |
+| `admin_user` | `AdminDemo123!` | `/admin-dashboard` |
+| `analyst_user` | `AnalystDemo123!` | `/analyst-dashboard` |
+
+These are public **development/demo credentials**, not production secrets.
+Before exposing the app publicly, replace both password hashes with bcrypt
+hashes of unique private passwords. Existing custom passwords are not overwritten
+by the upgrade script. Support/compliance/dispute employees are not granted
+dashboard login by this change.
+
+Employee JWTs carry an employee ID and role, not an investor user ID.
+Employee access/refresh tokens are hashed in separate session tables. Refresh
+rotates both tokens; sign-out revokes the employee session. The Spring service
+checks the stored session and current employee role. Admin API access is limited
+to the existing read-only account/history endpoints above and the ticket review
+API below; analyst sessions do not gain investor/account or ticket-review API access.
+Changing an employee's database role
+invalidates their old role token. Investor authentication remains unchanged.
+
+#### Update an existing Linux VM without resetting investor data
+
+After transferring the updated source, run these from the VM repository root.
+Use `docker-compose` instead of `docker compose` if your VM has the legacy CLI.
+
+```bash
+# Start the existing database without deleting its volume.
+docker compose up -d postgres
+
+# Add employee session tables and provision the demo employees.
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1' < scripts/employee-auth.sql
+
+# Rebuild all three changed application images.
+docker compose up -d --build auth springboot frontend
+docker compose ps
+```
+
+Do **not** rerun `basedSchema.sql` or the whole `insert-data.sql` on an existing
+deployment: they are fresh-install scripts and the schema drops tables.
+`scripts/employee-auth.sql` is the non-destructive, transactional upgrade.
+Fresh empty-volume installations use the updated schema and seeds automatically.
+No OLAP changes or volume deletion are required.
+
+Verify both employee logins redirect to the correct dashboard, refresh the
+page to verify the session persists, then sign out. Confirm employee login has
+no create-account button, an investor's credentials fail there, and investor
+registration/sign-in still work at `/login`. The analyst metrics remain
+unavailable until a separate reporting backend is implemented.
+
+#### Authentication regression tests
+
+```bash
+cd shared/auth-stub
+TEST_DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/TEST_DB node --test employee-auth.test.js
+```
+
+Use a disposable PostgreSQL test database, not the deployment database. Tests
+create/drop a unique isolated schema, exercise fresh seeds and the repeatable
+upgrade, and verify employee login, role claims, refresh/reuse/expiry, and logout.
+Frontend login/service/dashboard specs and the Spring
+`EmployeeAuthenticationTest` cover routing, investor isolation, and API access.
+
+### Order disputes and account support tickets
+
+- **Investor History:** each order has a small **Dispute** button. Its popup
+  submits the selected order, a category (`Fraud`, `Accident`, or
+  `Incorrect transfer`), and a description. The account's dispute list below
+  the order table shows persisted statuses and assigned employees.
+- **Investor Help:** **Contact support** opens the same style of popup for
+  general/account-wide issues outside a specific order. Existing FAQs remain
+  available, with the account's support-ticket list below the form.
+- **Admin > Tickets:** switch between order disputes and general support,
+  filter status, inspect every returned ticket and its customer/account/order
+  details, and use **View account history** to open that specific account.
+  **Mark under review** records `UNDER-REVIEW` for disputes or `IN_PROGRESS`
+  for support. **Resolve ticket** closes it as `COMPLETED` or `RESOLVED`.
+  The acting admin is recorded as the assigned employee. Unresolved claims can
+  remain open or under review; closed tickets cannot be reopened in this UI.
+
+Resolution is ticket-only: it does **not** cancel/reverse trades, refund money,
+or change holdings/balances. Descriptions are limited to **75 characters** to
+match the existing schema; do not enter passwords or bank details.
+Only one open dispute per order is permitted. Concurrent submissions are
+serialized, and admin updates require the previously displayed status so a
+stale page cannot overwrite another admin's change.
+
+This feature reuses `disputed_orders` and `support_ticket` exactly as defined
+in `basedSchema.sql`. **No ticket schema migration, reseeding, OLAP change, or
+database reset is needed.** The current dispute table has no submission or
+completion timestamp; the UI states that rather than inventing dates.
+Support tickets retain their existing creation/closure timestamps.
+Restart Spring Boot and rebuild/restart the frontend after deploying this change.
+For Compose, rebuild `springboot` and `frontend` while keeping the existing volume.
+
+| Endpoint | Access |
+| --- | --- |
+| `POST /accounts/{accountId}/orders/{orderId}/disputes` | Authenticated owner of that account and order |
+| `POST /accounts/{accountId}/support-tickets` | Authenticated account owner |
+| `GET /accounts/{accountId}/tickets/{kind}` | Authenticated account owner |
+| `GET /admin/tickets/{kind}` | Admin employee only |
+| `PATCH /admin/tickets/{kind}/{ticketId}` | Admin employee only; body contains `status` and `expectedStatus` |
+
+`kind` is `dispute` or `support`. The frontend prefixes these endpoints with
+`/api`; the existing proxy strips that prefix. Employee IDs and investor user
+IDs are never interchangeable, and investor/analyst tokens cannot review or
+resolve other customers' tickets.
+
+For PostgreSQL persistence/concurrency regression tests, set
+`TICKET_TEST_DATABASE_URL` to a **disposable** JDBC database URL, then run:
+
+```bash
+mvn -Dtest=TicketControllerTest,TicketServiceIntegrationTest,EmployeeAuthenticationTest,OlapDataSourceConfigurationTest test
+```
+
+The PostgreSQL test creates/drops its own unique schema, loads the current
+schema/seeds there, and verifies ownership, duplicate submission, status
+conflicts, assignment, closure timestamps, and unchanged financial records.
+Without that environment variable, the PostgreSQL-only test is skipped.
+
 ### Run locally
 
 1. Start the Node auth-stub

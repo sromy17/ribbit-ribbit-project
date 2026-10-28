@@ -59,7 +59,7 @@ export class App implements OnInit, OnDestroy {
     this.auth.refreshSession().subscribe({
       error: () => {
         this.auth.logout();
-        this.router.navigate(['/login']);
+        this.router.navigate([this.auth.loginPath]);
       }
     });
   }
@@ -70,7 +70,7 @@ export class App implements OnInit, OnDestroy {
 
   returnToSignIn(): void {
     this.sessionExpired = false;
-    this.router.navigate(['/login']);
+    this.router.navigate([this.auth.loginPath]);
   }
 
   ngOnDestroy(): void {

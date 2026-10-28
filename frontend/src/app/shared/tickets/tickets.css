@@ -1,0 +1,21 @@
+:host { display: block; color: var(--md-on-surface); }
+button, select, textarea { font: inherit; }
+button { cursor: pointer; border: 1px solid var(--md-outline); border-radius: 8px; padding: 8px 12px; background: var(--md-surface-container); color: var(--md-on-surface); }
+button:disabled { opacity: .6; cursor: default; }
+.ticket-trigger { padding: 5px 10px; white-space: nowrap; }
+dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); margin: auto; padding: 24px; box-sizing: border-box; border: 1px solid var(--md-outline); border-radius: 16px; background: var(--md-surface); color: var(--md-on-surface); overflow: auto; }
+dialog::backdrop { background: rgb(0 0 0 / 55%); }
+label { display: grid; gap: 6px; margin: 12px 0; }
+select, textarea { border: 1px solid var(--md-outline); background: var(--md-surface); color: var(--md-on-surface); padding: 9px; border-radius: 8px; min-width: 0; }
+textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+form button, .ticket-details button { margin: 6px 6px 0 0; }
+.ticket-panel { margin: 16px 0; padding: 20px; border: 1px solid var(--md-outline-variant); border-radius: 14px; background: var(--md-surface); min-width: 0; }
+.ticket-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 12px; }
+.ticket-controls label { margin: 0; }
+.ticket-table { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { padding: 10px; border-bottom: 1px solid var(--md-outline-variant); text-align: left; vertical-align: top; }
+td { overflow-wrap: anywhere; min-width: 85px; }
+.ticket-details { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--md-outline-variant); overflow-wrap: anywhere; }
+.ticket-error { color: var(--md-error, #b3261e); }
+@media (max-width: 600px) { .ticket-panel { padding: 12px; } }

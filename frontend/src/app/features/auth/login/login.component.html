@@ -4,24 +4,29 @@
       <span class="brand-mark" aria-hidden="true">L</span>
       <span class="brand-name">Leap Trader <strong>Pro</strong></span>
     </div>
-    <p class="subtitle">Institutional trading workspace</p>
+    <p class="subtitle">{{ employeeLogin ? 'Employee sign in' : 'Institutional trading workspace' }}</p>
+    <p *ngIf="employeeLogin">Admin and analyst access only. Employee accounts are provisioned by your administrator.</p>
 
     <form (ngSubmit)="login()" novalidate>
       <div class="form-group">
-        <label>Username</label>
+        <label for="username">Username</label>
         <input 
           type="text" 
+          id="username"
+          autocomplete="username"
           [(ngModel)]="username" 
           name="username"
-          placeholder="investor@test.com"
+          [placeholder]="employeeLogin ? 'Employee username' : 'investor@test.com'"
           required 
         />
       </div>
 
       <div class="form-group">
-        <label>Password</label>
+        <label for="password">Password</label>
         <input 
           type="password" 
+          id="password"
+          autocomplete="current-password"
           [(ngModel)]="password" 
           name="password"
           placeholder="password"
@@ -35,8 +40,11 @@
         {{ loading ? 'Signing in...' : 'Sign In' }}
       </button>
 
-      <button type="button" class="btn-secondary" (click)="router.navigate(['/register'])">
+      <button *ngIf="!employeeLogin" type="button" class="btn-secondary" (click)="router.navigate(['/register'])">
         Create a user profile
+      </button>
+      <button type="button" class="btn-secondary" (click)="router.navigate([employeeLogin ? '/login' : '/employee-login'])">
+        {{ employeeLogin ? 'Investor sign in' : 'Employee sign in' }}
       </button>
     </form>
 

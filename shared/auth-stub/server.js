@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const dotenv = require("dotenv");
 const { Pool } = require("pg");
+const { createEmployeeAuth } = require("./employee-auth");
 
 dotenv.config();
 
@@ -188,6 +189,11 @@ async function ensureDatabaseConnection() {
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
+
+app.use("/employee", createEmployeeAuth({
+  pool, secret: SHARED_SECRET,
+  expiresInSeconds: JWT_EXPIRATION_SECONDS, refreshValidDays: REFRESH_TOKEN_VALID_DAYS
+}));
 
 app.post("/register", async (req, res) => {
   const { username, password, firstName, lastName } = req.body || {};

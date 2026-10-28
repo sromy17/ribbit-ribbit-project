@@ -277,6 +277,7 @@
                   <th class="quantity-column">Quantity</th>
                   <th>Price</th>
                   <th class="total-order-price-column">Total order price</th>
+                  <th>Dispute</th>
                 </tr>
               </thead>
               <tbody>
@@ -297,11 +298,14 @@
                   <td class="quantity-column">{{ o.quantity }}</td>
                   <td>${{ o.price | number: '1.2-2' }}</td>
                   <td class="total-order-price-column">${{ getOrderTotalPrice(o) | number: '1.2-2' }}</td>
+                  <td><app-ticket-composer [accountId]="accountId" [orderId]="'' + o.orderId"
+                    [symbol]="o.symbol" (submitted)="disputes.refresh()" /></td>
                 </tr>
               </tbody>
             </table>
           </div>
         </details>
+        <app-ticket-list #disputes kind="dispute" [accountId]="accountId" />
       </div>
 
       <div *ngIf="activeView === 'wallet'" class="wallet-view">
@@ -384,7 +388,15 @@
         </div>
       </div>
 
-      <app-help *ngIf="activeView === 'help'"></app-help>
+      <div *ngIf="activeView === 'help'">
+        <app-help />
+        <section class="section">
+          <h2>Need account support?</h2>
+          <p>For issues with a specific order, use Dispute in History. For other account issues, contact support here.</p>
+          <app-ticket-composer [accountId]="accountId" (submitted)="supportTickets.refresh()" />
+        </section>
+        <app-ticket-list #supportTickets kind="support" [accountId]="accountId" />
+      </div>
 
       <div *ngIf="activeView === 'graphs'" class="section full-width market-heatmap-section">
         <h1 class="market-heatmap-title">LEAP Trader Pro Heatmap</h1>

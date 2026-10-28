@@ -20,6 +20,7 @@ interface AuthResponse {
   username: string;
   firstName: string;
   lastName: string;
+  role?: 'admin' | 'analyst';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -29,6 +30,11 @@ export class AuthService {
   private sessionExpired = new Subject<void>();
   private warningTimer: ReturnType<typeof setTimeout> | undefined;
   private expirationTimer: ReturnType<typeof setTimeout> | undefined;
+  private employeeSession = false;
+
+  get loginPath(): string {
+    return this.employeeSession ? '/employee-login' : '/login';
+  }
 
   public currentUser$ = this.currentUser.asObservable();
   public sessionWarning$ = this.sessionWarning.asObservable();
@@ -38,24 +44,30 @@ export class AuthService {
     const saved = localStorage.getItem('currentUser');
     if (saved) {
       this.currentUser.next(JSON.parse(saved));
+      this.employeeSession = this.currentUser.value?.role === 'admin' || this.currentUser.value?.role === 'analyst';
       this.scheduleSessionTimers();
     }
   }
 
-  login(username: string, password: string): Observable<User> {
-    return this.http.post<AuthResponse>('/auth/login', { username, password }).pipe(
+  login(username: string, password: string, employee = false): Observable<User> {
+    return this.http.post<AuthResponse>(employee ? '/auth/employee/login' : '/auth/login', { username, password }).pipe(
+      map(response => {
+        if (employee && response.role !== 'admin' && response.role !== 'analyst') {
+          throw new Error('Employee login returned an invalid role');
+        }
+        return response;
+      }),
       tap((response) => {
+        this.employeeSession = employee;
         this.storeTokens(response);
       }),
-      // The current auth stub supplies a mission-operator role. Until backend
-      // role claims are available, authenticated users use the investor flow.
       tap((response) => {
-        const user = {
+        const user: User = {
           id: String(response.userId),
           username: response.username,
           firstName: response.firstName,
           lastName: response.lastName,
-          role: 'investor' as const
+          role: employee ? (response.role === 'admin' ? 'admin' : 'analyst') : 'investor'
         };
         this.currentUser.next(user);
         localStorage.setItem('currentUser', JSON.stringify(user));
@@ -66,10 +78,16 @@ export class AuthService {
 
   refreshSession(): Observable<AuthResponse> {
     const refreshToken = localStorage.getItem('refreshToken');
-    return this.http.post<AuthResponse>('/auth/refresh', {
+    const employee = this.currentUser.value?.role === 'admin' || this.currentUser.value?.role === 'analyst';
+    return this.http.post<AuthResponse>(employee ? '/auth/employee/refresh' : '/auth/refresh', {
       refreshToken
     }).pipe(
       tap((response) => {
+        if (employee && response.role !== this.currentUser.value?.role) {
+          this.storeTokens(response);
+          this.logout();
+          throw new Error('Your employee role has changed. Sign in again.');
+        }
         this.storeTokens(response);
         this.sessionWarning.next(false);
       })
@@ -95,6 +113,13 @@ export class AuthService {
   }
 
   logout(): void {
+    const user = this.currentUser.value;
+    const token = localStorage.getItem('accessToken');
+    if (token && (user?.role === 'admin' || user?.role === 'analyst')) {
+      this.http.post('/auth/employee/logout', { accessToken: token }).subscribe({
+        error: error => console.error('Employee session revocation failed', error)
+      });
+    }
     this.clearSessionTimers();
     this.currentUser.next(null);
     this.sessionWarning.next(false);
