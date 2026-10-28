@@ -1,8 +1,8 @@
-# Backend container deployment
+# Full application container deployment
 
 Compose runs PostgreSQL (separate OLTP/OLAP databases), a one-shot migration
-job, Spring Boot, and Node authentication. Angular and Nginx are excluded from
-Compose. The Angular source remains available for separate hosting.
+job, Spring Boot, Node authentication, and Angular served by Nginx. The frontend
+gateway waits for backend and auth health checks before starting.
 
 ## Configure and start
 
@@ -16,21 +16,23 @@ example. The private file should have permissions `600`.
 docker compose --env-file deploy/.env -p ribbit config --quiet
 docker compose --env-file deploy/.env -p ribbit up --build -d --wait --wait-timeout 300
 docker compose --env-file deploy/.env -p ribbit ps -a
-curl -fsS http://127.0.0.1:8081/actuator/health
+curl -fsS http://127.0.0.1:4200/health
+curl -fsS http://127.0.0.1:4200/api/actuator/health
 curl -fsS http://127.0.0.1:4000/health
 ```
 
-Three services should be healthy and `migrate` should exit 0. Fresh volumes
+Four services should be healthy and `migrate` should exit 0. Fresh volumes
 contain instruments, not demo users or transactions. Backend and auth bind to
 loopback by default via API_BIND_ADDRESS/API_PORT and AUTH_BIND_ADDRESS/AUTH_PORT.
 PostgreSQL remains internal. The defaults are API port 8081 and auth port 4000.
 
-There is no frontend gateway in this stack. Direct backend routes include
-`/accounts`, `/market`, and `/actuator/health`; admin/analytics/ETL controllers
-retain their `/api` prefixes. Direct authentication routes include `/register`
-and `/login`, without `/auth`. A separately hosted frontend needs a reverse
-proxy that preserves the previous gateway routing or explicit API URL and CORS
-configuration. Configure TLS before public access.
+Open http://localhost:4200 (HTTP_PORT, default 4200). Nginx forwards `/auth` to
+authentication and `/api` to Spring Boot, preserving the `/api` prefix for
+admin/analytics/ETL. Angular uses these same-origin routes. No separate CORS
+configuration or public backend/auth ports are required for this gateway flow.
+HTTP_BIND_ADDRESS defaults to loopback. Put a TLS reverse proxy in front of the
+frontend for public deployment and configure its network access appropriately.
+Keep existing deployment credentials unchanged when adding the frontend.
 
 ## Storage and updates
 
@@ -42,13 +44,13 @@ existing root filesystem.
 
 The Java build now uses a BuildKit Maven cache instead of embedding downloaded
 dependencies in an intermediate image layer. The cache still consumes disk but
-can be reclaimed. Removing Angular from Compose avoids its image and build;
-existing Angular images/cache remain until explicitly cleaned up.
+can be reclaimed. Angular is built in its own multi-stage image. Its build cache also consumes
+disk; allow space for both builds and runtime images.
 
 ```sh
 # Reclaim unused build cache; preserve database volumes:
 docker builder prune -af
-# Apply updates and remove the old frontend container:
+# Apply updates:
 docker compose --env-file deploy/.env -p ribbit up --build -d --wait --remove-orphans
 # Stop without deleting data:
 docker compose --env-file deploy/.env -p ribbit down

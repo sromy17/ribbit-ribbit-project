@@ -111,6 +111,19 @@ services:
     networks:
       - ribbit-network
 
+  frontend:
+    restart: unless-stopped
+    build:
+      context: ./frontend
+    depends_on:
+      springboot:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    ports:
+      - "${HTTP_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-4200}:80"
+    networks:
+      - ribbit-network
 
 volumes:
   postgres_data:
