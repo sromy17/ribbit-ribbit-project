@@ -198,7 +198,7 @@ new regression coverage, durable ID counters and backup/restore verification.
 
 See [the deployment guide](deploy/README.md) for configuration, builds, startup,
 health checks, backups, and upgrades. The stack includes PostgreSQL, a migration
-job, Spring Boot, authentication, and an Angular/Nginx gateway. It preserves data
+job, Spring Boot, and authentication. Angular is hosted separately. It preserves data
 and provider budgets across restarts and does not load demo accounts.
 
 ### Conserving the quote API quota

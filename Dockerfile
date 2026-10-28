@@ -2,10 +2,10 @@
 FROM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /build
 COPY pom.xml .
-RUN mvn -B dependency:go-offline
 COPY src ./src
 COPY olap.sql .
-RUN mvn -B clean package -DskipTests
+RUN --mount=type=cache,id=ribbit-maven,target=/root/.m2 \
+    mvn -B clean package -DskipTests
 # Stage 2: run. A JRE (no compiler, no Maven, no build tools) 
 FROM eclipse-temurin:25-jre-alpine
 RUN addgroup -S app && adduser -S app -G app

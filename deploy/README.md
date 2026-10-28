@@ -1,81 +1,79 @@
-# Container deployment
+# Backend container deployment
 
-The stack builds Angular/Nginx, Spring Boot (Java 25), Node authentication,
-and a one-shot migration image. PostgreSQL 16 stores separate OLTP and OLAP
-databases. Only Nginx publishes a port. Backend and auth run as non-root users.
-Kafka is disabled; order execution is synchronous and quote requests retain the
-1,000-attempt daily cap and one-hour display cache.
+Compose runs PostgreSQL (separate OLTP/OLAP databases), a one-shot migration
+job, Spring Boot, and Node authentication. Angular and Nginx are excluded from
+Compose. The Angular source remains available for separate hosting.
 
-## Start
+## Configure and start
 
-From the repository root, with Docker Engine and Compose v2 installed:
+From the repository root, copy `deploy/.env.example` to `deploy/.env` only if
+that private file does not already exist. Set PostgreSQL credentials, a JWT
+secret of at least 32 characters, and provider keys. Preserve existing database
+credentials across restarts. Never replace an existing configuration with the
+example. The private file should have permissions `600`.
 
 ```sh
-cp deploy/.env.example deploy/.env
-# Edit deploy/.env: set a database password and JWT secret (at least 32 characters).
-# Generate each secret separately with: openssl rand -hex 32
-chmod 600 deploy/.env
 docker compose --env-file deploy/.env -p ribbit config --quiet
-docker compose --env-file deploy/.env -p ribbit up --build --wait --wait-timeout 300
-```
-
-Open http://localhost:4200. Register a user; fresh installations contain the
-instrument catalog but no demo users, balances, or trades. Quote API keys are
-optional for startup and required for provider-backed quotes and execution.
-
-Initialization SQL runs only on an empty database volume. The migration job
-applies additive compatibility migrations and configures instruments before
-Spring starts; Spring's existing Hibernate update behavior creates remaining
-entity tables. This is a single-instance deployment baseline, not a versioned
-production migration system. For existing installations, back up first and
-preserve the original Compose project name and database credentials. A missing
-OLAP database on an existing volume must be provisioned before upgrading.
-
-## Verify and operate
-
-```sh
+docker compose --env-file deploy/.env -p ribbit up --build -d --wait --wait-timeout 300
 docker compose --env-file deploy/.env -p ribbit ps -a
-curl -fsS http://localhost:4200/health
-curl -fsS http://localhost:4200/auth/health
-curl -fsS http://localhost:4200/api/actuator/health
-docker compose --env-file deploy/.env -p ribbit logs --tail=100 migrate springboot auth frontend
+curl -fsS http://127.0.0.1:8081/actuator/health
+curl -fsS http://127.0.0.1:4000/health
 ```
 
-The migration service should exit 0; the other four services should be healthy.
-Nginx preserves `/api/admin`, `/api/analytics`, and `/api/etl`; other `/api` routes
-lose the prefix, matching local development. `/auth` goes to the auth service.
-Verify registration, login, account creation, and page refresh before release.
-Test live trading only when provider quota is available.
+Three services should be healthy and `migrate` should exit 0. Fresh volumes
+contain instruments, not demo users or transactions. Backend and auth bind to
+loopback by default via API_BIND_ADDRESS/API_PORT and AUTH_BIND_ADDRESS/AUTH_PORT.
+PostgreSQL remains internal. The defaults are API port 8081 and auth port 4000.
+
+There is no frontend gateway in this stack. Direct backend routes include
+`/accounts`, `/market`, and `/actuator/health`; admin/analytics/ETL controllers
+retain their `/api` prefixes. Direct authentication routes include `/register`
+and `/login`, without `/auth`. A separately hosted frontend needs a reverse
+proxy that preserves the previous gateway routing or explicit API URL and CORS
+configuration. Configure TLS before public access.
+
+## Storage and updates
+
+Docker Compose does not impose a root-disk capacity limit. It uses the Docker
+host's filesystem. On EC2, after enlarging EBS, verify `df -h /` shows the larger
+filesystem; enlarging the EBS volume alone may require partition/filesystem
+extension. No Docker daemon data-root changes are needed when expanding the
+existing root filesystem.
+
+The Java build now uses a BuildKit Maven cache instead of embedding downloaded
+dependencies in an intermediate image layer. The cache still consumes disk but
+can be reclaimed. Removing Angular from Compose avoids its image and build;
+existing Angular images/cache remain until explicitly cleaned up.
 
 ```sh
-# Apply a source update (keep the same project name):
-docker compose --env-file deploy/.env -p ribbit up --build --wait --wait-timeout 300
+# Reclaim unused build cache; preserve database volumes:
+docker builder prune -af
+# Apply updates and remove the old frontend container:
+docker compose --env-file deploy/.env -p ribbit up --build -d --wait --remove-orphans
 # Stop without deleting data:
 docker compose --env-file deploy/.env -p ribbit down
-# Back up both databases and roles before upgrades:
+```
+
+Do not use `down --volumes` on a live deployment. `postgres_data` stores the
+source and reporting databases; `quote_state` stores the provider attempt count.
+Keep the same Compose project name to reuse these volumes.
+
+Back up before upgrades:
+
+```sh
 docker compose --env-file deploy/.env -p ribbit exec -T postgres sh -c 'pg_dumpall -U "$POSTGRES_USER"' > ribbit-backup.sql
 ```
 
-Database backups contain credentials and personal data; store them securely.
-The `postgres_data` volume holds databases; `quote_state` holds the persisted
-provider attempt count. Preserve both, and never use `down --volumes` on a live
-installation. Changing the configured PostgreSQL password does not change an
-existing database's password. Back up before schema changes; image rollback
-alone does not roll back database changes.
+Store backups securely. Existing schema compatibility migrations are additive;
+Hibernate update still creates remaining entity tables. A reviewed versioned
+migration strategy is required before production use. Images alone cannot roll
+back database changes. Initialization SQL runs only on empty volumes; older
+volumes missing the reporting database require it to be provisioned separately.
 
-## Host deployment
+Kafka remains disabled, execution is synchronous, and display quotes use a
+one-hour cache. The 1,000-attempt UTC daily budget persists in `quote_state` and
+covers one backend instance, not other apps using the same provider key.
 
-The default HTTP bind is loopback. Put a TLS reverse proxy/load balancer in
-front of port 4200 for public deployment, or use an SSH tunnel for private
-access. Set `HTTP_BIND_ADDRESS` and `HTTP_PORT` for the target host. Keep
-PostgreSQL and backend ports internal. No cloud resources or public deployment
-are created by these files. Production hosting still needs TLS, backups,
-monitoring, and a reviewed database migration strategy.
-
-This configuration is for one backend instance. The API budget does not
-coordinate across replicas or other applications using the same API key.
-For isolated verification, use another project name and `HTTP_PORT=4280`;
-this creates independent database and quote-state volumes. With that isolated
-stack running, execute `node deploy/smoke.cjs http://127.0.0.1:4280` to verify
-registration, login, persistent account reads, and staff access restrictions.
-This creates a test user/account and makes no external quote requests.
+For an isolated test, use another project name and unused API_PORT/AUTH_PORT
+values. Run `node deploy/smoke.cjs http://127.0.0.1:8081 http://127.0.0.1:4000`
+against that test stack only: it creates a user/account without quote API calls.
