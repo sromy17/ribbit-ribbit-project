@@ -60,7 +60,12 @@ function normalizeDbUrl(url) {
 
 function createPoolConfig() {
   const config = {
-    ssl: DB_SSL ? { rejectUnauthorized: false } : false
+    ssl: DB_SSL ? {
+      rejectUnauthorized: true,
+      ...(process.env.DB_SSL_CA ? {
+        ca: require('node:fs').readFileSync(process.env.DB_SSL_CA, 'utf8')
+      } : {})
+    } : false
   };
 
   const normalized = normalizeDbUrl(DB_URL);

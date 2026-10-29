@@ -1,42 +1,4 @@
 services:
-  postgres:
-    restart: unless-stopped
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ribbit-oltp}
-      POSTGRES_OLAP_DB: ${POSTGRES_OLAP_DB:-ribbit-olap}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-    volumes:
-      - ./basedSchema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./scripts/init-olap.sql:/docker-entrypoint-initdb.d/03-olap-database.sql:ro
-      - ./olap.sql:/opt/ribbit/olap.sql:ro
-
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - ribbit-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  migrate:
-    build:
-      context: .
-      dockerfile: deploy/init.Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ribbit-oltp}
-      POSTGRES_OLAP_DB: ${POSTGRES_OLAP_DB:-ribbit-olap}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-    networks:
-      - ribbit-network
-    restart: "no"
-
   springboot:
     restart: unless-stopped
     init: true
@@ -44,29 +6,21 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     environment:
       SPRING_PROFILES_ACTIVE: container
       SERVER_PORT: 8081
-      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
-      DB_OLTP_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
-      DB_OLTP_USER: ${POSTGRES_USER:-postgres}
-      DB_OLTP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      DB_OLAP_URL: jdbc:postgresql://postgres:5432/${POSTGRES_OLAP_DB:-ribbit-olap}
-      DB_OLAP_USER: ${POSTGRES_USER:-postgres}
-      DB_OLAP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      DB_OLTP_URL: "jdbc:postgresql://${POSTGRES_HOST:?Set POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-ribbit-oltp}?sslmode=verify-full&sslrootcert=/app/certs/global-bundle.pem"
+      DB_OLTP_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DB_OLTP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      DB_OLAP_URL: "jdbc:postgresql://${POSTGRES_HOST:?Set POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_OLAP_DB:-ribbit-olap}?sslmode=verify-full&sslrootcert=/app/certs/global-bundle.pem"
+      DB_OLAP_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DB_OLAP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET:?Set JWT_SHARED_SECRET}
       ORDER_EXECUTION_KAFKA_ENABLED: "false"
+      MARKET_DATA_KAFKA_ENABLED: "false"
       ETL_ENABLED: ${ETL_ENABLED:-true}
       ETL_FIXED_DELAY_MS: ${ETL_FIXED_DELAY_MS:-300000}
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET:?Set JWT_SHARED_SECRET to at least 32 characters in .env}
       FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
-      MARKET_DATA_KAFKA_ENABLED: "false"
       FAUXNANCE_BASE_URL: ${FAUXNANCE_BASE_URL:-https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
       FAUXNANCE_API_KEY: ${FAUXNANCE_API_KEY:-}
       FAUXNANCE_DAILY_REQUEST_LIMIT: ${FAUXNANCE_DAILY_REQUEST_LIMIT:-1000}
@@ -75,9 +29,10 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SERVER_SHUTDOWN: graceful
     ports:
-      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8081}:8081"
+      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8082}:8081"
     volumes:
       - quote_state:/app/state
+      - ./deploy/certs/global-bundle.pem:/app/certs/global-bundle.pem:ro
     networks:
       - ribbit-network
     healthcheck:
@@ -93,21 +48,20 @@ services:
     build:
       context: ./shared/auth-stub
     depends_on:
-      postgres:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
       springboot:
         condition: service_healthy
     environment:
       AUTH_STUB_PORT: 4000
-      DB_URL: postgresql://postgres:5432/${POSTGRES_DB:-ribbit-oltp}
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      DB_SSL: "false"
-      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET:?Set JWT_SHARED_SECRET to at least 32 characters in .env}
+      DB_URL: "postgresql://${POSTGRES_HOST:?Set POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-ribbit-oltp}"
+      DB_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      DB_SSL: "true"
+      DB_SSL_CA: /app/certs/global-bundle.pem
+      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET:?Set JWT_SHARED_SECRET}
     ports:
       - "${AUTH_BIND_ADDRESS:-127.0.0.1}:${AUTH_PORT:-4000}:4000"
+    volumes:
+      - ./deploy/certs/global-bundle.pem:/app/certs/global-bundle.pem:ro
     networks:
       - ribbit-network
 
@@ -126,8 +80,9 @@ services:
       - ribbit-network
 
 volumes:
-  postgres_data:
   quote_state:
+  # Preserve the old Docker database volume; RDS is now used by the services.
+  postgres_data:
 
 networks:
   ribbit-network:

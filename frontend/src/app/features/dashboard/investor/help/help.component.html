@@ -1,8 +1,39 @@
 <section class="help-desk" aria-labelledby="help-title">
   <header class="desk-heading">
     <h1 id="help-title">Help</h1>
-    <p>Quick answers to common platform questions.</p>
+    <p>Ask a platform question, request assistance, or find a quick answer.</p>
   </header>
+
+  <section class="panel" aria-labelledby="support-title">
+    <h2 id="support-title">Contact support</h2>
+    <p>For platform questions, technical issues, or account assistance. To dispute a trade, open its dispute ticket in History.</p>
+    <form (ngSubmit)="submit()" class="support-form">
+      <label for="support-topic">Topic<select uiInput id="support-topic" name="category" [(ngModel)]="category" [disabled]="submitting || !!pending">
+        <option *ngFor="let topic of topics" [value]="topic.value">{{ topic.label }}</option>
+      </select></label>
+      <label for="support-subject">Subject<input uiInput id="support-subject" name="subject" [(ngModel)]="subject" required maxlength="75" placeholder="What do you need help with?" [disabled]="submitting || !!pending" /></label>
+      <label for="support-message">Message<textarea uiInput id="support-message" name="message" [(ngModel)]="message" required maxlength="2000" rows="5" placeholder="Describe your question or what happened." [disabled]="submitting || !!pending"></textarea>
+        <small>{{ message.length }}/2000 characters</small>
+      </label>
+      <p *ngIf="error" class="support-error" role="alert">{{ error }}</p>
+      <p *ngIf="success" class="support-success" role="status">{{ success }}</p>
+      <button uiButton="primary" type="submit" [disabled]="submitting || (!pending && !valid)">{{ submitting ? 'Submitting…' : pending ? 'Retry same submission' : 'Submit help request' }}</button>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="requests-title">
+    <div class="requests-heading"><h2 id="requests-title">Your help requests</h2><button uiButton="secondary" type="button" (click)="loadTickets()" [disabled]="loading">Refresh status</button></div>
+    <p *ngIf="loading" role="status">Loading your requests…</p>
+    <p *ngIf="listError" class="support-error" role="alert">{{ listError }}</p>
+    <p *ngIf="!loading && !listError && !total">No general help requests for this account yet.</p>
+    <article *ngFor="let ticket of tickets" class="support-ticket">
+      <div class="requests-heading"><h3>#{{ ticket.ticketId }} · {{ ticket.subject }}</h3><app-status-badge [status]="ticket.status" /></div>
+      <small>{{ topicLabel(ticket.category) }} · {{ ticket.createdAtUtc | date:'medium' }}</small>
+      <p class="ticket-message">{{ ticket.message || 'No additional details supplied.' }}</p>
+      <p *ngIf="ticket.resolution" class="ticket-message"><strong>Support response:</strong> {{ ticket.resolution }}</p>
+    </article>
+    <div *ngIf="total > 20" class="requests-heading"><button uiButton="secondary" type="button" (click)="loadTickets(page - 1)" [disabled]="!page || loading">Previous</button><span>Page {{ page + 1 }}</span><button uiButton="secondary" type="button" (click)="loadTickets(page + 1)" [disabled]="(page + 1) * 20 >= total || loading">Next</button></div>
+  </section>
 
   <section class="panel" aria-labelledby="faq-title">
     <h2 id="faq-title">FAQ</h2>

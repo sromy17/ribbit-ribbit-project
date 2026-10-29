@@ -426,6 +426,19 @@ export class ApiService {
     return this.http.get<{ symbols: MarketInstrument[] }>('/data/us-v1.json');
   }
 
+  getSupportTickets(accountId: string, page = 0): Observable<SupportTicketPage> {
+    return this.http.get<SupportTicketPage>(`${this.apiUrl}/accounts/${accountId}/support-tickets`, { params: { page } });
+  }
+  submitSupportTicket(accountId: string, request: SupportSubmission): Observable<SupportTicket> {
+    return this.http.post<SupportTicket>(`${this.apiUrl}/accounts/${accountId}/support-tickets`, request);
+  }
+  getAdminSupportTickets(status = 'OPEN', page = 0): Observable<SupportTicketPage> {
+    return this.http.get<SupportTicketPage>(`${this.apiUrl}/admin/support-tickets`, { params: { status, page } });
+  }
+  updateSupportTicket(ticket: SupportTicket, status: string, resolution: string): Observable<SupportTicket> {
+    return this.http.post<SupportTicket>(`${this.apiUrl}/admin/support-tickets/${ticket.ticketId}/status`, { status, resolution, expectedVersion: ticket.version });
+  }
+
   // Trades
 
   getTrades(accountId: string): Observable<Trade[]> {
@@ -952,3 +965,12 @@ export class ApiService {
     this.apiUrl = url;
   }
 }
+
+export interface SupportSubmission {
+  category: string; subject: string; message: string; requestId: string;
+}
+export interface SupportTicket {
+  ticketId: number; accountId: number; subject: string; category: string; message: string | null;
+  status: string; createdAtUtc: string; closedAtUtc: string | null; resolution: string | null; version: number;
+}
+export interface SupportTicketPage { items: SupportTicket[]; total: number; page: number; size: number; }

@@ -13,6 +13,7 @@ export interface HeatmapStock {
   ticker: string;
   companyName: string;
   currentPrice: number;
+  currency?: string;
   marketCap?: number;
   sizeValue?: number;
   dailyChange: number;
@@ -57,6 +58,7 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
     });
   };
   @ViewChild('detailsDialog', { static: true }) detailsDialog!: ElementRef<HTMLDialogElement>;
+  @Input() accountCurrency = 'USD';
   @Input() accountNumber = '';
   private companyNewsSubscription?: Subscription;
   private tradeSubscription?: Subscription;
@@ -217,7 +219,7 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
   }
 
   get validTrade(): boolean {
-    return !!this.accountNumber && Number.isSafeInteger(this.tradeQuantity) && this.tradeQuantity > 0 &&
+    return (this.selectedStock?.currency || 'USD') === this.accountCurrency && !!this.accountNumber && Number.isSafeInteger(this.tradeQuantity) && this.tradeQuantity > 0 &&
       Number.isFinite(this.tradePrice) && this.tradePrice > 0 && Number.isFinite(this.tradeSubtotal);
   }
 
@@ -292,8 +294,8 @@ export class StockHeatmapComponent implements OnChanges, OnDestroy, AfterViewIni
   getChartSymbol(stock: HeatmapStock): string {
     const exchange = stock.exchange?.trim().toUpperCase();
     const prefix = exchange === 'XNAS' ? 'NASDAQ' : exchange === 'XNYS' ? 'NYSE' : exchange;
-    return prefix === 'NASDAQ' || prefix === 'NYSE' || prefix === 'AMEX'
-      ? `${prefix}:${stock.ticker}` : stock.ticker;
+    return ['NASDAQ', 'NYSE', 'AMEX', 'LSE', 'NSE'].includes(prefix || '')
+      ? `${prefix}:${stock.ticker.replace(/\.(L|NS)$/, '')}` : stock.ticker;
   }
 
   private createTiles(stocks: HeatmapStock[]): HeatmapTile[] {

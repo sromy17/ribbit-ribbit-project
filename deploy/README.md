@@ -1,7 +1,6 @@
 # Full application container deployment
 
-Compose runs PostgreSQL (separate OLTP/OLAP databases), a one-shot migration
-job, Spring Boot, Node authentication, and Angular served by Nginx. The frontend
+Compose runs Spring Boot, Node authentication, and Angular/Nginx against external RDS (separate OLTP/OLAP databases). The frontend
 gateway waits for backend and auth health checks before starting.
 
 ## Configure and start
@@ -21,7 +20,8 @@ curl -fsS http://127.0.0.1:4200/api/actuator/health
 curl -fsS http://127.0.0.1:4000/health
 ```
 
-Four services should be healthy and `migrate` should exit 0. Fresh volumes
+All three services should be healthy. Database schemas are prepared manually
+before startup; no migration container runs automatically. Fresh volumes
 contain instruments, not demo users or transactions. Backend and auth bind to
 loopback by default via API_BIND_ADDRESS/API_PORT and AUTH_BIND_ADDRESS/AUTH_PORT.
 PostgreSQL remains internal. The defaults are API port 8081 and auth port 4000.
@@ -79,3 +79,51 @@ covers one backend instance, not other apps using the same provider key.
 For an isolated test, use another project name and unused API_PORT/AUTH_PORT
 values. Run `node deploy/smoke.cjs http://127.0.0.1:8081 http://127.0.0.1:4000`
 against that test stack only: it creates a user/account without quote API calls.
+
+## Fresh RDS preparation
+
+The current `basedSchema.sql` and `olap.sql` already include the compatibility
+fields required by the seed. Do not rerun these reset scripts against populated
+databases. After initializing a fresh OLTP database, the optional
+`scripts/prepare-instrument-catalog.sql` adds the complete USD equity catalog
+without replacing existing instrument IDs/status. Run it using psql with
+`-v ON_ERROR_STOP=1` against OLTP. It requires no Node migration container.
+
+The default Compose file now targets RDS using POSTGRES_HOST and verified TLS. Download the RDS global CA bundle to deploy/certs/global-bundle.pem before starting. If EC2 has already
+been configured for RDS, preserve those host, database and TLS settings rather
+than replacing the entire Compose file from another machine. Remove only the
+`migrate` service and its `depends_on` entries. Older migration scripts remain
+in the repository for upgrading older installations.
+
+### International market data and branding
+
+The frontend catalog includes London (`.L`, GBP) and NSE (`.NS`, INR) equities.
+London quotes and international daily history use Yahoo's chart feed; NSE display
+quotes use Fauxnance. London `GBp`/`GBX` prices are converted from pence to GBP
+before display. History and display quotes are cached for one hour; requests to
+both providers count against the existing backend daily request budget.
+
+`scripts/prepare-international-catalog.cjs` exports a function that accepts a
+connected `pg.Pool` and adds the ten international instruments transactionally.
+It is safe to repeat and preserves existing instruments, balances and trades.
+Trading requires an account in the stock's currency; there is no implicit FX
+conversion. Market history is used for display, never as an execution price.
+
+Deploy every file and subfolder inside `frontend/dist/frontend/browser/` to the
+S3 bucket root, preserving `data/` and `brand/`. Upload hashed assets before
+`index.html`, then invalidate CloudFront's cached HTML/catalog. The logo uses the
+frog quadrant of `frontend/public/brand/ribbit-logo.jpg` through CSS cropping.
+
+### General platform support
+
+Help accepts platform questions, technical issues and account-assistance requests
+without requiring a trade or dispute. Apply `scripts/prepare-support-tickets.sql`
+once to an existing OLTP database before deploying the support API. This extends
+`support_ticket`, retains existing rows, and aligns its generated ticket IDs.
+Fresh databases use the updated `basedSchema.sql` definition.
+
+Customers can submit and list tickets only for accounts they own. Submissions use
+a unique request reference so a retry returns the same ticket. The Administration
+Support queue uses the existing staff read/work permissions; staff responses and
+status changes appear under the customer's Help requests. Resolving a ticket
+requires a customer-visible response. No email delivery is configured.

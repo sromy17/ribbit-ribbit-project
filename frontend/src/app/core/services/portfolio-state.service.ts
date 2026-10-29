@@ -42,7 +42,7 @@ export class PortfolioStateService {
 
   executeTrade(accountNumber: string, trade: TradeRequest): Observable<TradeExecutionResult> {
     return defer(() => {
-      if (!accountNumber || !/^[A-Z][A-Z0-9.-]{0,9}$/.test(trade.ticker) ||
+      if (!accountNumber || !/^[A-Z][A-Z0-9.-]{0,24}$/.test(trade.ticker) ||
           !['BUY', 'SELL'].includes(trade.side) || !Number.isSafeInteger(trade.shares) ||
           trade.shares <= 0 || !Number.isFinite(trade.price) || trade.price <= 0 ||
           !Number.isFinite(trade.shares * trade.price)) {

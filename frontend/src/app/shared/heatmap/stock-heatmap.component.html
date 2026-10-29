@@ -43,13 +43,13 @@
       <div class="tile-content">
         <strong class="ticker" >{{ tile.ticker }}</strong>
         <span class="change">{{ formatChange(tile.dailyChange) }}</span>
-        <span class="price">${{ tile.currentPrice | number: '1.2-2' }}</span>
+        <span class="price">{{ tile.currency || 'USD' }} {{ tile.currentPrice | number: '1.2-2' }}</span>
       </div>
       <div class="tooltip" role="tooltip">
         <strong>{{ tile.companyName }}</strong>
         <span>{{ tile.ticker }}</span>
-        <span>Price: ${{ tile.currentPrice | number: '1.2-2' }}</span>
-        <span *ngIf="tile.marketCap">Market cap: ${{ tile.marketCap | number: '1.0-0' }}</span>
+        <span>Price: {{ tile.currency || 'USD' }} {{ tile.currentPrice | number: '1.2-2' }}</span>
+        <span *ngIf="tile.marketCap">Market cap: {{ tile.currency || 'USD' }} {{ tile.marketCap | number: '1.0-0' }}</span>
         <span>Change: {{ formatChange(tile.dailyChange) }}</span>
         <span *ngIf="tile.volume">Volume: {{ tile.volume | number }}</span>
         <span *ngIf="tile.sector">Sector: {{ tile.sector }}</span>
@@ -79,11 +79,11 @@
     <div class="drawer-information">
     <div class="drawer-change" [style.color]="stock.dailyChange < 0 ? 'var(--ui-danger)' : stock.dailyChange > 0 ? 'var(--ui-success)' : 'var(--ui-muted)'">{{ formatChange(stock.dailyChange) }}</div>
     <dl>
-      <div><dt>Price</dt><dd>${{ stock.currentPrice | number: '1.2-2' }}</dd></div>
-      <div><dt>Market cap</dt><dd>{{ stock.marketCap ? ('$' + (stock.marketCap | number: '1.0-0')) : 'Not supplied by quote provider' }}</dd></div>
+      <div><dt>Price</dt><dd>{{ stock.currency || 'USD' }} {{ stock.currentPrice | number: '1.2-2' }}</dd></div>
+      <div><dt>Market cap</dt><dd>{{ stock.marketCap ? ((stock.currency || 'USD') + ' ' + (stock.marketCap | number: '1.0-0')) : 'Not supplied by quote provider' }}</dd></div>
       <div *ngIf="stock.volume"><dt>Volume</dt><dd>{{ stock.volume | number }}</dd></div>
       <div *ngIf="stock.low !== undefined && stock.high !== undefined">
-        <dt>Day range</dt><dd>${{ stock.low | number: '1.2-2' }} - ${{ stock.high | number: '1.2-2' }}</dd>
+        <dt>Day range</dt><dd>{{ stock.currency || 'USD' }} {{ stock.low | number: '1.2-2' }} - {{ stock.currency || 'USD' }} {{ stock.high | number: '1.2-2' }}</dd>
       </div>
     </dl>
     <section class="drawer-news" aria-label="Recent company news">
@@ -114,7 +114,7 @@
         </div>
         <button type="button" class="ticket-close" aria-label="Close quick trade" [disabled]="placingTrade" (click)="closeTrade()">×</button>
       </div>
-      <p>Market price: <strong>{{ tradePrice | currency:'USD' }}</strong></p>
+      <p>Market price: <strong>{{ tradePrice | currency:(stock.currency || 'USD') }}</strong></p>
       <label>Action
         <select name="side" [(ngModel)]="tradeSide" [disabled]="placingTrade || tradeLocked">
           <option value="BUY">BUY</option>
@@ -126,10 +126,11 @@
           [disabled]="placingTrade || tradeLocked" />
       </label>
       <dl class="ticket-summary">
-        <div><dt>Subtotal</dt><dd>{{ tradeSubtotal | currency:'USD' }}</dd></div>
-        <div><dt>Estimated fee</dt><dd>{{ tradeFee | currency:'USD' }}</dd></div>
-        <div class="ticket-total"><dt>{{ tradeSide === 'BUY' ? 'Estimated total' : 'Estimated net proceeds' }}</dt><dd>{{ tradeTotal | currency:'USD' }}</dd></div>
+        <div><dt>Subtotal</dt><dd>{{ tradeSubtotal | currency:(stock.currency || 'USD') }}</dd></div>
+        <div><dt>Estimated fee</dt><dd>{{ tradeFee | currency:(stock.currency || 'USD') }}</dd></div>
+        <div class="ticket-total"><dt>{{ tradeSide === 'BUY' ? 'Estimated total' : 'Estimated net proceeds' }}</dt><dd>{{ tradeTotal | currency:(stock.currency || 'USD') }}</dd></div>
       </dl>
+      <p class="trade-error" *ngIf="(stock.currency || 'USD') !== accountCurrency">This account uses {{ accountCurrency }}. Trading this stock requires a {{ stock.currency }} account; currency conversion is not supported.</p>
       <p class="ticket-disclaimer">Market order. Price and fees are estimates; final execution is determined by the server.</p>
       <p *ngIf="!accountNumber" class="trade-error" role="alert">Select a trading account before placing an order.</p>
       <p *ngIf="tradeError" class="trade-error" role="alert">{{ tradeError }}</p>

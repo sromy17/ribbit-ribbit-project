@@ -1,15 +1,78 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges, OnDestroy } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Subscription, timeout } from 'rxjs';
+import { ApiService, SupportSubmission, SupportTicket } from '../../../../core/services/api.service';
+import { UI_COMPONENTS } from '../../../../shared/ui';
 
 @Component({
   selector: 'app-help',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, ...UI_COMPONENTS],
   templateUrl: './help.component.html',
   styleUrl: './help.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class HelpComponent {
+export class HelpComponent implements OnChanges, OnDestroy {
+  @Input({ required: true }) accountId = '';
+  category = 'PLATFORM_QUESTION'; subject = ''; message = '';
+  submitting = false; loading = false; error = ''; listError = ''; success = '';
+  tickets: SupportTicket[] = []; total = 0; page = 0;
+  pending: SupportSubmission | null = null;
+  readonly topics = [
+    { value: 'PLATFORM_QUESTION', label: 'Platform question' },
+    { value: 'TECHNICAL_ISSUE', label: 'Technical issue' },
+    { value: 'ACCOUNT_ASSISTANCE', label: 'Account assistance' }
+  ];
+  private listRequest?: Subscription;
+  private submission?: Subscription;
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
+  ngOnChanges(): void {
+    this.listRequest?.unsubscribe(); this.submission?.unsubscribe();
+    this.pending = null; this.submitting = false; this.tickets = []; this.total = 0;
+    this.error = this.success = this.subject = this.message = '';
+    if (this.accountId) this.loadTickets(0);
+  }
+  ngOnDestroy(): void { this.listRequest?.unsubscribe(); this.submission?.unsubscribe(); }
+  get valid(): boolean { return !!this.accountId && !!this.subject.trim() && this.subject.length <= 75 && !!this.message.trim() && this.message.length <= 2000; }
+  topicLabel(value: string): string { return this.topics.find(topic => topic.value === value)?.label || 'Platform question'; }
+  loadTickets(page = this.page): void {
+    if (!this.accountId) return;
+    this.listRequest?.unsubscribe(); this.loading = true; this.listError = '';
+    const accountId = this.accountId;
+    this.listRequest = this.api.getSupportTickets(accountId, page).pipe(timeout(10000)).subscribe({
+      next: result => {
+        if (accountId !== this.accountId) return;
+        this.tickets = result.items; this.total = result.total; this.page = result.page;
+        this.loading = false; this.cdr.markForCheck();
+      },
+      error: () => { this.loading = false; this.listError = 'Unable to load your requests. Please retry.'; this.cdr.markForCheck(); }
+    });
+  }
+  submit(): void {
+    if (this.submitting || (!this.pending && !this.valid)) return;
+    this.pending ??= { category: this.category, subject: this.subject.trim(), message: this.message.trim(), requestId: crypto.randomUUID() };
+    this.submitting = true; this.error = ''; this.success = '';
+    const accountId = this.accountId;
+    this.submission = this.api.submitSupportTicket(accountId, this.pending).pipe(timeout(12000)).subscribe({
+      next: ticket => {
+        if (accountId !== this.accountId) return;
+        this.submitting = false; this.pending = null; this.subject = this.message = '';
+        this.success = `Request #${ticket.ticketId} submitted. You can track its status below.`;
+        this.loadTickets(0); this.cdr.markForCheck();
+      },
+      error: error => {
+        this.submitting = false;
+        if (error.status === 400 || error.status === 409) this.pending = null;
+        this.error = error.status === 400 ? 'Check your topic, subject and message.'
+          : error.status === 403 ? 'You do not have access to submit for this account.'
+          : error.status === 409 ? 'This submission reference has already been used. Refresh your requests before sending again.'
+          : 'We could not confirm submission. Refresh your requests or retry this same submission.';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   readonly faqs = [
     {
       title: 'Order Execution & Buying Power',

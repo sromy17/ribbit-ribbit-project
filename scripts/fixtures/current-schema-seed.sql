@@ -1,4 +1,4 @@
-/* SYNTHETIC DEMO DATA ONLY. Run in ribbit-oltp after schema + migrations. */
+/* SYNTHETIC DEMO DATA ONLY. Run in ribbit-oltp after the current basedSchema.sql. */
 /* Customer usernames/password are publicly known sample credentials. */
 /* One-time import: conflicting IDs/usernames fail and roll back; no existing data is overwritten. */
 BEGIN;
@@ -157,6 +157,9 @@ INSERT INTO support_ticket (
     (6001, 101, 'Account verification issue', 'OPEN', NULL, '2024-09-20 10:30:00+00', NULL),
     (6002, 102, 'Withdrawal delayed', 'IN_PROGRESS', 2, '2024-09-21 14:15:00+00', NULL),
     (6003, 103, 'Trade settlement discrepancy', 'RESOLVED', 3, '2024-09-21 09:45:00+00', '2024-09-22 16:20:00+00');
+SELECT setval(sequence_name, (SELECT coalesce(max(ticket_id),0)+1 FROM support_ticket), false)
+FROM (SELECT pg_get_serial_sequence('support_ticket','ticket_id') AS sequence_name) support_sequence
+WHERE sequence_name IS NOT NULL;
 
 
 

@@ -1,3 +1,4 @@
+import { SupportQueueComponent } from './support-queue.component';
 import { UI_COMPONENTS } from '../../../shared/ui';
 import { Component, OnDestroy, OnInit, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -9,7 +10,7 @@ import { ApiService, AdminOrder, DisputeCase, TradingAccount, ReportingStatus } 
 
 type Row = Record<string, any>;
 @Component({
-  selector: 'app-admin-dashboard', changeDetection: ChangeDetectionStrategy.Default, standalone: true, imports: [...UI_COMPONENTS, CommonModule, FormsModule],
+  selector: 'app-admin-dashboard', changeDetection: ChangeDetectionStrategy.Default, standalone: true, imports: [...UI_COMPONENTS, CommonModule, FormsModule, SupportQueueComponent],
   templateUrl: './admin-dashboard.component.html', styleUrls: ['./admin-dashboard.component.css']
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {

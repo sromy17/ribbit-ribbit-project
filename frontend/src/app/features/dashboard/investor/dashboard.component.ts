@@ -255,13 +255,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  marketCurrency = 'USD';
+
+  setMarketCurrency(currency: string): void {
+    if (this.loadingMarketHeatmap || this.marketCurrency === currency) return;
+    this.marketCurrency = currency;
+    this.marketStocks = [];
+    this.loadMarketHeatmap();
+  }
+
   loadMarketHeatmap(): void {
     if (this.loadingMarketHeatmap) return;
     this.loadingMarketHeatmap = true;
     this.marketHeatmapError = '';
     this.api.getMarketInstruments().pipe(timeout(10000), takeUntil(this.destroy$)).subscribe({
       next: ({ symbols }) => {
-        const instruments = this.selectHeatmapInstruments(symbols);
+        const instruments = this.selectHeatmapInstruments(symbols.filter(item => item.currency === this.marketCurrency));
         const batches = this.chunk(instruments, 25);
         from(batches).pipe(
           concatMap((batch) =>
@@ -319,7 +328,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private toHeatmapStock(
     instrument: MarketInstrument,
-    quote?: { symbol: string; price: number; change?: number; changePercent?: number }
+    quote?: { symbol: string; price: number; change?: number; changePercent?: number; currency?: string }
   ): HeatmapStock | null {
     if (!quote || !Number.isFinite(quote.price) || quote.price <= 0 || !Number.isFinite(quote.changePercent)) {
       return null;
@@ -341,6 +350,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       ticker: instrument.symbol,
       companyName: instrument.name,
       exchange: instrument.exchange,
+      currency: quote.currency || instrument.currency,
       currentPrice: quote.price,
       dailyChange: quote.changePercent ?? 0,
       sector: instrument.type,
@@ -557,7 +567,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   selectTicker(symbolOverride?: string): void {
     const symbol = (symbolOverride ?? this.tradeSearch).trim().toUpperCase();
-    if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
+    if (!/^[A-Z][A-Z0-9.-]{0,24}$/.test(symbol)) {
       this.tradeSearchError = 'Enter a valid ticker (e.g., AAPL, MSFT)';
       return;
     }
@@ -594,8 +604,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   getTradeChartSymbol(): string {
     const exchange = this.selectedTradeInstrument?.exchange?.trim().toUpperCase();
     const prefix = exchange === 'XNAS' ? 'NASDAQ' : exchange === 'XNYS' ? 'NYSE' : exchange;
-    return prefix === 'NASDAQ' || prefix === 'NYSE' || prefix === 'AMEX'
-      ? `${prefix}:${this.selectedTicker}`
+    return ['NASDAQ', 'NYSE', 'AMEX', 'LSE', 'NSE'].includes(prefix || '')
+      ? `${prefix}:${this.selectedTicker.replace(/\.(L|NS)$/, '')}`
       : this.selectedTicker;
   }
 
@@ -708,7 +718,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.loadNews();
       return;
     }
-    if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) {
+    if (!/^[A-Z][A-Z0-9.-]{0,24}$/.test(symbol)) {
       this.newsError = 'Enter a valid ticker such as AAPL, NVDA, or TSLA.';
       return;
     }
@@ -1053,10 +1063,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   validateOrderForm(): boolean {
     this.orderFormErrors = {};
+    if (this.quoteCurrency !== 'UNKNOWN' && this.currencyLabel !== 'UNKNOWN' && this.quoteCurrency !== this.currencyLabel) {
+      this.orderFormErrors['currency'] = `This account uses ${this.currencyLabel}; this stock is quoted in ${this.quoteCurrency}. Trading requires an account in the stock's currency.`;
+    }
 
     if (!this.orderForm.symbol || this.orderForm.symbol.trim() === '') {
       this.orderFormErrors['symbol'] = 'Symbol is required';
-    } else if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(this.orderForm.symbol.toUpperCase())) {
+    } else if (!/^[A-Z][A-Z0-9.-]{0,24}$/.test(this.orderForm.symbol.toUpperCase())) {
       this.orderFormErrors['symbol'] = 'Invalid symbol format (e.g., AAPL, MSFT)';
     }
 
@@ -1225,7 +1238,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getHistoryColor(): string {
-    return this.portfolioHistory.length > 1 && this.portfolioHistory[this.portfolioHistory.length - 1].value >= this.portfolioHistory[0].value
+    return this.getHistoryChange() >= 0
       ? 'var(--ui-success)'
       : 'var(--ui-danger)';
   }

@@ -334,21 +334,22 @@
                 <div class="order-summary" *ngIf="orderForm.quantity > 0 && currentPrice !== null">
                   <div class="summary-row">
                     <span
-                      >Subtotal ({{ orderForm.quantity }} × {{ currencyLabel }} {{
+                      >Subtotal ({{ orderForm.quantity }} × {{ quoteCurrency }} {{
                         currentPrice | number: '1.2-2'
                       }})</span
                     >
-                    <span>{{ currencyLabel }} {{ getEstimatedNotional() | number: '1.2-2' }}</span>
+                    <span>{{ quoteCurrency }} {{ getEstimatedNotional() | number: '1.2-2' }}</span>
                   </div>
                   <div class="summary-row">
                     <span>Fee estimate (0.1%, min 1.00)</span>
-                    <span>{{ currencyLabel }} {{ getEstimatedFee() | number: '1.2-2' }}</span>
+                    <span>{{ quoteCurrency }} {{ getEstimatedFee() | number: '1.2-2' }}</span>
                   </div>
                   <div class="summary-row total">
                     <span>{{ orderForm.side === 'BUY' ? 'Total cost' : 'Net proceeds' }}</span>
-                    <span>{{ currencyLabel }} {{ getEstimatedTotal() | number: '1.2-2' }}</span>
+                    <span>{{ quoteCurrency }} {{ getEstimatedTotal() | number: '1.2-2' }}</span>
                   </div>
                 </div>
+                <p class="error-text" *ngIf="orderFormErrors['currency']">{{ orderFormErrors['currency'] }}</p>
                 <button
                   uiButton="primary"
                   (click)="placeOrder()"
@@ -545,13 +546,18 @@
           </div>
         </div>
 
-        <app-help *ngIf="activeView === 'help'"></app-help>
+        <app-help *ngIf="activeView === 'help'" [accountId]="accountId"></app-help>
 
         <div *ngIf="activeView === 'graphs'" class="section full-width market-heatmap-section">
           <h1 class="market-heatmap-title">Market overview</h1>
+          <div class="ticker-currency-filters" role="group" aria-label="Market currency">
+            <button *ngFor="let market of tickerCurrencies.slice(1)" type="button" uiButton="secondary"
+              [attr.aria-pressed]="marketCurrency === market.code" [disabled]="loadingMarketHeatmap"
+              (click)="setMarketCurrency(market.code)">{{ market.label }}</button>
+          </div>
           <div *ngIf="loadingMarketHeatmap" class="loading-indicator">Loading market data...</div>
           <div *ngIf="marketHeatmapError" class="error-banner">{{ marketHeatmapError }}</div>
-          <app-stock-heatmap [stocks]="marketStocks" [loading]="loadingMarketHeatmap" [accountNumber]="accountId"></app-stock-heatmap>
+          <app-stock-heatmap [stocks]="marketStocks" [loading]="loadingMarketHeatmap" [accountNumber]="accountId" [accountCurrency]="currencyLabel"></app-stock-heatmap>
         </div>
 
         <section *ngIf="activeView === 'news'" class="news-view section full-width" [attr.data-category]="newsCategory" aria-labelledby="news-heading">
@@ -772,19 +778,15 @@
                     role="img"
                     aria-label="Portfolio balance history chart">
                     <defs>
-                      <linearGradient id="portfolio-positive-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#22c55e" stop-opacity=".25"></stop>
-                        <stop offset="100%" stop-color="#22c55e" stop-opacity="0"></stop>
-                      </linearGradient>
-                      <linearGradient id="portfolio-negative-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#ef4444" stop-opacity=".25"></stop>
-                        <stop offset="100%" stop-color="#ef4444" stop-opacity="0"></stop>
+                      <linearGradient id="portfolio-history-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" [attr.stop-color]="getHistoryColor()" stop-opacity=".25"></stop>
+                        <stop offset="100%" [attr.stop-color]="getHistoryColor()" stop-opacity="0"></stop>
                       </linearGradient>
                     </defs>
                     <g class="portfolio-gridlines">
                       <line *ngFor="let line of [0, 1, 2, 3, 4]" x1="0" [attr.y1]="line * 90" x2="1000" [attr.y2]="line * 90"></line>
                     </g>
-                    <path class="portfolio-area" [attr.d]="getPortfolioAreaPath()" [attr.fill]="getHistoryColor() === '#22c55e' ? 'url(#portfolio-positive-fill)' : 'url(#portfolio-negative-fill)'"></path>
+                    <path class="portfolio-area" [attr.d]="getPortfolioAreaPath()" [attr.fill]="'url(#portfolio-history-fill)'"></path>
                     <path class="portfolio-line" [attr.d]="getPortfolioLinePath()" [style.stroke]="getHistoryColor()"></path>
                     <g *ngIf="hoveredHistoryIndex !== null">
                       <line

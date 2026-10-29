@@ -13,8 +13,8 @@
         <button
           *ngFor="
             let tab of canReport
-              ? ['orders', 'disputes', 'users', 'reporting']
-              : ['orders', 'disputes', 'users'];
+              ? ['orders', 'disputes', 'support', 'users', 'reporting']
+              : ['orders', 'disputes', 'support', 'users'];
             let i = index
           "
           type="button"
@@ -36,6 +36,7 @@
       </div>
     </aside>
     <div class="min-w-0">
+      <app-support-queue *ngIf="activeTab === 'support'" [canWork]="canWork"></app-support-queue>
       <p *ngIf="error" role="alert" class="error-banner">{{ error }}</p>
       <section *ngIf="activeTab === 'orders'" class="tab-content">
         <div class="panel-heading">

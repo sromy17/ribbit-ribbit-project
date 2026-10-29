@@ -954,3 +954,12 @@ app-workspace { display: block; min-height: 100dvh; }
 .history-sort { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; text-align: left; white-space: nowrap; }
 .history-sort:focus-visible { outline: 2px solid var(--ui-brand); outline-offset: 4px; border-radius: 2px; }
 .history-sort:hover, th[aria-sort=ascending] .history-sort, th[aria-sort=descending] .history-sort { color: var(--ui-brand); }
+
+/* Use the frog quadrant from the supplied pixel-art brand sheet. */
+.ribbit-frog-mark {
+  display: inline-block;
+  width: 2.75rem; height: 2.75rem; flex-shrink: 0;
+  background: #fff url('/brand/ribbit-logo.jpg') 1% 1% / 210% 210% no-repeat;
+  border: 1px solid var(--ui-line); border-radius: .65rem;
+  image-rendering: pixelated;
+}

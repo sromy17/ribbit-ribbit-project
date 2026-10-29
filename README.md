@@ -197,8 +197,8 @@ new regression coverage, durable ID counters and backup/restore verification.
 ## Run the full application in containers
 
 See [the deployment guide](deploy/README.md) for configuration, builds, startup,
-health checks, backups, and upgrades. The stack includes PostgreSQL, a migration
-job, Spring Boot, authentication, and an Angular/Nginx gateway. It preserves data
+health checks, backups, and upgrades. The stack includes PostgreSQL, Spring Boot, authentication, and an Angular/Nginx
+gateway. Schemas are prepared before startup without a migration container. It preserves data
 and provider budgets across restarts and does not load demo accounts.
 
 ### Conserving the quote API quota

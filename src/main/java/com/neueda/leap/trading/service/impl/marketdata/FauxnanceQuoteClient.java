@@ -22,6 +22,10 @@ public class FauxnanceQuoteClient {
     private final ObjectMapper objectMapper;
     private final String apiKey;
     private ProviderRequestBudget requestBudget;
+    private UkEquityQuoteClient ukQuoteClient;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setUkQuoteClient(UkEquityQuoteClient client) { this.ukQuoteClient = client; }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setRequestBudget(ProviderRequestBudget requestBudget) { this.requestBudget = requestBudget; }
@@ -45,6 +49,10 @@ public class FauxnanceQuoteClient {
 
     public MarketQuote fetchMarketQuote(String symbol) {
         String normalized = normalizeSymbol(symbol);
+        if (normalized.endsWith(".L") && ukQuoteClient != null) {
+            if (requestBudget != null) requestBudget.reserve();
+            return ukQuoteClient.fetchMarketQuote(normalized);
+        }
         if (Instant.now().isBefore(quotaRetryAt)) {
             throw new IllegalStateException("Market data daily quota exhausted; resets at " + quotaRetryAt);
         }

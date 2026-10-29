@@ -32,9 +32,23 @@ describe('Heatmap stock selection', () => {
     expect(tiles).toHaveLength(50);
     for (const tile of tiles) {
       expect(tile.querySelector('.ticker')?.textContent).toBeTruthy();
-      expect(tile.querySelector('.price')?.textContent).toContain('$');
+      expect(tile.querySelector('.price')?.textContent).toContain('USD');
       expect(tile.querySelector('.change')?.textContent).toContain('+12.75%');
     }
+  });
+  it('labels UK and Indian tile prices in their native currencies', () => {
+    TestBed.configureTestingModule({ providers: [{ provide: FinnhubNewsService, useValue: { getCompanyNews: () => of([]) } }] });
+    const fixture = TestBed.createComponent(StockHeatmapComponent);
+    fixture.componentRef.setInput('stocks', [
+      { ticker: 'HSBA.L', companyName: 'HSBC', currency: 'GBP', currentPrice: 12.926, dailyChange: -0.3 },
+      { ticker: 'RELIANCE.NS', companyName: 'Reliance', currency: 'INR', currentPrice: 1167.4, dailyChange: 0.8 }
+    ]);
+    fixture.detectChanges();
+    const prices = [...fixture.nativeElement.querySelectorAll('.price')].map((node: any) => node.textContent);
+    expect(prices.join(' ')).toContain('GBP');
+    expect(prices.join(' ')).toContain('INR');
+    expect(prices.join(' ')).not.toContain('$');
+    expect(fixture.componentInstance.getChartSymbol(fixture.componentInstance.stocks[0])).toBe('HSBA.L');
   });
   it('gives stronger gains and losses more area without rewarding price or market cap', () => {
     TestBed.configureTestingModule({ providers: [{ provide: FinnhubNewsService, useValue: { getCompanyNews: () => of([]) } }] });

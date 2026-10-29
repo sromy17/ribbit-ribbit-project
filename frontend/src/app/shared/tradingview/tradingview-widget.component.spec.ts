@@ -1,3 +1,5 @@
+import { HttpClient } from '@angular/common/http';
+import { of } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TradingviewWidgetComponent } from './tradingview-widget.component';
@@ -7,6 +9,26 @@ describe('TradingView widget lifecycle', () => {
     TestBed.resetTestingModule();
     Reflect.deleteProperty(window, 'TradingView');
     document.body.classList.remove('theme-dark');
+  });
+
+  it('renders international closing prices without loading a blocked vendor widget', async () => {
+    const widget = vi.fn();
+    const get = vi.fn(() => of({ currency: 'GBP', points: [
+      { atUtc: '2026-10-01T15:00:00Z', price: 12 },
+      { atUtc: '2026-10-28T15:00:00Z', price: 13 }
+    ] }));
+    TestBed.configureTestingModule({ providers: [{ provide: HttpClient, useValue: { get } }] });
+    Object.defineProperty(window, 'TradingView', { configurable: true, value: { widget } });
+    const fixture = TestBed.createComponent(TradingviewWidgetComponent);
+    fixture.componentRef.setInput('symbol', 'LSE:HSBA');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(get).toHaveBeenCalledWith('/api/market/history/HSBA.L');
+    expect(widget).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.native-chart').textContent).toContain('GBP');
+    expect(fixture.nativeElement.querySelector('polyline').getAttribute('points')).toContain('600,20');
+    expect(fixture.nativeElement.querySelector('polyline').getAttribute('stroke')).toBe('var(--ui-success)');
   });
 
   it('creates an autosized dark chart, updates symbols, and cleans up', async () => {
