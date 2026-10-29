@@ -6,6 +6,10 @@ import jakarta.validation.constraints.NotNull;
 
 public record CreateAccountRequest(
     @NotNull Integer userId,
-    @NotNull AccountType accountType
+    @NotNull AccountType accountType,
+    @NotNull @jakarta.validation.constraints.Pattern(regexp = "[A-Z]{3}") String currency
 ) {
+    public CreateAccountRequest(Integer userId, AccountType accountType) {
+        this(userId, accountType, null);
+    }
 }

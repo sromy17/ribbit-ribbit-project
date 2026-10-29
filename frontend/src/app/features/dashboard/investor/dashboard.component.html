@@ -1,502 +1,881 @@
-<header class="header">
-  <div class="header-content">
-    <div class="brand-lockup" aria-label="Leap Trader Pro">
-      <span class="brand-mark" aria-hidden="true">L</span>
-      <span class="brand-name">Leap Trader <strong>Pro</strong></span>
+<app-workspace class="investor-workspace" area="Trading workspace" [username]="currentUser?.username || ''" (logout)="logout()"
+  ><div workspaceActions class="flex items-center gap-2">
+    <div class="account-switcher">
+      <button
+        type="button"
+        class="account-switcher-button"
+        [class.open]="accountMenuOpen"
+        (click)="toggleAccountMenu()"
+        [attr.aria-expanded]="accountMenuOpen"
+        aria-haspopup="true"
+        aria-controls="account-switcher-menu"
+      >
+        <span class="account-switcher-copy">
+          <strong>{{ accountTypeLabel }}</strong>
+          <span>{{ currentUser?.username }}</span>
+        </span>
+        <span class="account-switcher-chevron" aria-hidden="true">{{
+          accountMenuOpen ? '⌃' : '⌄'
+        }}</span>
+      </button>
+
+      <div *ngIf="accountMenuOpen" id="account-switcher-menu" class="account-switcher-menu">
+        <div class="account-menu-content">
+          <div class="account-menu-heading">
+            <strong>Switch account</strong>
+            <button
+              uiButton="ghost"
+              type="button"
+              class="view-all-accounts"
+              (click)="backToAccounts()"
+            >
+              View all
+            </button>
+          </div>
+          <div *ngIf="loadingAccounts" class="account-menu-status">Loading accounts...</div>
+          <div *ngIf="!loadingAccounts && accounts.length === 0" class="account-menu-status">
+            No accounts yet.
+          </div>
+          <button
+            *ngFor="let account of accounts"
+            type="button"
+            class="account-menu-item"
+            [class.selected]="account.accountId === accountId"
+            (click)="selectAccount(account)"
+          >
+            <span>
+              <strong>{{ formatAccountType(account.type) }}</strong>
+              <small>Account #{{ account.accountId }}</small>
+            </span>
+            <span
+              *ngIf="account.accountId === accountId"
+              class="selected-mark"
+              aria-label="Current account"
+              >✓</span
+            >
+          </button>
+        </div>
+
+        <div class="account-menu-footer">
+          <button
+            uiButton="secondary"
+            type="button"
+            class="create-profile-button"
+            (click)="createAccount()"
+          >
+            <span aria-hidden="true">＋</span>
+            Create account
+          </button>
+        </div>
+      </div>
+
     </div>
-    <div class="header-actions">
-      <div class="account-switcher">
+    <button
+      uiButton="ghost"
+      (click)="refreshData()"
+      class="btn-refresh"
+      title="Refresh data"
+      [disabled]="loadingBalance || loadingHoldings || loadingOrders"
+    >
+      ↻
+    </button>
+  </div>
+
+  <div class="page-body">
+    <p class="mb-3 text-xs text-muted">Local paper trading · Display quotes are cached for up to one hour; execution requires a fresh price. Orders and balances are saved locally; no broker or bank transfers are made.</p>
+    <!-- Loading & Error States -->
+    <div *ngIf="error" class="error-banner">
+      {{ error }}
+    </div>
+
+    <!-- INVESTOR DASHBOARD -->
+    <div *ngIf="currentRole === 'investor'" class="account-page">
+      <nav class="sidebar" aria-label="Trading platform navigation">
         <button
           type="button"
-          class="account-switcher-button"
-          [class.open]="accountMenuOpen"
-          (click)="toggleAccountMenu()"
-          [attr.aria-expanded]="accountMenuOpen"
-          aria-haspopup="true"
-          aria-controls="account-switcher-menu">
-          <span class="account-switcher-copy">
-            <strong>{{ accountTypeLabel }}</strong>
-            <span>{{ currentUser?.username }}</span>
-          </span>
-          <span class="account-switcher-chevron" aria-hidden="true">{{ accountMenuOpen ? '⌃' : '⌄' }}</span>
+          class="sidebar-button"
+          [class.active]="activeView === 'portfolio'"
+          (click)="setView('portfolio')"
+        >
+          Portfolio
         </button>
+        <button
+          type="button"
+          class="sidebar-button"
+          [class.active]="activeView === 'trade'"
+          (click)="setView('trade')"
+        >
+          Trade
+        </button>
+        <button type="button" class="sidebar-button" [class.active]="activeView === 'graphs'" (click)="setView('graphs')">Market</button>
+        <button type="button" class="sidebar-button" [class.active]="activeView === 'news'" (click)="setView('news')">News</button>
+        <button
+          type="button"
+          class="sidebar-button"
+          [class.active]="activeView === 'history'"
+          (click)="setView('history')"
+        >
+          History
+        </button>
+        <button
+          type="button"
+          class="sidebar-button"
+          [class.active]="activeView === 'wallet'"
+          (click)="setView('wallet')"
+        >
+          Wallet
+        </button>
+        <button
+          type="button"
+          class="sidebar-button"
+          [class.active]="activeView === 'help'"
+          (click)="setView('help')"
+        >
+          Help
+        </button>
+      </nav>
 
-        <div *ngIf="accountMenuOpen" id="account-switcher-menu" class="account-switcher-menu">
-          <div class="account-menu-content">
-            <div class="account-menu-heading">
-              <strong>Switch account</strong>
-              <button type="button" class="view-all-accounts" (click)="backToAccounts()">View all</button>
+      <div class="account-main" [class.news-active]="activeView === 'news'">
+        <div *ngIf="error" class="error-banner" role="alert">{{ error }}</div>
+        <div *ngIf="activeView !== 'wallet' && activeView !== 'graphs' && activeView !== 'help'" class="account-toolbar">
+          <div class="account-title">
+            <h1>{{ accountTypeLabel }}</h1>
+            <p class="description">Account #{{ accountId }}</p>
+
+
+
+          </div>
+        </div>
+
+        <!-- TRADE VIEW: ticker search + order popup -->
+        <div *ngIf="activeView === 'trade'" class="trade-view">
+          <div class="section trade-search">
+            <div class="trade-search-heading">
+              <div>
+                <p class="eyebrow">Markets</p>
+                <h2>Explore tickers</h2>
+              </div>
+              <span class="trade-search-hint">Browse by currency or find your next company</span>
             </div>
-            <div *ngIf="loadingAccounts" class="account-menu-status">Loading accounts...</div>
-            <div *ngIf="!loadingAccounts && accounts.length === 0" class="account-menu-status">No accounts yet.</div>
-            <button
-              *ngFor="let account of accounts"
-              type="button"
-              class="account-menu-item"
-              [class.selected]="account.accountId === accountId"
-              (click)="selectAccount(account)">
-              <span>
-                <strong>{{ formatAccountType(account.type) }}</strong>
-                <small>Account #{{ account.accountId }}</small>
-              </span>
-              <span *ngIf="account.accountId === accountId" class="selected-mark" aria-label="Current account">✓</span>
-            </button>
-          </div>
-
-          <div class="account-menu-footer">
-            <button type="button" class="create-profile-button" (click)="createAccount()">
-              <span aria-hidden="true">＋</span>
-              Create account
-            </button>
+            <div class="trade-search-box">
+              <input
+                uiInput
+                aria-label="Search ticker or company"
+                type="text"
+                name="tradeSearch"
+                [(ngModel)]="tradeSearch"
+                (input)="onTradeSearchChange()"
+                placeholder="Search by ticker or company (e.g., AAPL)"
+                class="search-input"
+                autocomplete="off"
+              />
+            </div>
+            <div class="ticker-browser-controls">
+              <div class="ticker-currency-filters" role="group" aria-label="Filter tickers by currency">
+                <button *ngFor="let currency of tickerCurrencies" type="button"
+                  [class.selected]="tickerCurrency === currency.code"
+                  [attr.aria-pressed]="tickerCurrency === currency.code"
+                  (click)="setTickerCurrency(currency.code)">
+                  {{ currency.label }} <span>{{ tickerCurrencyCount(currency.code) }}</span>
+                </button>
+              </div>
+              <label class="ticker-sort">Sort by
+                <select uiInput name="tickerSort" [(ngModel)]="tickerSort" (ngModelChange)="tickerVisibleCount = 24">
+                  <option value="symbol">Ticker A–Z</option>
+                  <option value="name">Company A–Z</option>
+                  <option value="currency">Currency</option>
+                </select>
+              </label>
+            </div>
+            <div class="ticker-recents" *ngIf="recentTickers.length">
+              <div class="ticker-section-heading"><h3>Recent searches</h3>
+                <button uiButton="ghost" type="button" (click)="clearRecentTickers()">Clear history</button>
+              </div>
+              <div class="ticker-recent-chips">
+                <button *ngFor="let symbol of recentTickers" type="button" (click)="selectTicker(symbol)">{{ symbol }} <span aria-hidden="true">↗</span></button>
+              </div>
+              <p class="ticker-browser-note">Recently opened tickers · Saved on this device</p>
+            </div>
+            <span class="error-text" *ngIf="tradeSearchError">{{ tradeSearchError }}</span>
+            <span class="market-data-status" *ngIf="loadingInstrumentCatalog"
+              >Loading ticker catalog...</span
+            >
+            <span class="error-text" *ngIf="instrumentCatalogError">{{
+              instrumentCatalogError
+            }}</span>
+            <div class="ticker-directory" *ngIf="!loadingInstrumentCatalog && !instrumentCatalogError">
+              <div class="ticker-section-heading"><h3>{{ tradeSearch.trim() ? 'Search results' : 'Browse the catalog' }}</h3>
+                <span>{{ browsableTickers.length }} instruments</span>
+              </div>
+              <p class="ticker-browser-note">Filter by trading currency. Open a ticker to view its chart and price.</p>
+              <div class="ticker-card-grid">
+                <button class="ticker-browser-card" type="button"
+                  *ngFor="let instrument of browsableTickers | slice:0:tickerVisibleCount"
+                  (click)="selectTicker(instrument.symbol)">
+                  <span class="ticker-card-top"><strong>{{ instrument.symbol }}</strong><span class="ticker-currency-badge">{{ instrument.currency || '—' }}</span></span>
+                  <span class="ticker-company-name">{{ instrument.name }}</span>
+                  <span class="ticker-card-bottom"><span>{{ instrument.exchange || 'Exchange unavailable' }} · {{ instrument.type }}</span><span aria-hidden="true">↗</span></span>
+                </button>
+              </div>
+              <div class="ticker-empty" *ngIf="!browsableTickers.length">
+                <h3>No tickers found</h3><p>Try another company name or currency. Only instruments in the catalog appear here.</p>
+                <button uiButton="secondary" type="button" (click)="tradeSearch = ''; setTickerCurrency('ALL')">Reset filters</button>
+              </div>
+              <button uiButton="secondary" class="ticker-show-more" type="button" *ngIf="browsableTickers.length > tickerVisibleCount"
+                (click)="tickerVisibleCount = tickerVisibleCount + 24">Show more tickers</button>
+            </div>
           </div>
         </div>
-      </div>
-      <button (click)="refreshData()" class="btn-refresh" title="Refresh data" [disabled]="loadingBalance || loadingHoldings || loadingOrders">↻</button>
-      <button (click)="logout()" class="btn-logout">Logout</button>
-    </div>
-  </div>
-</header>
 
-<div class="container">
-  <!-- Loading & Error States -->
-  <div *ngIf="error" class="error-banner">
-    {{ error }}
-  </div>
+        <div *ngIf="showOrderModal" class="modal-overlay" (click)="closeOrderModal()">
+          <div
+            class="modal-box"
+            [class.trade-entry-modal]="!orderPlaced"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Place an order"
+            (keydown.escape)="closeOrderModal()"
+            (click)="$event.stopPropagation()"
+          >
+            <ng-container *ngIf="!orderPlaced; else orderPlacedBox">
+              <div class="trade-entry-layout">
+                <section class="trade-chart-panel" aria-label="Selected stock chart">
+                  <app-tradingview-widget [symbol]="getTradeChartSymbol()"></app-tradingview-widget>
+                </section>
+                <div class="trade-entry-ticket">
+              <div class="modal-header">
+                <h2>{{ selectedTicker }}</h2>
+                <button
+                  uiButton="ghost"
+                  type="button"
+                  class="btn-small"
+                  (click)="closeOrderModal()"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
 
-  <!-- INVESTOR DASHBOARD -->
-  <div *ngIf="currentRole === 'investor'" class="account-page">
-    <nav class="sidebar" aria-label="Trading platform navigation">
-      <button type="button" class="sidebar-button" [class.active]="activeView === 'portfolio'" (click)="setView('portfolio')">Portfolio</button>
-      <button type="button" class="sidebar-button" [class.active]="activeView === 'trade'" (click)="setView('trade')">Trade</button>
-      <button type="button" class="sidebar-button" [class.active]="activeView === 'history'" (click)="setView('history')">History</button>
-      <button type="button" class="sidebar-button" [class.active]="activeView === 'wallet'" (click)="setView('wallet')">Wallet</button>
-      <button type="button" class="sidebar-button" [class.active]="activeView === 'help'" (click)="setView('help')">Help</button>
-    </nav>
+              <div
+                class="quote-card"
+                *ngIf="!loadingQuote && currentPrice !== null; else quoteStatus"
+              >
+                <div class="quote-price-row">
+                  <span class="quote-price-value">{{ currentPrice | number: '1.2-2' }}</span>
+                  <span class="quote-currency">{{ quoteCurrency }}</span>
+                  <div
+                    class="quote-change-box"
+                    *ngIf="currentChange !== null && currentChangePercent !== null"
+                    [class.positive]="currentChange >= 0"
+                    [class.negative]="currentChange < 0"
+                  >
+                    <span class="quote-percent-pill">
+                      {{ currentChange >= 0 ? '↑' : '↓' }} {{ currentChangePercent >= 0 ? '+' : ''
+                      }}{{ currentChangePercent | number: '1.2-2' }}%
+                    </span>
+                    <span class="quote-change-amount">
+                      {{ currentChange >= 0 ? '+' : '' }}{{ currentChange | number: '1.2-2' }} today
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <ng-template #quoteStatus>
+                <p class="quote-status">
+                  <span *ngIf="loadingQuote">Loading price...</span>
+                  <span class="error-text" *ngIf="!loadingQuote && quoteError">{{
+                    quoteError
+                  }}</span>
+                  <button *ngIf="!loadingQuote && quoteError" uiButton="ghost" type="button" (click)="loadQuote(selectedTicker)">Retry price</button>
+                </p>
+              </ng-template>
+              <section class="trade-holdings rounded-lg border border-line bg-subtle p-4 mb-4" aria-label="Your position">
+                <h3 class="text-sm font-semibold">Your position · {{ selectedTicker }}</h3>
+                <ng-container *ngIf="ownedTradeShares !== null; else holdingsStatus">
+                  <p>Shares owned: {{ ownedTradeShares | number: '1.0-8' }}</p>
+                  <p *ngIf="ownedTradeValue !== null; else positionPriceStatus">Market value: {{ quoteCurrency === 'UNKNOWN' ? currencyLabel : quoteCurrency }} {{ ownedTradeValue | number: '1.2-2' }}</p>
+                  <ng-template #positionPriceStatus><p class="text-muted">{{ loadingQuote ? 'Loading price...' : 'Price unavailable' }}</p></ng-template>
+                </ng-container>
+                <ng-template #holdingsStatus><p class="text-muted">{{ loadingHoldings ? 'Loading holdings...' : 'Holdings unavailable' }}</p></ng-template>
+              </section>
+              <div class="form-group">
+                <div class="form-field">
+                  <label for="field-dashboard-component-1">Side</label>
+                  <select
+                    id="field-dashboard-component-1"
+                    uiInput
+                    [(ngModel)]="orderForm.side"
+                    (ngModelChange)="onOrderFormChange()"
+                    [disabled]="loading"
+                  >
+                    <option>BUY</option>
+                    <option>SELL</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label for="field-dashboard-component-2">Quantity</label>
+                  <input
+                    id="field-dashboard-component-2"
+                    uiInput
+                    type="number"
+                    [(ngModel)]="orderForm.quantity"
+                    placeholder="10"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    (keydown)="blockInvalidNumberKey($event, false)"
+                    (paste)="sanitizeNumberPaste($event, false)"
+                    (ngModelChange)="onOrderFormChange()"
+                    [disabled]="loading"
+                  />
+                  <span class="error-text" *ngIf="orderFormErrors['quantity']">{{
+                    orderFormErrors['quantity']
+                  }}</span>
+                </div>
+                <div class="order-summary" *ngIf="orderForm.quantity > 0 && currentPrice !== null">
+                  <div class="summary-row">
+                    <span
+                      >Subtotal ({{ orderForm.quantity }} × {{ quoteCurrency }} {{
+                        currentPrice | number: '1.2-2'
+                      }})</span
+                    >
+                    <span>{{ quoteCurrency }} {{ getEstimatedNotional() | number: '1.2-2' }}</span>
+                  </div>
+                  <div class="summary-row">
+                    <span>Fee estimate (0.1%, min 1.00)</span>
+                    <span>{{ quoteCurrency }} {{ getEstimatedFee() | number: '1.2-2' }}</span>
+                  </div>
+                  <div class="summary-row total">
+                    <span>{{ orderForm.side === 'BUY' ? 'Total cost' : 'Net proceeds' }}</span>
+                    <span>{{ quoteCurrency }} {{ getEstimatedTotal() | number: '1.2-2' }}</span>
+                  </div>
+                </div>
+                <p class="error-text" *ngIf="orderFormErrors['currency']">{{ orderFormErrors['currency'] }}</p>
+                <button
+                  uiButton="primary"
+                  (click)="placeOrder()"
+                  [disabled]="loading || loadingQuote || !!quoteError || currentPrice === null || !isFormValid()"
+                  class="btn-primary btn-full-width"
+                >
+                  {{ loading ? 'Placing...' : 'Place Order' }}
+                </button>
+              </div>
+              <div class="error-text" *ngIf="orderFormErrors['submit']">
+                {{ orderFormErrors['submit'] }}
+              </div>
+                </div>
+              </div>
+            </ng-container>
 
-    <div class="account-main">
-      <div *ngIf="activeView !== 'wallet'" class="account-toolbar">
-        <div class="account-title">
-          <h1>{{ accountTypeLabel }}</h1>
-          <p class="description">Account #{{ accountId }}</p>
+            <ng-template #orderPlacedBox>
+              <div class="order-placed">
+                <button
+                  uiButton="ghost"
+                  type="button"
+                  class="order-placed-close"
+                  (click)="closeOrderModal()"
+                  aria-label="Close order confirmation"
+                >
+                  ✕
+                </button>
+                <h2>Order placed</h2>
+                <p>Your order was submitted.</p>
+                <button
+                  uiButton="primary"
+                  type="button"
+                  class="btn-primary"
+                  (click)="backToPortfolio()"
+                >
+                  Back to Portfolio
+                </button>
+              </div>
+            </ng-template>
+          </div>
         </div>
-      </div>
 
-      <!-- TRADE VIEW: ticker search + order popup -->
-      <div *ngIf="activeView === 'trade'" class="trade-view">
-        <div class="section trade-search">
-          <div class="trade-search-heading">
+        <!-- HISTORY VIEW: trade history -->
+        <div *ngIf="activeView === 'history'" class="history-view">
+          <details class="section recent-orders-dropdown" open>
+            <summary>Trade History <span class="dropdown-chevron">⌄</span></summary>
+            <p class="mt-3 text-xs text-muted">Dispute an executed trade or its fee. Ticket status refreshes every minute and when you refresh History.</p>
+            <p *ngIf="disputeSummaryError" class="error-banner" role="alert">{{ disputeSummaryError }}</p>
+            <div *ngIf="loadingOrders" class="loading-indicator">Loading orders...</div>
+            <div *ngIf="!loadingOrders && orders.length === 0" class="empty-state">
+              No orders yet
+            </div>
+            <div *ngIf="!loadingOrders && orders.length > 0" class="orders-table-wrapper">
+              <div class="table-scroll">
+                <table class="table orders-table">
+                  <thead>
+                    <tr>
+                      <th *ngFor="let column of historyColumns" scope="col" [attr.aria-sort]="historySortAria(column.key)" [class.quantity-column]="column.key === 'quantity'" [class.total-order-price-column]="column.key === 'executedNotional'">
+                        <button type="button" class="history-sort" (click)="sortHistory(column.key)" [attr.aria-label]="historySortLabel(column.key, column.label)" [title]="historySortLabel(column.key, column.label)">
+                          {{ column.label }} <span aria-hidden="true">{{ historySortKey === column.key ? (historySortDirection === 'asc' ? '↑' : '↓') : '↕' }}</span>
+                        </button>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let o of sortedOrders; trackBy: trackOrder">
+                      <td>{{ o.orderId }}</td>
+                      <td><ng-container *ngIf="o.createdAtUtc; else dateOnly">{{ o.createdAtUtc | date: 'MMM d, y, HH:mm:ss' : 'UTC' }} UTC</ng-container><ng-template #dateOnly>{{ o.dateRequested | date: 'mediumDate' : 'UTC' }} (date only)</ng-template></td>
+                      <td>
+                        <strong>{{ o.symbol }}</strong>
+                      </td>
+                      <td>
+                        <app-status-badge [status]="o.side" />
+                      </td>
+                      <td>
+                        <app-status-badge [status]="o.status" />
+                      </td>
+                      <td class="quantity-column">{{ o.quantity }}</td>
+                      <td>{{ currencyLabel }} {{ o.price | number: '1.2-2' }}</td>
+                      <td class="total-order-price-column">
+                        {{ currencyLabel }} {{ getOrderTotalPrice(o) | number: '1.2-2' }}
+                      </td>
+                      <td><app-trade-disputes [accountId]="accountId" [order]="o" [summary]="disputeSummaries ? (disputeSummaries[o.orderId] || noDisputeSummary) : null" (dialogOpen)="disputeDialogOpen = $event" (changed)="loadOrderHistory()" /></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div *ngIf="activeView === 'wallet'" class="wallet-view">
+          <div *ngIf="walletSuccessMessage" class="wallet-success-message" role="status">
+            {{ walletSuccessMessage }}
+            <button uiButton="ghost" type="button" (click)="walletSuccessMessage = ''" aria-label="Dismiss success message">✕</button>
+          </div>
+          <div class="wallet-header">
             <div>
-              <p class="eyebrow">Markets</p>
-              <h2>Find a ticker</h2>
-            </div>
-            <span class="trade-search-hint">Search the local market catalog</span>
-          </div>
-          <div class="trade-search-box">
-            <input
-              type="text"
-              name="tradeSearch"
-              [(ngModel)]="tradeSearch"
-              (input)="onTradeSearchChange()"
-              placeholder="Search by ticker or company (e.g., AAPL)"
-              class="search-input"
-              autocomplete="off"
-              role="combobox"
-              [attr.aria-expanded]="tradeSearch.trim().length > 0 && filteredTradeTickers.length > 0"
-              aria-controls="ticker-suggestions" />
-            <div
-              *ngIf="tradeSearch.trim().length > 0 && filteredTradeTickers.length > 0"
-              id="ticker-suggestions"
-              class="ticker-suggestions"
-              role="listbox">
-              <button
-                *ngFor="let instrument of filteredTradeTickers"
-                type="button"
-                class="ticker-suggestion"
-                role="option"
-                (click)="selectTicker(instrument.symbol)">
-                <span class="ticker-suggestion-symbol">{{ instrument.symbol }}</span>
-                <span class="ticker-suggestion-name">{{ instrument.name }}</span>
-                <span class="ticker-suggestion-exchange">{{ instrument.exchange }}</span>
-              </button>
-            </div>
-          </div>
-          <span class="error-text" *ngIf="tradeSearchError">{{ tradeSearchError }}</span>
-          <span class="market-data-status" *ngIf="loadingInstrumentCatalog">Loading ticker catalog...</span>
-          <span class="error-text" *ngIf="instrumentCatalogError">{{ instrumentCatalogError }}</span>
-        </div>
-      </div>
-
-      <div *ngIf="showOrderModal" class="modal-overlay" (click)="closeOrderModal()">
-        <div class="modal-box" (click)="$event.stopPropagation()">
-          <ng-container *ngIf="!orderPlaced; else orderPlacedBox">
-            <div class="modal-header">
-              <h2>{{ selectedTicker }}</h2>
-              <button type="button" class="btn-small" (click)="closeOrderModal()" aria-label="Close">✕</button>
-            </div>
-            
-            <div class="quote-card" *ngIf="!loadingQuote && currentPrice !== null; else quoteStatus">
-              <div class="quote-price-row">
-                <span class="quote-price-value">{{ currentPrice | number: '1.2-2' }}</span>
-                <span class="quote-currency">USD</span>
-                <div class="quote-change-box"
-                     *ngIf="currentChange !== null && currentChangePercent !== null"
-                     [class.positive]="currentChange >= 0"
-                     [class.negative]="currentChange < 0">
-                  <span class="quote-percent-pill">
-                    {{ currentChange >= 0 ? '↑' : '↓' }} {{ currentChangePercent >= 0 ? '+' : '' }}{{ currentChangePercent | number: '1.2-2' }}%
-                  </span>
-                  <span class="quote-change-amount">
-                    {{ currentChange >= 0 ? '+' : '' }}{{ currentChange | number: '1.2-2' }} today
-                  </span>
+              <h2>My Wallet</h2>
+              <div class="wallet-funds">
+                <div class="wallet-balance-card">
+                  <span>Available cash</span>
+                  <strong *ngIf="!loadingBalance">{{ currencyLabel }} {{ portfolio.cash | number: '1.2-2' }}</strong>
+                  <strong *ngIf="loadingBalance">Loading...</strong>
+                </div>
+                <div class="wallet-actions">
+                  <button
+                    type="button"
+                    class="wallet-action-button"
+                    [disabled]="bankAccounts.length === 0"
+                    (click)="openWalletTransaction('Deposit')"
+                  >
+                    <span aria-hidden="true">↓</span>
+                    <span><strong>Deposit</strong><small>Move cash in</small></span>
+                  </button>
+                  <button
+                    type="button"
+                    class="wallet-action-button"
+                    [disabled]="bankAccounts.length === 0 || portfolio.cash <= 0"
+                    (click)="openWalletTransaction('Withdrawal')"
+                  >
+                    <span aria-hidden="true">↑</span>
+                    <span><strong>Withdraw</strong><small>Move cash out</small></span>
+                  </button>
                 </div>
               </div>
             </div>
-            <ng-template #quoteStatus>
-              <p class="quote-status">
-                <span *ngIf="loadingQuote">Loading price...</span>
-                <span class="error-text" *ngIf="!loadingQuote && quoteError">{{ quoteError }}</span>
-              </p>
-            </ng-template>
-            <div class="form-group">
-              <div class="form-field">
-                <label>Side</label>
-                <select [(ngModel)]="orderForm.side" (ngModelChange)="onOrderFormChange()" [disabled]="loading">
-                  <option>BUY</option>
-                  <option>SELL</option>
-                </select>
+          </div>
+
+          <div class="wallet-grid">
+            <section class="section wallet-bank-section">
+              <div class="wallet-section-heading">
+                <div>
+                  <h2>Connected bank accounts</h2>
+                </div>
+                <button
+                  uiButton="primary"
+                  type="button"
+                  class="wallet-add-button"
+                  (click)="openBankAccountModal()"
+                  aria-label="Add bank account"
+                >
+                  ＋
+                </button>
               </div>
-              <div class="form-field">
-                <label>Quantity</label>
-                <input
-                  type="number"
-                  [(ngModel)]="orderForm.quantity"
-                  placeholder="10"
-                  min="1"
-                  step="1"
-                  inputmode="numeric"
+              <div *ngIf="bankAccounts.length === 0" class="wallet-empty-state">
+                <strong>No bank accounts connected</strong>
+              </div>
+              <div *ngIf="bankAccounts.length > 0" class="wallet-bank-list">
+                <div *ngFor="let account of bankAccounts" class="wallet-bank-card">
+                  <span class="wallet-bank-icon" aria-hidden="true">⌂</span>
+                  <span class="wallet-bank-copy">
+                    <strong>{{ account.nickname }}</strong>
+                    <small>Routing {{ maskRoutingNumber(account.routingNumber) }}</small>
+                    <small>Account {{ maskBankAccount(account.accountNumber) }}</small>
+                  </span>
+                  <span class="wallet-connected">Connected</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="section wallet-activity-section">
+              <div class="wallet-section-heading">
+                <div>
+                  <h2>Recent Activity</h2>
+                </div>
+              </div>
+              <div *ngIf="walletActivity.length === 0" class="wallet-empty-state compact">
+                <strong>No wallet activity yet</strong>
+              </div>
+              <div *ngIf="walletActivity.length > 0" class="wallet-activity-list">
+                <div *ngFor="let activity of walletActivity" class="wallet-activity-item">
+                  <span
+                    class="wallet-activity-icon"
+                    [class.withdrawal]="activity.type === 'Withdrawal'"
+                    aria-hidden="true"
+                  >
+                    {{ activity.type === 'Deposit' ? '↓' : '↑' }}
+                  </span>
+                  <span class="wallet-activity-copy">
+                    <strong>{{ activity.type }}</strong>
+                    <small
+                      >{{ activity.bankNickname }} · {{ activity.date | date: 'mediumDate' }}</small
+                    >
+                  </span>
+                  <strong [class.wallet-negative]="activity.type === 'Withdrawal'">
+                    {{ activity.type === 'Deposit' ? '+' : '-' }}{{ currencyLabel }} {{
+                      activity.amount | number: '1.2-2'
+                    }}
+                  </strong>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <app-help *ngIf="activeView === 'help'" [accountId]="accountId"></app-help>
+
+        <div *ngIf="activeView === 'graphs'" class="section full-width market-heatmap-section">
+          <h1 class="market-heatmap-title">Market overview</h1>
+          <div class="ticker-currency-filters" role="group" aria-label="Market currency">
+            <button *ngFor="let market of tickerCurrencies.slice(1)" type="button" uiButton="secondary"
+              [attr.aria-pressed]="marketCurrency === market.code" [disabled]="loadingMarketHeatmap"
+              (click)="setMarketCurrency(market.code)">{{ market.label }}</button>
+          </div>
+          <div *ngIf="loadingMarketHeatmap" class="loading-indicator">Loading market data...</div>
+          <div *ngIf="marketHeatmapError" class="error-banner">{{ marketHeatmapError }}</div>
+          <app-stock-heatmap [stocks]="marketStocks" [loading]="loadingMarketHeatmap" [accountNumber]="accountId" [accountCurrency]="currencyLabel"></app-stock-heatmap>
+        </div>
+
+        <section *ngIf="activeView === 'news'" class="news-view section full-width" [attr.data-category]="newsCategory" aria-labelledby="news-heading">
+          <div class="news-header">
+            <div>
+              <span class="news-badge">NEWS</span>
+              <h2 id="news-heading">Market news</h2>
+              <p class="description">Latest available headlines · Source and publication time shown on each article.</p>
+            </div>
+          </div>
+
+          <div class="news-controls">
+            <div class="news-tabs" role="tablist" aria-label="News categories">
+              <button uiButton="ghost" type="button" data-category="general" [attr.aria-pressed]="newsCategory === 'general'" [class.active]="newsCategory === 'general'" (click)="setNewsCategory('general')">Top Stories</button>
+              <button uiButton="ghost" type="button" data-category="technology" [attr.aria-pressed]="newsCategory === 'technology'" [class.active]="newsCategory === 'technology'" (click)="setNewsCategory('technology')">Tech &amp; AI</button>
+              <button uiButton="ghost" type="button" data-category="healthcare" [attr.aria-pressed]="newsCategory === 'healthcare'" [class.active]="newsCategory === 'healthcare'" (click)="setNewsCategory('healthcare')">Healthcare</button>
+              <button uiButton="ghost" type="button" data-category="finance" [attr.aria-pressed]="newsCategory === 'finance'" [class.active]="newsCategory === 'finance'" (click)="setNewsCategory('finance')">Finance &amp; Banks</button>
+              <button uiButton="ghost" type="button" data-category="energy" [attr.aria-pressed]="newsCategory === 'energy'" [class.active]="newsCategory === 'energy'" (click)="setNewsCategory('energy')">Energy &amp; Oil</button>
+            </div>
+            <form class="news-search" (ngSubmit)="searchNews()">
+              <input uiInput name="newsSearch" [(ngModel)]="newsSearch" placeholder="Search ticker (AAPL, NVDA...)" aria-label="Search news by ticker" />
+              <button uiButton="primary" type="submit">Search</button>
+            </form>
+          </div>
+
+          <div class="news-feed" role="region" aria-label="News articles">
+          <div *ngIf="newsError" class="error-banner">{{ newsError }}</div>
+          <div *ngIf="loadingNews" class="news-grid news-grid-skeleton" aria-label="Loading financial news">
+            <article *ngFor="let skeleton of skeletonBlocks" class="news-card-skeleton">
+              <span></span><span></span><span></span><span></span>
+            </article>
+          </div>
+          <div *ngIf="!loadingNews && !newsError && filteredNewsArticles.length > 0" class="news-grid">
+            <article *ngFor="let article of filteredNewsArticles; let articleIndex = index" class="news-card">
+              <div class="news-card-image">
+                <span *ngIf="!article.image || failedNewsImages.has(article.id)" class="news-image-placeholder" aria-hidden="true">Market brief</span>
+                <img *ngIf="article.image && !failedNewsImages.has(article.id)"
+                  [src]="article.image"
+                  [alt]="article.headline"
+                  (error)="handleNewsImageError(article)" />
+                <span *ngIf="getArticleTickers(article)[0] as ticker" class="news-image-ticker">${{ ticker }}</span>
+              </div>
+              <div class="news-card-body">
+                <div class="news-meta"><span>{{ article.source }}</span><time>{{ getTimeAgo(article.datetime) }}</time></div>
+                <h3>{{ article.headline }}</h3>
+                <p>{{ article.summary || 'Read the latest market context and catalyst details from this source.' }}</p>
+                <div class="news-card-footer">
+                  <div class="news-tickers">
+                    <button uiButton="ghost" *ngFor="let ticker of getArticleTickers(article)" type="button" (click)="openNewsTicker(ticker)">${{ ticker }}</button>
+                  </div>
+                  <a [href]="article.url" target="_blank" rel="noopener noreferrer">Read Full Article ↗</a>
+                </div>
+              </div>
+            </article>
+          </div>
+          <div *ngIf="!loadingNews && !newsError && filteredNewsArticles.length === 0" class="news-empty">
+            No market news matched this filter.
+          </div>
+          </div>
+        </section>
+
+        <div
+          *ngIf="showBankAccountModal || showWalletTransactionModal"
+          class="modal-overlay"
+          (click)="closeWalletModal()"
+        >
+          <div
+            class="modal-box wallet-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Wallet transaction"
+            (keydown.escape)="closeWalletModal()"
+            (click)="$event.stopPropagation()"
+          >
+            <div class="modal-header">
+              <h2>{{ showBankAccountModal ? 'Add bank account' : walletTransactionType }}</h2>
+              <button
+                uiButton="ghost"
+                type="button"
+                class="btn-small"
+                (click)="closeWalletModal()"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form *ngIf="showBankAccountModal" class="wallet-form" (ngSubmit)="addBankAccount()">
+              <label
+                >Account nickname<input
+                  uiInput
+                  name="nickname"
+                  [(ngModel)]="bankAccountForm.nickname"
+                  placeholder="e.g. Main checking"
+                  required
+              /></label>
+              <label
+                >Routing number<input
+                  uiInput
+                  name="routingNumber"
                   (keydown)="blockInvalidNumberKey($event, false)"
                   (paste)="sanitizeNumberPaste($event, false)"
-                  (ngModelChange)="onOrderFormChange()"
-                  [disabled]="loading" />
-                <span class="error-text" *ngIf="orderFormErrors['quantity']">{{ orderFormErrors['quantity'] }}</span>
-              </div>
-              <div class="order-summary" *ngIf="orderForm.quantity > 0 && currentPrice !== null">
-                <div class="summary-row">
-                  <span>Subtotal ({{ orderForm.quantity }} × ${{ currentPrice | number: '1.2-2' }})</span>
-                  <span>${{ getEstimatedNotional() | number: '1.2-2' }}</span>
-                </div>
-                <div class="summary-row">
-                  <span>Fee (0.1%, min $1.00)</span>
-                  <span>${{ getEstimatedFee() | number: '1.2-2' }}</span>
-                </div>
-                <div class="summary-row total">
-                  <span>{{ orderForm.side === 'BUY' ? 'Total cost' : 'Net proceeds' }}</span>
-                  <span>${{ getEstimatedTotal() | number: '1.2-2' }}</span>
-                </div>
-              </div>
-              <button (click)="placeOrder()" [disabled]="loading || !isFormValid()" class="btn-primary btn-full-width">
-                {{ loading ? 'Placing...' : 'Place Order' }}
+                  (input)="sanitizeBankNumber($event, 'routingNumber')"
+                  [(ngModel)]="bankAccountForm.routingNumber"
+                  inputmode="numeric"
+                  maxlength="9"
+                  placeholder="9 digits"
+                  required
+              /></label>
+              <label
+                >Account number<input
+                  uiInput
+                  name="accountNumber"
+                  (keydown)="blockInvalidNumberKey($event, false)"
+                  (paste)="sanitizeNumberPaste($event, false)"
+                  (input)="sanitizeBankNumber($event, 'accountNumber')"
+                  [(ngModel)]="bankAccountForm.accountNumber"
+                  inputmode="numeric"
+                  maxlength="17"
+                  placeholder="Account number"
+                  required
+              /></label>
+              <span class="error-text" *ngIf="walletFormError">{{ walletFormError }}</span>
+              <button uiButton="primary" type="submit" class="btn-primary btn-full-width" [disabled]="submittingBankAccount">
+                {{ submittingBankAccount ? 'Connecting...' : 'Connect bank account' }}
               </button>
-            </div>
-            <div class="error-text" *ngIf="orderFormErrors['submit']">{{ orderFormErrors['submit'] }}</div>
-          </ng-container>
+            </form>
 
-          <ng-template #orderPlacedBox>
-            <div class="order-placed">
-              <button type="button" class="order-placed-close" (click)="closeOrderModal()" aria-label="Close order confirmation">✕</button>
-              <h2>Order placed</h2>
-              <p>Your order was submitted.</p>
-              <button type="button" class="btn-primary" (click)="backToPortfolio()">Back to Portfolio</button>
-            </div>
-          </ng-template>
-        </div>
-      </div>
-
-      <!-- HISTORY VIEW: trade history -->
-      <div *ngIf="activeView === 'history'" class="history-view">
-        <details class="section recent-orders-dropdown" open>
-          <summary>Trade History <span class="dropdown-chevron">⌄</span></summary>
-          <div *ngIf="loadingOrders" class="loading-indicator">Loading orders...</div>
-          <div *ngIf="!loadingOrders && orders.length === 0" class="empty-state">
-            No orders yet
-          </div>
-          <div *ngIf="!loadingOrders && orders.length > 0" class="orders-table-wrapper">
-            <table class="table orders-table">
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Date</th>
-                  <th>Symbol</th>
-                  <th>Side</th>
-                  <th>Status</th>
-                  <th class="quantity-column">Quantity</th>
-                  <th>Price</th>
-                  <th class="total-order-price-column">Total order price</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let o of orders">
-                  <td>{{ o.orderId }}</td>
-                  <td>{{ o.dateRequested | date: 'short' }}</td>
-                  <td><strong>{{ o.symbol }}</strong></td>
-                  <td>
-                    <span class="order-side" [class.buy]="o.side === 'BUY'" [class.sell]="o.side === 'SELL'">
-                      {{ o.side }}
-                    </span>
-                  </td>
-                  <td>
-                    <span [ngClass]="['status-badge', getOrderStatusClass(o.status)]">
-                      {{ o.status }}
-                    </span>
-                  </td>
-                  <td class="quantity-column">{{ o.quantity }}</td>
-                  <td>${{ o.price | number: '1.2-2' }}</td>
-                  <td class="total-order-price-column">${{ getOrderTotalPrice(o) | number: '1.2-2' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </details>
-      </div>
-
-      <div *ngIf="activeView === 'wallet'" class="wallet-view">
-        <div *ngIf="walletSuccessMessage" class="wallet-success-message" role="status">
-          {{ walletSuccessMessage }}
-          <button type="button" (click)="walletSuccessMessage = ''" aria-label="Dismiss success message">✕</button>
-        </div>
-        <div class="wallet-header">
-          <div>
-            <h2>My Wallet</h2>
-            <div class="wallet-funds">
-              <div class="wallet-balance-card">
-                <span>Available cash</span>
-                <strong *ngIf="!loadingBalance">${{ portfolio.cash | number: '1.2-2' }}</strong>
-                <strong *ngIf="loadingBalance">Loading...</strong>
-              </div>
-              <div class="wallet-actions">
-                <button type="button" class="wallet-action-button" [disabled]="bankAccounts.length === 0" (click)="openWalletTransaction('Deposit')">
-                  <span aria-hidden="true">↓</span>
-                  <span><strong>Deposit</strong><small>Move cash in</small></span>
-                </button>
-                <button type="button" class="wallet-action-button" [disabled]="bankAccounts.length === 0 || portfolio.cash <= 0" (click)="openWalletTransaction('Withdrawal')">
-                  <span aria-hidden="true">↑</span>
-                  <span><strong>Withdraw</strong><small>Move cash out</small></span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="wallet-grid">
-          <section class="section wallet-bank-section">
-            <div class="wallet-section-heading">
-              <div>
-                <h2>Connected bank accounts</h2>
-              </div>
-              <button type="button" class="wallet-add-button" [disabled]="submittingBankAccount" (click)="openBankAccountModal()" aria-label="Add bank account">＋</button>
-            </div>
-            <div *ngIf="bankAccounts.length === 0" class="wallet-empty-state">
-              <strong>No bank accounts connected</strong>
-            </div>
-            <div *ngIf="bankAccounts.length > 0" class="wallet-bank-list">
-              <div *ngFor="let account of bankAccounts" class="wallet-bank-card">
-                <span class="wallet-bank-icon" aria-hidden="true">⌂</span>
-                <span class="wallet-bank-copy">
-                  <strong>{{ account.nickname }}</strong>
-                  <small>Routing {{ maskRoutingNumber(account.routingNumber) }}</small>
-                  <small>Account {{ maskBankAccount(account.accountNumber) }}</small>
-                </span>
-                <span class="wallet-connected">Connected</span>
-              </div>
-            </div>
-          </section>
-
-          <section class="section wallet-activity-section">
-            <div class="wallet-section-heading">
-              <div>
-                <h2>Recent Activity</h2>
-              </div>
-            </div>
-            <div *ngIf="walletActivity.length === 0" class="wallet-empty-state compact">
-              <strong>No wallet activity yet</strong>
-            </div>
-            <div *ngIf="walletActivity.length > 0" class="wallet-activity-list">
-              <div *ngFor="let activity of walletActivity" class="wallet-activity-item">
-                <span class="wallet-activity-icon" [class.withdrawal]="activity.type === 'Withdrawal'" aria-hidden="true">
-                  {{ activity.type === 'Deposit' ? '↓' : '↑' }}
-                </span>
-                <span class="wallet-activity-copy">
-                  <strong>{{ activity.type }}</strong>
-                  <small>{{ activity.bankNickname }} · {{ activity.date | date: 'mediumDate' }}</small>
-                </span>
-                <strong [class.wallet-negative]="activity.type === 'Withdrawal'">
-                  {{ activity.type === 'Deposit' ? '+' : '-' }}${{ activity.amount | number: '1.2-2' }}
-                </strong>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <div *ngIf="activeView === 'help'" class="placeholder">
-        <h2>Help</h2>
-        <p>Coming soon.</p>
-      </div>
-
-      <div *ngIf="showBankAccountModal || showWalletTransactionModal" class="modal-overlay" (click)="closeWalletModal()">
-        <div class="modal-box wallet-modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <h2>{{ showBankAccountModal ? 'Add bank account' : walletTransactionType }}</h2>
-            <button type="button" class="btn-small" (click)="closeWalletModal()" aria-label="Close">✕</button>
-          </div>
-
-          <form *ngIf="showBankAccountModal" class="wallet-form" (ngSubmit)="addBankAccount()">
-            <label>Account nickname<input name="nickname" [(ngModel)]="bankAccountForm.nickname" placeholder="e.g. Main checking" required /></label>
-            <label>Routing number<input name="routingNumber" [(ngModel)]="bankAccountForm.routingNumber" inputmode="numeric" maxlength="9" placeholder="9 digits" required /></label>
-            <label>Account number<input name="accountNumber" [(ngModel)]="bankAccountForm.accountNumber" inputmode="numeric" maxlength="17" placeholder="Account number" required /></label>
-            <span class="error-text" *ngIf="walletFormError">{{ walletFormError }}</span>
-            <button type="submit" class="btn-primary btn-full-width" [disabled]="submittingBankAccount">
-              {{ submittingBankAccount ? 'Connecting...' : 'Connect bank account' }}
-            </button>
-          </form>
-
-          <form *ngIf="showWalletTransactionModal" class="wallet-form" (ngSubmit)="submitWalletTransaction()">
-            <label>Bank account
-              <select name="bankAccountId" [(ngModel)]="walletTransactionForm.bankAccountId">
-                <option *ngFor="let account of bankAccounts" [ngValue]="account.id">{{ account.nickname }} · {{ maskBankAccount(account.accountNumber) }}</option>
-              </select>
-            </label>
-            <label>Amount
-              <input
-                name="amount"
-                type="number"
-                [(ngModel)]="walletTransactionForm.amount"
-                min="0.01"
-                step="0.01"
-                inputmode="decimal"
-                placeholder="1.00"
-                (keydown)="blockInvalidNumberKey($event, true)"
-                (paste)="sanitizeNumberPaste($event, true)"
-                required />
-            </label>
-            <span class="error-text" *ngIf="walletFormError">{{ walletFormError }}</span>
-            <button type="submit" class="btn-primary btn-full-width" [disabled]="submittingWalletTransaction">
-              {{ submittingWalletTransaction ? 'Processing...' : walletTransactionType + ' ' + (walletTransactionType === 'Deposit' ? 'cash' : 'funds') }}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <div *ngIf="activeView === 'portfolio'" class="investor-dashboard">
-    <!-- LEFT COLUMN: Portfolio Overview -->
-    <div class="dashboard-column left-column">
-      <div class="cards">
-        <div class="card">
-          <h3>Cash</h3>
-          <p class="value" *ngIf="!loadingBalance">${{ portfolio.cash | number: '1.2-2' }}</p>
-          <p class="value loading" *ngIf="loadingBalance">Loading...</p>
-        </div>
-
-        <div class="card">
-          <h3>Portfolio Value</h3>
-          <p class="value" *ngIf="!loadingBalance">${{ getTotalValue() | number: '1.2-2' }}</p>
-          <p class="value loading" *ngIf="loadingBalance">Loading...</p>
-        </div>
-      </div>
-
-      <div class="section portfolio-chart">
-        <h2>Portfolio Value Over Time</h2>
-        <div class="chart-placeholder">Graph coming soon</div>
-      </div>
-
-      <div class="section">
-        <h2>Holdings</h2>
-        <div *ngIf="loadingHoldings" class="loading-indicator">Loading holdings...</div>
-        <div *ngIf="!loadingHoldings && portfolio.holdings.length === 0" class="empty-state">
-          No holdings yet
-        </div>
-        <table class="table" *ngIf="!loadingHoldings && portfolio.holdings.length > 0">
-          <thead>
-            <tr>
-              <th>Symbol</th>
-              <th>Quantity</th>
-              <th>Current Price</th>
-              <th>Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let h of portfolio.holdings">
-              <td><strong>{{ h.symbol }}</strong></td>
-              <td>{{ h.quantity }}</td>
-              <td>${{ (h.currentPrice || h.averageCost) | number: '1.2-2' }}</td>
-              <td>${{ (h.quantity * (h.currentPrice || h.averageCost)) | number: '1.0-0' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-    </div>
-
-    <!-- Market Heatmap Section -->
-    <div class="section full-width">
-      <h2>Market Trading Heatmap</h2>
-      <p class="description">Treemap view: block size tracks traded volume and color reflects buy/sell pressure.</p>
-      
-      <!-- Heatmap by Sector -->
-      <div class="sectors-container">
-        <div class="sector" *ngFor="let sector of ['Technology', 'Finance', 'Healthcare', 'Energy', 'Other']">
-          <div class="sector-header">{{ sector }}</div>
-          <div class="sector-heatmap">
-            <div
-              *ngFor="let trend of (symbolTrends | slice:0:20)"
-              [hidden]="getSymbolSector(trend.symbol) !== sector"
-              class="heatmap-cell-treemap"
-              [style.background-color]="getHeatmapColor(trend)"
-              [style.flex-grow]="getSizeMultiplier(trend)"
-              [style.flex-basis.px]="getHeatmapCellSize(trend)"
-              [style.min-height.px]="getHeatmapCellSize(trend)"
-              [title]="getHeatmapTitle(trend)"
+            <form
+              *ngIf="showWalletTransactionModal"
+              class="wallet-form"
+              (ngSubmit)="submitWalletTransaction()"
             >
-              <div class="cell-symbol">{{ trend.symbol }}</div>
-              <div class="cell-score">{{ trend.popularityScore }}%</div>
-              <div class="cell-volume">{{ trend.totalVolume }} vol</div>
+              <label
+                >Bank account
+                <select
+                  uiInput
+                  name="bankAccountId"
+                  [(ngModel)]="walletTransactionForm.bankAccountId"
+                >
+                  <option *ngFor="let account of bankAccounts" [ngValue]="account.id">
+                    {{ account.nickname }} · {{ maskBankAccount(account.accountNumber) }}
+                  </option>
+                </select>
+              </label>
+              <label
+                >Amount
+                <input
+                  uiInput
+                  name="amount"
+                  type="number"
+                  [(ngModel)]="walletTransactionForm.amount"
+                  min="0.01"
+                  step="0.01"
+                  inputmode="decimal"
+                  placeholder="1.00"
+                  (keydown)="blockInvalidNumberKey($event, true)"
+                  (paste)="sanitizeNumberPaste($event, true)"
+                  required
+                />
+              </label>
+              <span class="error-text" *ngIf="walletFormError">{{ walletFormError }}</span>
+              <button uiButton="primary" type="submit" class="btn-primary btn-full-width" [disabled]="submittingWalletTransaction">
+                {{ submittingWalletTransaction ? 'Processing...' : walletTransactionType + ' ' + (walletTransactionType === 'Deposit' ? 'cash' : 'funds') }}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div *ngIf="activeView === 'portfolio'" class="investor-dashboard">
+          <!-- LEFT COLUMN: Portfolio Overview -->
+          <div class="dashboard-column left-column">
+            <div class="cards">
+              <div class="card">
+                <h3>Cash</h3>
+                <p class="value" *ngIf="!loadingBalance">{{ currencyLabel }} {{ portfolio.cash | number: '1.2-2' }}</p>
+                <p class="value loading" *ngIf="loadingBalance">Loading...</p>
+              </div>
+
+
+              <div class="card">
+                <h3>Portfolio Value</h3>
+                <p class="value" *ngIf="!loadingBalance">
+                  {{ currencyLabel }} {{ getTotalValue() | number: '1.2-2' }}
+                </p>
+                <p class="value loading" *ngIf="loadingBalance">Loading...</p>
+              </div>
+            </div>
+
+            <div class="section portfolio-chart">
+              <div class="portfolio-chart-heading">
+                <div>
+                  <h2>Portfolio Balance History</h2>
+                  <small>Recorded account snapshots since this browser first observed the account.</small>
+                  <small *ngIf="valuationNotice" class="portfolio-valuation-note" [title]="valuationNotice">Estimated valuation · some positions use cost basis</small>
+                  <span class="portfolio-chart-summary" [style.color]="getHistoryColor()">
+                    {{ formatSignedHistoryValue(getHistoryChange()) }}
+                    ({{ getHistoryChangePercent() >= 0 ? '+' : '' }}{{ getHistoryChangePercent() | number: '1.2-2' }}%)
+                  </span>
+                </div>
+                <div class="portfolio-range-tabs" role="tablist" aria-label="Portfolio history range">
+                  <button
+                    *ngFor="let range of portfolioRanges"
+                    type="button"
+                    [class.active]="portfolioRange === range"
+                    (click)="setPortfolioRange(range)">{{ range }}</button>
+                </div>
+              </div>
+              <div class="portfolio-chart-canvas" *ngIf="portfolioHistory.length > 0">
+                <div class="portfolio-price-axis" aria-label="Portfolio value axis">
+                  <span *ngFor="let value of historyPriceTicks">{{ currencyLabel }} {{ value | number: (historyHigh - historyLow < 4 ? '1.2-2' : '1.0-0') }}</span>
+                </div>
+                <div class="portfolio-plot">
+                  <svg
+                    class="portfolio-history-svg"
+                    [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight"
+                    preserveAspectRatio="none"
+                    role="img"
+                    aria-label="Portfolio balance history chart">
+                    <defs>
+                      <linearGradient id="portfolio-history-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" [attr.stop-color]="getHistoryColor()" stop-opacity=".25"></stop>
+                        <stop offset="100%" [attr.stop-color]="getHistoryColor()" stop-opacity="0"></stop>
+                      </linearGradient>
+                    </defs>
+                    <g class="portfolio-gridlines">
+                      <line *ngFor="let line of [0, 1, 2, 3, 4]" x1="0" [attr.y1]="line * 90" x2="1000" [attr.y2]="line * 90"></line>
+                    </g>
+                    <path class="portfolio-area" [attr.d]="getPortfolioAreaPath()" [attr.fill]="'url(#portfolio-history-fill)'"></path>
+                    <path class="portfolio-line" [attr.d]="getPortfolioLinePath()" [style.stroke]="getHistoryColor()"></path>
+                    <g *ngIf="hoveredHistoryIndex !== null">
+                      <line
+                        class="portfolio-crosshair"
+                        [attr.x1]="getChartX(hoveredHistoryIndex!)"
+                        y1="0"
+                        [attr.x2]="getChartX(hoveredHistoryIndex!)"
+                        y2="360"></line>
+                    </g>
+                    <circle
+                      *ngFor="let point of portfolioHistory; let index = index"
+                      class="portfolio-hover-point"
+                      [attr.cx]="getChartX(index)"
+                      [attr.cy]="getChartY(point.value)"
+                      r="13"
+                      (mouseenter)="hoveredHistoryIndex = index"
+                      (mouseleave)="hoveredHistoryIndex = null"></circle>
+                  </svg>
+                  <div
+                    *ngIf="hoveredHistoryIndex !== null"
+                    class="portfolio-chart-tooltip"
+                    [style.left.%]="getChartX(hoveredHistoryIndex!) / chartWidth * 100"
+                    [style.top.%]="getChartY(portfolioHistory[hoveredHistoryIndex!].value) / chartHeight * 100">
+                    <strong>{{ formatHistoryDate(portfolioHistory[hoveredHistoryIndex!].date) }}</strong>
+                    <span>{{ formatHistoryValue(portfolioHistory[hoveredHistoryIndex!].value) }}</span>
+                    <small [style.color]="getHistoryColor()">
+                      {{ formatSignedHistoryValue(getHistoryChange()) }}
+                      ({{ getHistoryChangePercent() >= 0 ? '+' : '' }}{{ getHistoryChangePercent() | number: '1.2-2' }}%)
+                    </small>
+                  </div>
+                </div>
+                <div class="portfolio-date-axis" aria-label="History date axis">
+                  <span *ngFor="let date of historyDateTicks">{{ date }}</span>
+
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <app-asset-allocation [state]="accountState"></app-asset-allocation>
+              <h2>Holdings</h2>
+              <div *ngIf="loadingHoldings" class="loading-indicator">Loading holdings...</div>
+              <div *ngIf="!loadingHoldings && portfolio.holdings.length === 0" class="empty-state">
+                No holdings yet
+
+              </div>
+              <div class="table-scroll">
+                <table class="table" *ngIf="!loadingHoldings && portfolio.holdings.length > 0">
+                  <thead>
+                    <tr>
+                      <th scope="col">Symbol</th>
+                      <th scope="col">Quantity</th>
+                      <th scope="col">Current Price</th>
+                      <th scope="col">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let h of portfolio.holdings">
+                      <td>
+                        <strong>{{ h.symbol }}</strong>
+                      </td>
+                      <td>{{ h.quantity }}</td>
+                      <td>{{ currencyLabel }} {{ (h.currentPrice || h.averageCost) | number: '1.2-2' }}</td>
+                      <td>
+                        {{ currencyLabel }} {{ (h.quantity * (h.currentPrice || h.averageCost)) | number: '1.0-0' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Legend -->
-      <div class="heatmap-legend">
-        <p class="legend-title">Reading The Map</p>
-        <div class="legend-items">
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #1b5e20"></div>
-            <span>Green = Buy pressure (bullish flow)</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #b71c1c"></div>
-            <span>Red = Sell pressure (bearish flow)</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #6a6a6a"></div>
-            <span>Larger blocks = more traded volume</span>
-          </div>
-        </div>
-      </div>
+
     </div>
-      </div>
+
+    <!-- ADMIN DASHBOARD (PLACEHOLDER) -->
+    <div *ngIf="currentRole === 'admin'" class="placeholder">
+      <h2>Admin Dashboard</h2>
+      <p>Coming soon: User management, system settings, audit logs</p>
+    </div>
+
+    <!-- ANALYST DASHBOARD (PLACEHOLDER) -->
+    <div *ngIf="currentRole === 'analyst'" class="placeholder">
+      <h2>Analyst Dashboard</h2>
+      <p>Coming soon: Data analytics, reports, market insights</p>
+
     </div>
   </div>
-
-  <!-- ADMIN DASHBOARD (PLACEHOLDER) -->
-  <div *ngIf="currentRole === 'admin'" class="placeholder">
-    <h2>Admin Dashboard</h2>
-    <p>Coming soon: User management, system settings, audit logs</p>
-  </div>
-
-  <!-- ANALYST DASHBOARD (PLACEHOLDER) -->
-  <div *ngIf="currentRole === 'analyst'" class="placeholder">
-    <h2>Analyst Dashboard</h2>
-    <p>Coming soon: Data analytics, reports, market insights</p>
-  </div>
-</div>
+</app-workspace>

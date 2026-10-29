@@ -1,3 +1,4 @@
+import { UiButtonDirective } from './shared/ui';
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
@@ -6,7 +7,7 @@ import { ThemeService } from './core/services/theme.service';
 import { AuthService } from './core/services/auth.service';
 
 @Component({
-  imports: [CommonModule, RouterOutlet],
+  imports: [CommonModule, RouterOutlet, UiButtonDirective],
   selector: 'app-root',
   template: `
     <router-outlet></router-outlet>
@@ -16,10 +17,10 @@ import { AuthService } from './core/services/auth.service';
         <h2 id="session-warning-title">Session expiring</h2>
         <p>Your session is about to expire. Do you want to extend your session?</p>
         <div class="session-warning-actions">
-          <button type="button" class="session-warning-secondary" (click)="declineSession()">
+          <button uiButton type="button" class="session-warning-secondary" (click)="declineSession()">
             No
           </button>
-          <button type="button" class="session-warning-primary" (click)="extendSession()">
+          <button uiButton="primary" type="button" class="session-warning-primary" (click)="extendSession()">
             Yes
           </button>
         </div>
@@ -30,7 +31,7 @@ import { AuthService } from './core/services/auth.service';
         aria-labelledby="session-expired-title">
         <h2 id="session-expired-title">Session Expired</h2>
         <p>Your session has expired.</p>
-        <button type="button" class="session-warning-primary" (click)="returnToSignIn()">
+        <button uiButton="primary" type="button" class="session-warning-primary" (click)="returnToSignIn()">
           Click here to return to Sign In
         </button>
       </section>

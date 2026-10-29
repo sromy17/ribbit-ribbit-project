@@ -1,9 +1,12 @@
 package com.neueda.leap.trading.domain;
 
 import java.math.BigDecimal;
+
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -43,15 +46,21 @@ public class Order {
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
-    @Column(name = "bidprice", nullable = false)
+    @Column(name = "bidprice", nullable = false, precision = 30, scale = 10)
     private BigDecimal price;
 
     @Column(name = "date_request", nullable = false)
-    private Instant dateRequested;
+    private java.time.LocalDate dateRequested;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private OrderStatus status;
+
+    @Column(name = "created_at_utc")
+    private Instant createdAtUtc;
+
+    @Column(name = "correlation_id", nullable = false, length = 36)
+    private String correlationId = UUID.randomUUID().toString();
 
     @JsonIgnore
     @OneToMany(mappedBy = "order")
@@ -114,11 +123,11 @@ public class Order {
         this.price = price;
     }
 
-    public Instant getDateRequested() {
+    public java.time.LocalDate getDateRequested() {
         return dateRequested;
     }
 
-    public void setDateRequested(Instant dateRequested) {
+    public void setDateRequested(java.time.LocalDate dateRequested) {
         this.dateRequested = dateRequested;
     }
 
@@ -129,6 +138,11 @@ public class Order {
     public void setStatus(OrderStatus status) {
         this.status = status;
     }
+
+    public Instant getCreatedAtUtc() { return createdAtUtc; }
+    public void setCreatedAtUtc(Instant createdAtUtc) { this.createdAtUtc = createdAtUtc; }
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
 
     public List<Trade> getTrades() {
         return trades;

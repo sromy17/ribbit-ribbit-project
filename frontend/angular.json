@@ -42,8 +42,9 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "11kB"
+                  "maximumWarning": "22kB",
+                  "maximumError": "24kB"
+
                 }
               ],
               "outputHashing": "all"
@@ -52,6 +53,13 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "ui-preview": {
+              "browser": "preview/main.ts",
+              "tsConfig": "tsconfig.preview.json",
+              "optimization": false,
+              "sourceMap": true,
+              "extractLicenses": false
             }
           },
           "defaultConfiguration": "production"
@@ -64,6 +72,9 @@
             },
             "development": {
               "buildTarget": "frontend:build:development"
+            },
+            "ui-preview": {
+              "buildTarget": "frontend:build:ui-preview"
             }
           },
           "defaultConfiguration": "development"

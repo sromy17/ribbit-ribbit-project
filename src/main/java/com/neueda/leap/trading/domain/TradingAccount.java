@@ -32,8 +32,14 @@ public class TradingAccount {
 	@JsonIgnore
 	private User user;
 
-	@Column(name = "availablefunds", nullable = false)
+	@Column(name = "availablefunds", nullable = false, precision = 30, scale = 10)
 	private BigDecimal availableFunds;
+
+	@Column(name = "currency", length = 3)
+	private String currency;
+
+	public String getCurrency() { return currency; }
+	public void setCurrency(String value) { currency = value; }
 
 	@Column(name = "creationdate", nullable = false)
 	private Instant creationDate;

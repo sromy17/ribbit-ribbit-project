@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, map } from 'rxjs';
+import { Observable, concat, of, map, shareReplay, tap, timeout } from 'rxjs';
 import { delay } from 'rxjs/operators';
 
 // Component -> ApiService -> HttpClient -> API
@@ -38,8 +38,13 @@ export interface Order {
   side: 'BUY' | 'SELL';
   quantity: number;
   price?: number;
-  status: 'PENDING' | 'FILLED' | 'CANCELLED';
+  status: 'PENDING' | 'FILLED' | 'EXECUTED' | 'REJECTED' | 'CANCELLED';
   dateRequested?: string;
+  createdAtUtc?: string;
+  executedQuantity?: number;
+  executedNotional?: number;
+  fee?: number;
+  cashEffect?: number;
 }
 
 export interface ProcessOrderResponse {
@@ -90,6 +95,7 @@ export interface RegisterRequest {
 export interface CreateAccountRequest {
   userId: number;
   accountType: string;
+  currency: string;
 }
 
 export interface WalletBankAccount {
@@ -140,6 +146,68 @@ export interface PlatformStats {
   topTrader: InvestorInfo;
 }
 
+export interface AdminOrder {
+  requestid: number;
+  accountid: number;
+  instrumentid?: number;
+  side: 'BUY' | 'SELL';
+  quantity_requested: number;
+  bidprice?: number;
+  order_status: string;
+  created_at_utc: string;
+  correlation_id: string;
+  orderId: string;
+  accountId: string;
+  symbol: string;
+  quantity: number;
+  price: number;
+  status: string;
+  dateRequested: string;
+}
+
+export interface AdminOrderPage {
+  items: AdminOrder[];
+  page: number;
+  size: number;
+  total: number;
+  from: string;
+  to: string;
+  asOf?: string;
+}
+
+export interface ReportingStatus {
+  stale?: boolean;
+  ageSeconds?: number;
+  run_id?: string;
+  status: string;
+  source_watermark?: string;
+  started_at?: string;
+  published_at?: string;
+  asOf?: string;
+}
+
+export interface DisputeCase {
+  caseId: number;
+  transactionType: string;
+  transactionReference: string;
+  title: string;
+  reason: string;
+  status: string;
+  customerUserId: number;
+  accountId: number;
+  orderId?: number;
+  feeRelated?: boolean;
+  assignedStaffUserId?: number;
+  resolutionReason?: string;
+  version: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface TradeDisputeSummary { total: number; active: number; resolved: number; status: 'NONE' | 'UNDER_REVIEW' | 'RESOLVED'; }
+export type CustomerDispute = Pick<DisputeCase, 'caseId' | 'orderId' | 'title' | 'reason' | 'status' | 'feeRelated' | 'resolutionReason' | 'createdAtUtc' | 'updatedAtUtc'>;
+export interface DisputeSubmission { transactionType: 'TRADE'; transactionId: string; title: string; reason: string; feeRelated: boolean; idempotencyKey: string; }
+
 // Analyst Dashboard Interfaces
 export interface SymbolTrend {
   symbol: string;
@@ -172,8 +240,23 @@ export interface MarketInstrument {
   providedIn: 'root'
 })
 export class ApiService {
+  getTradeDisputeSummary(accountId: string): Observable<Record<string, TradeDisputeSummary>> {
+    return this.http.get<Record<string, TradeDisputeSummary>>(`/api/accounts/${accountId}/disputes/summary`);
+  }
+  getCustomerDisputes(accountId: string, orderId: string, page = 0): Observable<{items: CustomerDispute[]; total: number}> {
+    return this.http.get<{items: CustomerDispute[]; total: number}>(`/api/accounts/${accountId}/orders/${orderId}/disputes`, {params: {page, size: 10}});
+  }
+  submitTradeDispute(body: DisputeSubmission): Observable<CustomerDispute> {
+    return this.http.post<CustomerDispute>('/api/disputes', body);
+  }
+  public static readonly REFRESH_INTERVAL_MS = 60000;
   private apiUrl = '/api';
   private useMockData = false;
+  private readonly marketQuoteCache = new Map<string, { symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>();
+  private readonly marketQuoteRequests = new Map<string, Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>>>();
+  private readonly marketQuoteRequestTimes = new Map<string, number>();
+  private readonly marketQuoteStorageKey = 'leap-trader:market-quotes';
+  private marketQuoteCacheRestored = false;
 
   constructor(private http: HttpClient) {}
 
@@ -199,7 +282,7 @@ export class ApiService {
 
   getAccountsForUser(userId: string): Observable<TradingAccount[]> {
     return this.http.get<TradingAccount | TradingAccount[]>(`${this.apiUrl}/accounts/user/${userId}`).pipe(
-      map((response) => Array.isArray(response) ? response : [response])
+      map((response) => (Array.isArray(response) ? response : [response]).map(account => ({...account, accountId: String(account.accountId)})))
     );
   }
 
@@ -207,8 +290,8 @@ export class ApiService {
     return this.http.post<TradingAccount>(`${this.apiUrl}/accounts`, request);
   }
 
-  getAccountBalance(accountId: string): Observable<{ accountId: string; cashBalance: number }> {
-    return this.http.get<{ accountId: string; cashBalance: number }>(
+  getAccountBalance(accountId: string): Observable<{ accountId: string; cashBalance: number; currency?: string }> {
+    return this.http.get<{ accountId: string; cashBalance: number; currency?: string }>(
       `${this.apiUrl}/accounts/${accountId}/balance`
     );
   }
@@ -276,12 +359,84 @@ export class ApiService {
 
   // Market data
 
-  getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number }> {
-    return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number }>(`/api/market/quotes/${encodeURIComponent(symbol)}`);
+  getQuote(symbol: string): Observable<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }> {
+    return this.http.get<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>(`/api/market/quotes/${encodeURIComponent(symbol)}`).pipe(timeout(10000));
+  }
+
+  getMarketQuotes(symbols: string[]): Observable<Array<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>> {
+    const normalizedSymbols = [...new Set(symbols.map((symbol) => symbol.toUpperCase()))];
+    const cacheKey = normalizedSymbols.slice().sort().join(',');
+    const existingRequest = this.marketQuoteRequests.get(cacheKey);
+    const requestTime = this.marketQuoteRequestTimes.get(cacheKey) ?? 0;
+    if (existingRequest && Date.now() - requestTime < ApiService.REFRESH_INTERVAL_MS) {
+      return existingRequest;
+    }
+    this.marketQuoteRequests.delete(cacheKey);
+    this.restoreMarketQuoteCache();
+    const cachedQuotes = normalizedSymbols
+      .map((symbol) => this.marketQuoteCache.get(symbol))
+      .filter((quote): quote is { symbol: string; price: number; change?: number; changePercent?: number; currency?: string } => !!quote);
+    const networkRequest = this.http.get<Array<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>>(
+      `${this.apiUrl}/market/quotes`,
+      { params: { symbols: normalizedSymbols.join(',') } }
+    ).pipe(
+      timeout(10000),
+      tap((quotes) => {
+        quotes.forEach((quote) => this.marketQuoteCache.set(quote.symbol.toUpperCase(), quote));
+        this.persistMarketQuoteCache();
+      })
+    );
+    const request = concat(
+      cachedQuotes.length > 0 ? of(cachedQuotes) : of([]),
+      networkRequest
+    ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+    this.marketQuoteRequests.set(cacheKey, request);
+    this.marketQuoteRequestTimes.set(cacheKey, Date.now());
+    return request;
+  }
+
+  private restoreMarketQuoteCache(): void {
+    if (this.marketQuoteCacheRestored) return;
+    this.marketQuoteCacheRestored = true;
+    try {
+      const raw = localStorage.getItem(this.marketQuoteStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Array<{ symbol: string; price: number; change?: number; changePercent?: number; currency?: string }>;
+      if (Array.isArray(parsed)) {
+        parsed.forEach((quote) => {
+          if (quote?.symbol && Number.isFinite(quote.price)) {
+            this.marketQuoteCache.set(quote.symbol.toUpperCase(), quote);
+          }
+        });
+      }
+    } catch {
+      // Local storage is an optional cache; the API remains the source of truth.
+    }
+  }
+
+  private persistMarketQuoteCache(): void {
+    try {
+      localStorage.setItem(this.marketQuoteStorageKey, JSON.stringify([...this.marketQuoteCache.values()]));
+    } catch {
+      // Local storage is an optional cache; the API remains the source of truth.
+    }
   }
 
   getMarketInstruments(): Observable<{ symbols: MarketInstrument[] }> {
     return this.http.get<{ symbols: MarketInstrument[] }>('/data/us-v1.json');
+  }
+
+  getSupportTickets(accountId: string, page = 0): Observable<SupportTicketPage> {
+    return this.http.get<SupportTicketPage>(`${this.apiUrl}/accounts/${accountId}/support-tickets`, { params: { page } });
+  }
+  submitSupportTicket(accountId: string, request: SupportSubmission): Observable<SupportTicket> {
+    return this.http.post<SupportTicket>(`${this.apiUrl}/accounts/${accountId}/support-tickets`, request);
+  }
+  getAdminSupportTickets(status = 'OPEN', page = 0): Observable<SupportTicketPage> {
+    return this.http.get<SupportTicketPage>(`${this.apiUrl}/admin/support-tickets`, { params: { status, page } });
+  }
+  updateSupportTicket(ticket: SupportTicket, status: string, resolution: string): Observable<SupportTicket> {
+    return this.http.post<SupportTicket>(`${this.apiUrl}/admin/support-tickets/${ticket.ticketId}/status`, { status, resolution, expectedVersion: ticket.version });
   }
 
   // Trades
@@ -308,6 +463,56 @@ export class ApiService {
       return of(this.mockGetAllOrders()).pipe(delay(500));
     }
     return this.http.get<Order[]>(`${this.apiUrl}/admin/orders`);
+  }
+
+  getAdminOrders(from: string, to: string, page = 0, size = 25, status = '', symbol = ''): Observable<AdminOrderPage> {
+    const params: Record<string, string | number> = { from, to, page, size };
+    if (status) params['status'] = status;
+    if (symbol) params['symbol'] = symbol;
+    return this.http.get<AdminOrderPage>(`${this.apiUrl}/admin/orders`, { params: params as any });
+  }
+
+  getAdminReportingStatus(): Observable<ReportingStatus> {
+    return this.http.get<ReportingStatus>(`${this.apiUrl}/admin/reporting/status`);
+  }
+
+  getAdminActivity(from: string, to: string): Observable<Record<string, unknown>> {
+    return this.http.get<Record<string, unknown>>(`${this.apiUrl}/admin/reports/trading-activity`, { params: { from, to } });
+  }
+
+  getAdminDisputes(status = ''): Observable<DisputeCase[]> {
+    const params: Record<string, string> = {};
+    if (status) params['status'] = status;
+    return this.http.get<DisputeCase[]>(`${this.apiUrl}/admin/disputes`, { params });
+  }
+
+  claimDispute(caseId: number, version: number): Observable<DisputeCase> {
+    return this.http.post<DisputeCase>(`${this.apiUrl}/admin/disputes/${caseId}/claim`, { expectedVersion: version });
+  }
+
+  getAdminCasePage(status: string, page: number): Observable<{items: DisputeCase[]; total: number; asOf: string}> {
+    return this.http.get<{items: DisputeCase[]; total: number; asOf: string}>(`${this.apiUrl}/admin/disputes/page`, {params: {status, page, size: 25}});
+  }
+  getAdminCase(id: number): Observable<DisputeCase> {
+    return this.http.get<DisputeCase>(`${this.apiUrl}/admin/disputes/${id}`);
+  }
+  getAdminCaseEvents(id: number): Observable<Record<string, any>[]> {
+    return this.http.get<Record<string, any>[]>(`${this.apiUrl}/admin/disputes/${id}/events`);
+  }
+  caseAction(id: number, action: string, body: Record<string, unknown>): Observable<DisputeCase> {
+    return this.http.post<DisputeCase>(`${this.apiUrl}/admin/disputes/${id}/${action}`, body);
+  }
+  investigate(id: number): Observable<Record<string, any>> {
+    return this.http.get<Record<string, any>>(`${this.apiUrl}/admin/investigations/${id}`);
+  }
+  lookupUser(id: number): Observable<{userId: number; username: string}> {
+    return this.http.get<{userId: number; username: string}>(`${this.apiUrl}/admin/users/${id}`);
+  }
+  lookupAccounts(id: number): Observable<TradingAccount[]> {
+    return this.http.get<TradingAccount[]>(`${this.apiUrl}/admin/users/${id}/accounts`);
+  }
+  accountHistory(id: string, kind: string, page: number): Observable<Record<string, any>> {
+    return this.http.get<Record<string, any>>(`${this.apiUrl}/admin/accounts/${id}/history`, {params: {kind, page, size: 25}});
   }
 
   getPlatformStats(): Observable<PlatformStats> {
@@ -381,7 +586,7 @@ export class ApiService {
     };
   }
 
-  private mockGetAccountBalance(accountId: string): { accountId: string; cashBalance: number } {
+  private mockGetAccountBalance(accountId: string): { accountId: string; cashBalance: number; currency?: string } {
     return {
       accountId,
       cashBalance: 50000
@@ -760,3 +965,12 @@ export class ApiService {
     this.apiUrl = url;
   }
 }
+
+export interface SupportSubmission {
+  category: string; subject: string; message: string; requestId: string;
+}
+export interface SupportTicket {
+  ticketId: number; accountId: number; subject: string; category: string; message: string | null;
+  status: string; createdAtUtc: string; closedAtUtc: string | null; resolution: string | null; version: number;
+}
+export interface SupportTicketPage { items: SupportTicket[]; total: number; page: number; size: number; }

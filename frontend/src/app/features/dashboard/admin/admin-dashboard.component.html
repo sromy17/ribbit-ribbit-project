@@ -1,271 +1,648 @@
-<header class="header">
-  <div class="header-content">
-    <div class="brand-lockup" aria-label="Leap Trader Pro">
-      <span class="brand-mark" aria-hidden="true">L</span>
-      <span class="brand-name">Leap Trader <strong>Pro</strong></span>
-    </div>
-    <div class="header-actions">
-      <span class="user-badge">ADMIN • {{ currentUser?.username }}</span>
-      <button (click)="logout()" class="btn-logout">Logout</button>
-    </div>
-  </div>
-</header>
+<app-workspace area="Administration" [username]="currentUser?.username || ''" (logout)="logout()">
+  <app-page-heading
+    eyebrow="Operations workspace"
+    title="Administration"
+    description="Follow every order. Resolve every question. Keep the full picture in view."
+  >
+    <span class="ui-badge"><span class="badge-dot text-brand"></span>Staff workspace</span>
+  </app-page-heading>
+  <div class="admin-layout">
+    <aside class="admin-navigation">
+      <p class="eyebrow !text-muted px-3 pb-4">Workspace</p>
+      <nav aria-label="Admin sections" class="flex flex-row gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+        <button
+          *ngFor="
+            let tab of canReport
+              ? ['orders', 'disputes', 'support', 'users', 'reporting']
+              : ['orders', 'disputes', 'support', 'users'];
+            let i = index
+          "
+          type="button"
+          class="admin-nav-item"
+          [class.active]="activeTab === tab"
+          [attr.aria-pressed]="activeTab === tab"
+          (click)="activeTab = tab"
+        >
+          <span class="nav-number" aria-hidden="true">0{{ i + 1 }}</span
+          >{{ tab === 'users' ? 'User lookup' : (tab | titlecase)
+          }}<span *ngIf="activeTab === tab" class="ml-auto text-brand" aria-hidden="true">→</span>
+        </button>
+      </nav>
+      <div class="mt-8 border-t border-line px-3 pt-5">
+        <p class="text-[11px] font-medium text-ink">A complete record</p>
+        <p class="mt-2 text-[11px] leading-relaxed">
+          Investigations use operational evidence. Reports use the last published dataset.
+        </p>
+      </div>
+    </aside>
+    <div class="min-w-0">
+      <app-support-queue *ngIf="activeTab === 'support'" [canWork]="canWork"></app-support-queue>
+      <p *ngIf="error" role="alert" class="error-banner">{{ error }}</p>
+      <section *ngIf="activeTab === 'orders'" class="tab-content">
+        <div class="panel-heading">
+          <div>
+            <h2>Order investigation</h2>
+            <p class="description">
+              Find an order and follow its lifecycle from intent to outcome.
+            </p>
+          </div>
+          <span class="ui-badge">{{ orderTotal | number }} in this view</span>
+        </div>
+        <form (ngSubmit)="loadOrders()" class="filters">
+          <label
+            >From (UTC)<input uiInput name="from" type="date" [(ngModel)]="from" required /></label
+          ><label
+            >Through (UTC)<input uiInput name="to" type="date" [(ngModel)]="to" required /></label
+          ><label
+            >Symbol<input
+              uiInput
+              name="symbol"
+              [(ngModel)]="symbol"
+              placeholder="e.g. AAPL" /></label
+          ><label
+            >Status<select uiInput name="status" [(ngModel)]="status">
+              <option value="">All statuses</option>
+              <option>PENDING</option>
+              <option>EXECUTED</option>
+              <option>REJECTED</option>
+              <option>CANCELLED</option>
+            </select></label
+          ><button uiButton="primary" [disabled]="loading">Search orders</button>
+        </form>
+        <p class="freshness">Reporting as of {{ ordersAsOf || 'unavailable' }}</p>
+        <p *ngIf="loading" role="status" class="loading-indicator">Loading orders…</p>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Order</th>
+                <th scope="col">Account</th>
+                <th scope="col">Instrument ID</th>
+                <th scope="col">Side</th>
+                <th scope="col">Quantity</th>
+                <th scope="col">Status</th>
+                <th scope="col">Created (UTC)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let order of orders">
+                <td>
+                  <button uiButton="ghost" (click)="openInvestigation(order.requestid)">
+                    #{{ order.requestid }} <span aria-hidden="true">↗</span>
+                  </button>
+                </td>
+                <td>{{ order.accountid }}</td>
+                <td>{{ order.instrumentid }}</td>
+                <td><app-status-badge [status]="order.side" /></td>
+                <td>{{ order.quantity_requested | number }}</td>
+                <td><app-status-badge [status]="order.order_status" /></td>
+                <td>{{ order.created_at_utc | date: 'MMM d, HH:mm:ss' : 'UTC' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <app-empty-state
+          *ngIf="!loading && !orders.length && !error"
+          title="No orders in this view"
+          description="Try a different date range or symbol. Newly submitted orders may not be in the reporting snapshot yet."
+        />
+        <div class="pager">
+          <button
+            uiButton
+            [disabled]="loading || orderPage === 0"
+            (click)="loadOrders(orderPage - 1)"
+          >
+            ← Previous</button
+          ><span>Page {{ orderPage + 1 }} · {{ orderTotal | number }} orders</span
+          ><button
+            uiButton
+            [disabled]="loading || (orderPage + 1) * 25 >= orderTotal"
+            (click)="loadOrders(orderPage + 1)"
+          >
+            Next →
+          </button>
+        </div>
+        <div class="mt-7 rounded-lg border border-line bg-canvas p-5">
+          <h3>Have an order ID?</h3>
+          <p class="mt-1 text-xs">
+            Open the current operational evidence directly, independently of reporting updates.
+          </p>
+          <form
+            (ngSubmit)="investigationId && openInvestigation(investigationId)"
+            class="search-form !mb-0"
+          >
+            <label
+              >Order ID<input
+                uiInput
+                name="orderId"
+                type="number"
+                min="1"
+                [(ngModel)]="investigationId"
+                placeholder="Enter order ID"
+                required /></label
+            ><button uiButton>Investigate →</button>
+          </form>
+        </div>
+      </section>
 
-<div class="container">
-  <!-- Loading & Error States -->
-  <div *ngIf="error" class="error-banner">
-    {{ error }}
-  </div>
-
-  <div *ngIf="loading" class="loading-full-screen">
-    <p>Loading platform data...</p>
-  </div>
-
-  <div *ngIf="!loading" class="admin-dashboard">
-    <!-- Navigation Tabs -->
-    <div class="tabs">
-      <button (click)="activeTab = 'overview'" [class.active]="activeTab === 'overview'" class="tab-button">
-        Overview
-      </button>
-      <button (click)="activeTab = 'heatmap'" [class.active]="activeTab === 'heatmap'" class="tab-button">
-        Trading Heatmap
-      </button>
-      <button (click)="activeTab = 'investors'" [class.active]="activeTab === 'investors'" class="tab-button">
-        Investors
-      </button>
-      <button (click)="activeTab = 'trades'" [class.active]="activeTab === 'trades'" class="tab-button">
-        All Trades
-      </button>
-      <button (click)="activeTab = 'orders'" [class.active]="activeTab === 'orders'" class="tab-button">
-        All Orders
-      </button>
-    </div>
-
-    <!-- HEATMAP TAB -->
-    <div *ngIf="activeTab === 'heatmap'" class="tab-content">
-      <h2>Trading Popularity Heatmap</h2>
-      <p class="description">Treemap view: block size tracks traded volume and color reflects buy/sell pressure.</p>
-
-      <!-- Heatmap by Sector -->
-      <div class="sectors-container">
-        <div class="sector" *ngFor="let sector of ['Technology', 'Finance', 'Healthcare', 'Energy', 'Other']">
-          <div class="sector-header">{{ sector }}</div>
-          <div class="sector-heatmap">
+      <section *ngIf="activeTab === 'disputes'" class="tab-content">
+        <div class="panel-heading">
+          <div>
+            <h2>Dispute queue</h2>
+            <p class="description">
+              Pick up a case. Investigate the evidence. Record a clear resolution.
+            </p>
+          </div>
+          <button uiButton (click)="loadCases()">↻ Refresh queue</button>
+        </div>
+        <div class="my-5 flex flex-wrap items-end justify-between gap-4">
+          <label class="w-48"
+            >Case status<select uiInput [(ngModel)]="caseStatus" (change)="loadCases()">
+              <option value="">All statuses</option>
+              <option>OPEN</option>
+              <option>CLAIMED</option>
+              <option>IN_PROGRESS</option>
+              <option>RESOLVED</option>
+            </select></label
+          ><span class="freshness !mb-0">Queue as of {{ caseAsOf || 'unavailable' }} UTC</span>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Case</th>
+                <th scope="col">Title</th>
+                <th scope="col">Transaction</th>
+                <th scope="col">Customer / account</th>
+                <th scope="col">Status</th>
+                <th scope="col">Assignee</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of visibleCases">
+                <td>
+                  <button uiButton="ghost" (click)="openCase(item.caseId)">
+                    #{{ item.caseId }} ↗
+                  </button>
+                </td>
+                <td class="!whitespace-normal min-w-44">{{ item.title }}</td>
+                <td>{{ item.transactionType }} {{ item.transactionReference }}</td>
+                <td><button uiButton="ghost" (click)="activeTab = 'users'; lookupUser(item.customerUserId, item.accountId)">User {{ item.customerUserId }} · Account {{ item.accountId }} ↗</button></td>
+                <td><app-status-badge [status]="item.status" /></td>
+                <td>{{ item.assignedStaffUserId || 'Unassigned' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <app-empty-state
+          *ngIf="!disputes.length && !error"
+          title="No cases in this view"
+          description="Change the status filter to see other cases, or refresh the queue."
+        />
+        <div class="pager">
+          <button uiButton [disabled]="!casePage" (click)="loadCases(casePage - 1)">
+            ← Previous</button
+          ><span>Page {{ casePage + 1 }} · {{ caseTotal }} cases</span
+          ><button
+            uiButton
+            [disabled]="(casePage + 1) * 25 >= caseTotal"
+            (click)="loadCases(casePage + 1)"
+          >
+            Next →
+          </button>
+        </div>
+      </section>
+      <article *ngIf="activeTab === 'disputes' && selectedCase as item" class="tab-content">
+        <div class="case-detail-header">
+          <div>
+            <p class="eyebrow mb-2">Case #{{ item.caseId }}</p>
+            <h2>{{ item.title }}</h2>
+            <p class="mt-2 text-xs">
+              {{ item.transactionType }} {{ item.transactionReference }} · Assignee
+              {{ item.assignedStaffUserId || 'Unassigned' }} · Version {{ item.version }}
+            </p>
+          </div>
+          <app-status-badge [status]="item.status" />
+        </div>
+        <p class="mb-4">{{ item.reason }}</p>
+        <div class="flex flex-wrap gap-3 text-[11px] text-muted">
+          <span>Created {{ item.createdAtUtc | date: 'MMM d, y, HH:mm' : 'UTC' }} UTC</span
+          ><span>Updated {{ item.updatedAtUtc | date: 'MMM d, y, HH:mm' : 'UTC' }} UTC</span
+          ><span *ngIf="item.feeRelated" class="text-brand">Trade fee disputed</span>
+        </div>
+        <div class="case-links">
+          <button uiButton (click)="investigateCustomer()">
+            User {{ item.customerUserId }} · Account {{ item.accountId }} ↗</button
+          ><button uiButton *ngIf="item.orderId" (click)="openInvestigation(item.orderId)">
+            Investigate trade ↗</button
+          ><button uiButton="ghost" [disabled]="busy" (click)="openCase(item.caseId)">
+            ↻ Reload case
+          </button>
+        </div>
+        <div class="grid gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(0,.85fr)]">
+          <div>
             <div
-              *ngFor="let trend of (symbolTrends | slice:0:20)"
-              [hidden]="getSymbolSector(trend.symbol) !== sector"
-              class="heatmap-cell-treemap"
-              [style.background-color]="getHeatmapColor(trend)"
-              [style.flex-grow]="getSizeMultiplier(trend)"
-              [style.flex-basis.px]="getHeatmapCellSize(trend)"
-              [style.min-height.px]="getHeatmapCellSize(trend)"
-              [title]="getHeatmapTitle(trend)"
+              *ngIf="item.status !== 'RESOLVED' && canWork"
+              class="case-actions !mt-0 !grid-cols-1"
             >
-              <div class="cell-symbol">{{ trend.symbol }}</div>
-              <div class="cell-score">{{ trend.popularityScore }}%</div>
-              <div class="cell-volume">{{ trend.totalVolume }} vol</div>
+              <div class="flex flex-wrap gap-3">
+                <button
+                  uiButton="primary"
+                  *ngIf="item.status === 'OPEN'"
+                  [disabled]="busy"
+                  (click)="act('claim')"
+                >
+                  Claim case →</button
+                ><button
+                  uiButton="primary"
+                  *ngIf="item.status === 'CLAIMED' && isOwner"
+                  [disabled]="busy"
+                  (click)="act('accept')"
+                >
+                  Accept investigation →
+                </button>
+              </div>
+              <div *ngIf="item.status === 'IN_PROGRESS' && isOwner">
+                <label
+                  >Internal note<textarea
+                    uiInput
+                    maxlength="1000"
+                    [(ngModel)]="note"
+                    placeholder="Record what you found…"
+                  ></textarea></label
+                ><button uiButton [disabled]="busy || !note.trim()" (click)="act('notes')">
+                  Add note
+                </button>
+              </div>
+              <label
+                >Reason for resolution, release, or reassignment<textarea
+                  uiInput
+                  maxlength="950"
+                  [(ngModel)]="reason"
+                  placeholder="Explain the decision for the audit record…"
+                ></textarea>
+              </label>
+              <div *ngIf="item.status === 'IN_PROGRESS' && isOwner">
+                <label
+                  >Outcome<select uiInput [(ngModel)]="outcome">
+                    <option value="UPHELD">Upheld</option>
+                    <option value="NOT_UPHELD">Not upheld</option>
+                    <option value="DUPLICATE_RELATED">Duplicate / related</option>
+                  </select></label
+                ><button
+                  uiButton="primary"
+                  [disabled]="busy || !reason.trim()"
+                  (click)="act('resolve')"
+                >
+                  Resolve case
+                </button>
+              </div>
+              <div *ngIf="item.status !== 'OPEN'" class="border-t border-line pt-3">
+                <button uiButton [disabled]="busy || !reason.trim()" (click)="act('release')">
+                  Release to unassigned pool
+                </button>
+              </div>
+              <div *ngIf="canSupervise">
+                <label
+                  >Reassign to admin user ID<input
+                    uiInput
+                    type="number"
+                    min="1"
+                    [(ngModel)]="newAssignee"
+                    placeholder="Admin user ID" /></label
+                ><button
+                  uiButton
+                  [disabled]="busy || !newAssignee || !reason.trim()"
+                  (click)="act('reassign')"
+                >
+                  Reassign case
+                </button>
+              </div>
+            </div>
+            <div
+              *ngIf="item.status === 'RESOLVED'"
+              class="rounded-lg border border-brand/20 bg-brand-soft p-5"
+            >
+              <h3 class="!text-brand">Resolution recorded</h3>
+              <p class="mt-3 text-sm !text-ink">{{ item.resolutionReason }}</p>
+              <p class="mt-4 text-xs">
+                This case is closed. A customer can submit a new ticket; this one cannot be
+                reopened.
+              </p>
             </div>
           </div>
+          <aside class="rounded-lg border border-line p-5">
+            <h3 class="mb-5">Case history</h3>
+            <ol class="timeline">
+              <li *ngFor="let event of caseEvents">
+                <strong>{{ event['event_type'].replaceAll('_', ' ') }}</strong>
+                <p class="!mt-1 text-[10px]">
+                  {{ event['occurred_at_utc'] | date: 'MMM d, y, HH:mm:ss' : 'UTC' }} UTC · Actor
+                  {{ event['actor_user_id'] }}
+                </p>
+                <p>{{ event['note'] }}</p>
+              </li>
+            </ol>
+          </aside>
         </div>
-      </div>
+      </article>
 
-      <!-- Legend -->
-      <div class="heatmap-legend">
-        <p class="legend-title">Reading The Map</p>
-        <div class="legend-items">
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #1b5e20"></div>
-            <span>Green = Buy pressure (bullish flow)</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #b71c1c"></div>
-            <span>Red = Sell pressure (bearish flow)</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #6a6a6a"></div>
-            <span>Larger blocks = more traded volume</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- OVERVIEW TAB -->
-    <div *ngIf="activeTab === 'overview'" class="tab-content">
-      <h2>Platform Overview</h2>
-      <div class="stats-grid" *ngIf="stats">
-        <div class="stat-card">
-          <h3>Total Investors</h3>
-          <p class="stat-value">{{ stats.totalInvestors }}</p>
-        </div>
-        <div class="stat-card">
-          <h3>Total Trades</h3>
-          <p class="stat-value">{{ stats.totalTrades }}</p>
-        </div>
-        <div class="stat-card">
-          <h3>Total Orders</h3>
-          <p class="stat-value">{{ stats.totalOrders }}</p>
-        </div>
-        <div class="stat-card">
-          <h3>Avg Portfolio Value</h3>
-          <p class="stat-value">${{ stats.avgPortfolioValue | number: '1.0-0' }}</p>
-        </div>
-      </div>
-
-      <div class="section">
-        <h3>Top Trader</h3>
-        <div *ngIf="stats?.topTrader" class="top-trader-card">
-          <div class="trader-info">
-            <p><strong>{{ stats.topTrader.firstName }} {{ stats.topTrader.lastName }}</strong></p>
-            <p>{{ stats.topTrader.email }}</p>
-          </div>
-          <div class="trader-stats">
+      <section *ngIf="activeTab === 'users'" class="tab-content">
+        <h2>User and account history</h2>
+        <p class="description">
+          Find a customer, choose an account, and inspect the current record.
+        </p>
+        <form (ngSubmit)="lookupUser()" class="search-form">
+          <label
+            >User ID<input
+              uiInput
+              name="userId"
+              type="number"
+              min="1"
+              [(ngModel)]="userId"
+              placeholder="Enter user ID"
+              required /></label
+          ><button uiButton="primary">Look up user →</button>
+        </form>
+        <div *ngIf="user" class="rounded-lg border border-line bg-canvas p-5">
+          <div class="mb-5 flex items-center gap-4">
+            <span class="user-avatar !flex !size-11">{{
+              user.username.slice(0, 1).toUpperCase()
+            }}</span>
             <div>
-              <span>Portfolio Value:</span>
-              <strong>${{ stats.topTrader.portfolioValue | number: '1.0-0' }}</strong>
+              <h3>{{ user.username }}</h3>
+              <p class="font-mono text-xs">User #{{ user.userId }}</p>
             </div>
-            <div>
-              <span>Orders:</span>
-              <strong>{{ stats.topTrader.ordersCount }}</strong>
+          </div>
+          <app-empty-state
+            *ngIf="!accounts.length"
+            title="No accounts yet"
+            description="This user has no trading accounts."
+          />
+          <div
+            *ngIf="accounts.length"
+            class="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_auto]"
+          >
+            <label
+              >Account<select uiInput [(ngModel)]="accountId" (change)="loadHistory()">
+                <option *ngFor="let account of accounts" [value]="account.accountId">
+                  {{ account.accountId }} · {{ account.type }}
+                </option>
+              </select></label
+            ><label
+              >View<select uiInput [(ngModel)]="historyKind" (change)="loadHistory()">
+                <option value="orders">Order history</option>
+                <option value="trades">Trade history</option>
+                <option value="holdings">Current holdings</option>
+                <option value="cash">Cash movements</option>
+              </select></label
+            ><button uiButton (click)="loadHistory(historyPage)">↻ Refresh view</button>
+          </div>
+        </div>
+        <app-empty-state
+          *ngIf="!user && !historyLoading && !error"
+          title="Start with a user ID"
+          description="User details and account history will appear here after a lookup."
+        />
+        <p *ngIf="historyLoading" role="status" class="loading-indicator">Loading account data…</p>
+        <div *ngIf="history">
+          <div class="snapshot mt-5">
+            <p>Operational snapshot as of {{ history['asOf'] }} (UTC)</p>
+            <div class="mt-3 flex items-baseline gap-3">
+              <span class="text-xs">Available cash</span
+              ><strong class="text-2xl font-semibold text-ink tabular-nums">{{
+                history['account']['availablefunds'] | number: '1.2-2'
+              }}</strong
+              ><span class="text-[10px]">Account currency</span>
             </div>
-            <div>
-              <span>Holdings:</span>
-              <strong>{{ stats.topTrader.holdingsCount }}</strong>
+            <p class="mt-3 text-[11px]">
+              Current holdings and balances describe this snapshot, not the position at a historical
+              trade.
+            </p>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col" *ngFor="let key of historyColumns">{{ columnLabel(key) }}</th>
+                  <th scope="col" *ngIf="historyKind === 'orders' || historyKind === 'trades'">
+                    Evidence
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of history['items']">
+                  <td *ngFor="let key of historyColumns">{{ row[key] }}</td>
+                  <td *ngIf="historyKind === 'orders' || historyKind === 'trades'">
+                    <button uiButton="ghost" (click)="openInvestigation(row['requestid'])">
+                      Investigate ↗
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <app-empty-state
+            *ngIf="!history['items'].length"
+            title="No records in this view"
+            description="Choose another account or history type to continue."
+          />
+          <div class="pager">
+            <button uiButton [disabled]="!historyPage" (click)="loadHistory(historyPage - 1)">
+              ← Previous</button
+            ><span>Page {{ historyPage + 1 }} · {{ history['total'] | number }} records</span
+            ><button
+              uiButton
+              [disabled]="(historyPage + 1) * 25 >= history['total']"
+              (click)="loadHistory(historyPage + 1)"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section *ngIf="activeTab === 'reporting'" class="tab-content">
+        <div class="panel-heading">
+          <div>
+            <h2>Reporting & freshness</h2>
+            <p class="description">Understand what the last published dataset can tell you.</p>
+          </div>
+          <button uiButton (click)="refreshReporting()">↻ Refresh status</button>
+        </div>
+        <div class="my-6 grid gap-4 md:grid-cols-3">
+          <div class="metric-card">
+            <p>Latest refresh</p>
+            <app-status-badge [status]="reportingStatus?.status" />
+          </div>
+          <div class="metric-card">
+            <p>Last published</p>
+            <strong class="text-sm">{{ reportingStatus?.published_at || 'Unavailable' }}</strong>
+          </div>
+          <div class="metric-card">
+            <p>Source watermark</p>
+            <strong class="text-sm">{{
+              reportingStatus?.source_watermark || 'Unavailable'
+            }}</strong>
+          </div>
+        </div>
+        <p *ngIf="reportingStatus?.stale" role="alert">
+          Reporting is stale or its freshness is unknown. These results may lag current trading.
+        </p>
+        <div *ngIf="activity">
+          <h3 class="mt-6">Trading activity</h3>
+          <p class="mt-2 text-xs">
+            {{ from }} through {{ to }} UTC · As of {{ activity['asOf'] || 'unavailable' }}
+          </p>
+          <div class="my-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div *ngFor="let row of activity['orders']" class="metric-card">
+              <app-status-badge [status]="row.order_status" /><strong
+                class="text-3xl font-semibold tabular-nums"
+                >{{ row.order_count | number }}</strong
+              ><span class="text-xs text-muted">Orders in selected period</span>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Instrument</th>
+                  <th scope="col">Fills</th>
+                  <th scope="col">Executed quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of activity['instruments']">
+                  <td>{{ row.ticker || row.instrumentid }}</td>
+                  <td>{{ row.fill_count | number }}</td>
+                  <td>{{ row.executed_quantity | number }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="notice">{{ activity['valuation'] }}</p>
+        </div>
+        <p class="mt-5 text-xs">
+          Reporting is delayed historical data. Use investigation and account views for operational
+          evidence.
+        </p>
+      </section>
+
+      <section
+        *ngIf="investigationLoading || investigation"
+        class="tab-content"
+        aria-label="Trade investigation"
+      >
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow mb-2">Operational evidence</p>
+            <h2>Trade investigation #{{ investigationId }}</h2>
+          </div>
+          <button uiButton="ghost" (click)="investigation = null; investigationLoading = false">
+            Close ✕
+          </button>
+        </div>
+        <p *ngIf="investigationLoading" class="loading-indicator">Loading evidence…</p>
+        <div *ngIf="investigation as data">
+          <div class="snapshot mt-4">
+            <p>Operational snapshot as of {{ data['asOf'] }} UTC</p>
+            <div class="mt-3 flex flex-wrap items-center gap-3">
+              <strong class="text-lg text-ink">{{ data['order']['ticker'] }}</strong
+              ><app-status-badge [status]="data['order']['side']" /><app-status-badge
+                [status]="data['order']['status']"
+              />
+            </div>
+            <p class="mt-3 break-all font-mono text-[10px]">
+              Correlation {{ data['order']['correlation_id'] }}
+            </p>
+          </div>
+          <p *ngIf="!data['evidenceAvailable']" role="alert">
+            Lifecycle evidence is missing. This record cannot be presented as a complete
+            investigation.
+          </p>
+          <section *ngIf="data['coverage'] as coverage" class="notice-box" aria-label="Evidence coverage">
+            <strong>Evidence coverage: {{ coverage.status }}</strong>
+            <p>{{ coverage.scope }}</p>
+            <ul><li *ngFor="let warning of coverage.warnings">{{ warning }}</li></ul>
+          </section>
+          <h3 class="mt-7">Lifecycle timeline</h3>
+          <ol class="timeline">
+            <li *ngFor="let event of data['events']">
+              <strong
+                >{{ event['event_sequence'] }} ·
+                {{ event['event_type'].replaceAll('_', ' ') }}</strong
+              >
+              <p class="!mt-1 text-[10px]">
+                {{ event['occurred_at_utc'] | date: 'MMM d, y, HH:mm:ss' : 'UTC' }} UTC
+              </p>
+              <p *ngIf="event['reason']">{{ event['reason'] }}</p>
+              <p *ngIf="event['quote_source']">
+                Quote: {{ event['quote_price'] }} · {{ event['quote_source'] }} ·
+                {{ event['quote_at_utc'] }}
+              </p>
+              <p *ngIf="event['decision_price'] != null">
+                Decision price {{ event['decision_price'] }} · Quantity {{ event['quantity'] }} ·
+                Fee {{ event['fee'] }}
+              </p>
+            </li>
+          </ol>
+          <h3 class="mt-7">Individual fills</h3>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Fill</th>
+                  <th scope="col">Time UTC</th>
+                  <th scope="col">Quantity</th>
+                  <th scope="col">Price</th>
+                  <th scope="col">Fee</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let fill of data['fills']">
+                  <td>{{ fill['executeid'] }}</td>
+                  <td>{{ fill['executed_at_utc'] }}</td>
+                  <td>{{ fill['quantity_executed'] }}</td>
+                  <td>{{ fill['askprice'] }}</td>
+                  <td>{{ fill['fee'] }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p *ngIf="!data['fills'].length" class="notice">No fills recorded.</p>
+          <div class="mt-7 grid gap-5 lg:grid-cols-2">
+            <div class="rounded-lg border border-line p-5">
+              <h3>Cash movements</h3>
+              <p
+                *ngFor="let movement of data['cash']"
+                class="mt-3 border-t border-line pt-3 text-xs"
+              >
+                #{{ movement['movement_id'] }} · {{ movement['occurred_at_utc'] }}<br />{{
+                  movement['movement_type']
+                }}
+                ·
+                <strong class="text-ink"
+                  >{{ movement['amount'] }} {{ movement['currency'] }}</strong
+                >
+              </p>
+              <p *ngIf="!data['cash'].length" class="mt-3 text-xs">No cash movements recorded.</p>
+            </div>
+            <div class="rounded-lg border border-line p-5">
+              <h3>Holding movements</h3>
+              <p
+                *ngFor="let movement of data['holdings']"
+                class="mt-3 border-t border-line pt-3 text-xs"
+              >
+                #{{ movement['movement_id'] }} · {{ movement['occurred_at_utc'] }}<br />Change
+                {{ movement['quantity_delta'] }} · Quantity after {{ movement['quantity_after'] }}
+              </p>
+              <p *ngIf="!data['holdings'].length" class="mt-3 text-xs">
+                No holding movements recorded.
+              </p>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- INVESTORS TAB -->
-    <div *ngIf="activeTab === 'investors'" class="tab-content">
-      <div class="tab-header">
-        <h2>All Investors</h2>
-        <input
-          type="text"
-          placeholder="Search by name or email..."
-          [(ngModel)]="searchText"
-          class="search-input"
-        />
-      </div>
-
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Name</th>
-            <th>Account Balance</th>
-            <th>Portfolio Value</th>
-            <th>Holdings</th>
-            <th>Orders</th>
-            <th>Join Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let investor of getFilteredInvestors()">
-            <td>{{ investor.email }}</td>
-            <td>{{ investor.firstName }} {{ investor.lastName }}</td>
-            <td>${{ investor.accountBalance | number: '1.0-0' }}</td>
-            <td>${{ investor.portfolioValue | number: '1.0-0' }}</td>
-            <td>{{ investor.holdingsCount }}</td>
-            <td>{{ investor.ordersCount }}</td>
-            <td>{{ investor.joinDate }}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div *ngIf="getFilteredInvestors().length === 0" class="empty-state">
-        No investors found
-      </div>
-    </div>
-
-    <!-- TRADES TAB -->
-    <div *ngIf="activeTab === 'trades'" class="tab-content">
-      <div class="tab-header">
-        <h2>All Trades</h2>
-        <input
-          type="text"
-          placeholder="Search by symbol..."
-          [(ngModel)]="searchText"
-          class="search-input"
-        />
-      </div>
-
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Trade ID</th>
-            <th>Symbol</th>
-            <th>Execution Price</th>
-            <th>Quantity</th>
-            <th>Total Value</th>
-            <th>Executed At</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let trade of getFilteredTrades()">
-            <td>{{ trade.tradeId }}</td>
-            <td>{{ trade.symbol }}</td>
-            <td>${{ trade.executionPrice | number: '1.0-2' }}</td>
-            <td>{{ trade.executedQuantity }}</td>
-            <td>${{ (trade.executionPrice * trade.executedQuantity) | number: '1.0-0' }}</td>
-            <td>{{ trade.executedAt | date: 'short' }}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div *ngIf="getFilteredTrades().length === 0" class="empty-state">
-        No trades found
-      </div>
-    </div>
-
-    <!-- ORDERS TAB -->
-    <div *ngIf="activeTab === 'orders'" class="tab-content">
-      <div class="tab-header">
-        <h2>All Orders</h2>
-        <input
-          type="text"
-          placeholder="Search by symbol..."
-          [(ngModel)]="searchText"
-          class="search-input"
-        />
-      </div>
-
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Order ID</th>
-            <th>Symbol</th>
-            <th>Side</th>
-            <th>Quantity</th>
-            <th>Price</th>
-            <th>Status</th>
-            <th>Created At</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let order of getFilteredOrders()">
-            <td>{{ order.orderId }}</td>
-            <td>{{ order.symbol }}</td>
-            <td>
-              <span class="badge" [ngClass]="order.side === 'BUY' ? 'buy' : 'sell'">
-                {{ order.side }}
-              </span>
-            </td>
-            <td>{{ order.quantity }}</td>
-            <td>${{ order.price | number: '1.0-2' }}</td>
-            <td>
-              <span class="status-badge" [ngClass]="'status-' + order.status.toLowerCase()">
-                {{ order.status }}
-              </span>
-            </td>
-            <td>{{ order.dateRequested | date: 'short' }}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div *ngIf="getFilteredOrders().length === 0" class="empty-state">
-        No orders found
-      </div>
+      </section>
     </div>
   </div>
-</div>
+</app-workspace>

@@ -1,86 +1,965 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+@import 'tailwindcss';
+@import './app/features/dashboard/investor/workspace.css' layer(components);
+@custom-variant dark (&:where(.theme-dark, .theme-dark *));
 
-:root {
-	/* Everforest light palette */
-	--md-primary: #8da101;
-	--md-on-primary: #fdf6e3;
-	--md-primary-container: #e3ebcf;
-	--md-on-primary-container: #5c6a00;
-	--md-secondary: #35a77c;
-	--md-surface: #fdf6e3;
-	--md-surface-container: #f4f0d9;
-	--md-surface-container-high: #efebd4;
-	--md-outline: #a6b0a0;
-	--md-outline-variant: #d3c6aa;
-	--md-on-surface: #5c6a72;
-	--md-on-surface-variant: #829181;
-	--md-error: #f85552;
-	--md-shadow: rgba(92, 106, 114, 0.18);
-	--md-focus-ring: rgba(53, 167, 124, 0.28);
-	--md-primary-shadow: rgba(141, 161, 1, 0.3);
-	--md-primary-hover: #748900;
-	--md-border-soft: #e0dcc7;
-	--md-row-hover: #f4f0d9;
-	--md-success-bg: #e3ebcf;
-	--md-success-fg: #5c6a00;
-	--md-danger-bg: #f8dcd6;
-	--md-danger-fg: #c14a4a;
-	--md-warning-bg: #f5ebc6;
-	--md-warning-fg: #a96b2c;
+@theme inline {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --color-canvas: var(--ui-canvas);
+  --color-panel: var(--ui-panel);
+  --color-subtle: var(--ui-subtle);
+  --color-ink: var(--ui-ink);
+  --color-muted: var(--ui-muted);
+  --color-line: var(--ui-line);
+  --color-brand: var(--ui-brand);
+  --color-brand-soft: var(--ui-brand-soft);
+  --color-brand-ink: var(--ui-brand-ink);
 }
 
-body.theme-dark {
-	/* Everforest dark palette */
-	--md-primary: #a7c080;
-	--md-on-primary: #2d353b;
-	--md-primary-container: #425047;
-	--md-on-primary-container: #e3e9d4;
-	--md-secondary: #83c092;
-	--md-surface: #2d353b;
-	--md-surface-container: #343f44;
-	--md-surface-container-high: #3d484d;
-	--md-outline: #859289;
-	--md-outline-variant: #4f585e;
-	--md-on-surface: #d3c6aa;
-	--md-on-surface-variant: #9da9a0;
-	--md-error: #e67e80;
-	--md-shadow: rgba(0, 0, 0, 0.4);
-	--md-focus-ring: rgba(127, 187, 179, 0.34);
-	--md-primary-shadow: rgba(167, 192, 128, 0.3);
-	--md-primary-hover: #b5cc92;
-	--md-border-soft: #4f585e;
-	--md-row-hover: #3d484d;
-	--md-success-bg: #425047;
-	--md-success-fg: #a7c080;
-	--md-danger-bg: #543a3f;
-	--md-danger-fg: #e67e80;
-	--md-warning-bg: #5a4d33;
-	--md-warning-fg: #dbbc7f;
+@layer base {
+  :root {
+    --ui-canvas: #f5f7fa;
+    --ui-panel: #ffffff;
+    --ui-subtle: #f0f3f7;
+    --ui-ink: #172333;
+    --ui-muted: #627184;
+    --ui-line: #dce3ec;
+    --ui-brand: #087f65;
+    --ui-brand-soft: #e1f5ed;
+    --ui-brand-ink: #ffffff;
+    --ui-success: #087f65;
+    --ui-danger: #c63b4c;
+    --ui-warning: #926316;
+    --ui-danger-bg: #fff0f1;
+    --ui-warning-bg: #fff7df;
+    --heatmap-up-1: #dcf3e9;
+    --heatmap-up-2: #a8dec9;
+    --heatmap-up-3: #5cb893;
+    --heatmap-down-1: #fae2e6;
+    --heatmap-down-2: #efbac4;
+    --heatmap-down-3: #e68b9e;
+    --ui-chart-1: #087f65;
+    --ui-chart-2: #3978ae;
+    --ui-chart-3: #8661b1;
+    --ui-chart-4: #b77a32;
+    --ui-chart-5: #b85770;
+    --ui-chart-6: #328b94;
+
+  }
+  body.theme-dark {
+    --ui-canvas: #0b111b;
+    --ui-panel: #111b29;
+    --ui-subtle: #182434;
+    --ui-ink: #e6edf5;
+    --ui-muted: #95a5ba;
+    --ui-line: #273548;
+    --ui-brand: #76dbb4;
+    --ui-brand-soft: #15372f;
+    --ui-brand-ink: #092c22;
+    --ui-success: #76dbb4;
+    --ui-danger: #f695a1;
+    --ui-warning: #e4bf77;
+    --ui-danger-bg: #3b202b;
+    --ui-warning-bg: #342e23;
+    --heatmap-up-1: #193d34;
+    --heatmap-up-2: #205d49;
+    --heatmap-up-3: #247552;
+    --heatmap-down-1: #442933;
+    --heatmap-down-2: #713848;
+    --heatmap-down-3: #964457;
+    --ui-chart-1: #76dbb4;
+    --ui-chart-2: #7cb6e5;
+    --ui-chart-3: #b99cde;
+    --ui-chart-4: #e4bf77;
+    --ui-chart-5: #e797ad;
+    --ui-chart-6: #78c5cc;
+  }
+  body {
+    --md-primary: var(--ui-brand);
+    --md-on-primary: var(--ui-brand-ink);
+    --md-on-surface: var(--ui-ink);
+    --md-on-surface-variant: var(--ui-muted);
+    --md-surface: var(--ui-panel);
+    --md-surface-container: var(--ui-subtle);
+    --md-surface-container-high: var(--ui-canvas);
+    --md-outline: var(--ui-muted);
+    --md-outline-variant: var(--ui-line);
+    --md-border-soft: var(--ui-line);
+    --md-error: var(--ui-danger);
+    --md-shadow: rgb(0 0 0 / 0.1);
+    --md-success-fg: var(--ui-success);
+    --md-success-bg: var(--ui-brand-soft);
+    --md-primary-hover: color-mix(in srgb, var(--ui-brand) 85%, var(--ui-ink));
+    --md-primary-shadow: color-mix(in srgb, var(--ui-brand) 20%, transparent);
+    --md-focus-ring: color-mix(in srgb, var(--ui-brand) 25%, transparent);
+    --md-row-hover: var(--ui-subtle);
+    --md-secondary: var(--ui-muted);
+    --md-danger-fg: var(--ui-danger);
+    --md-danger-bg: var(--ui-danger-bg);
+    --md-warning-fg: var(--ui-warning);
+    --md-warning-bg: var(--ui-warning-bg);
+
+    @apply m-0 bg-canvas font-sans text-sm leading-relaxed text-ink antialiased;
+  }
+  h1 {
+    @apply text-3xl font-semibold tracking-tight md:text-4xl;
+  }
+  h2 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+  h3 {
+    @apply text-base font-semibold;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply text-ink;
+  }
+  p {
+    @apply text-muted;
+  }
+  a {
+    @apply text-brand underline-offset-4;
+  }
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+  button {
+    @apply cursor-pointer;
+  }
+  button:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  summary {
+    @apply focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand;
+  }
+  input[type='checkbox'] {
+    @apply size-4 shrink-0 accent-brand;
+  }
+  input[type='date'] {
+    min-width: 0;
+  }
+  label {
+    @apply flex flex-col gap-2 text-xs font-medium text-muted;
+  }
+  small {
+    @apply text-xs text-muted;
+  }
+  [hidden] {
+    display: none !important;
+  }
+  ::selection {
+    @apply bg-brand text-brand-ink;
+  }
 }
 
-* {
-	box-sizing: border-box;
+@layer components {
+  .ui-button {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-line bg-panel px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-subtle disabled:pointer-events-none;
+  }
+  .ui-button[data-variant='primary'],
+  .btn-primary,
+  .btn-login,
+  .session-warning-primary {
+    @apply border-brand bg-brand text-brand-ink hover:brightness-110;
+  }
+  .ui-button[data-variant='ghost'] {
+    @apply border-transparent bg-transparent text-muted hover:bg-subtle hover:text-ink;
+  }
+  .ui-button[data-variant='danger'] {
+    color: var(--ui-danger);
+    background: var(--ui-danger-bg);
+  }
+  .ui-input {
+    @apply block min-h-11 w-full min-w-0 rounded-lg border border-line bg-canvas px-3 py-2.5 text-sm text-ink placeholder:text-muted/70 focus:border-brand focus:outline-2 focus:outline-brand/20 disabled:opacity-50;
+  }
+  textarea.ui-input {
+    @apply min-h-28 resize-y;
+  }
+  .brand-symbol {
+    @apply grid size-10 shrink-0 place-items-center rounded-xl bg-brand text-brand-ink;
+  }
+  .brand-copy {
+    @apply flex items-baseline gap-1 text-xl font-semibold tracking-tight text-ink;
+  }
+  .brand-product {
+    @apply text-xl font-normal text-muted;
+  }
+  .brand-pro {
+    @apply ml-1 align-middle text-[9px] font-semibold tracking-widest text-brand;
+  }
+  .workspace-header {
+    @apply sticky top-0 z-40 border-b border-line bg-panel/95 backdrop-blur-md;
+  }
+  .workspace-header-inner {
+    @apply mx-auto flex min-h-20 max-w-[1600px] items-center gap-5 px-5 md:px-10;
+  }
+  .workspace-context {
+    @apply hidden items-center gap-5 text-xs font-medium text-muted md:flex;
+  }
+  .context-divider {
+    @apply h-5 border-l border-line;
+  }
+  .workspace-header-actions {
+    @apply ml-auto flex items-center gap-2 md:gap-3;
+  }
+  .workspace-username {
+    @apply hidden max-w-36 truncate text-xs font-medium text-muted lg:block;
+  }
+  .user-avatar {
+    @apply hidden size-8 items-center justify-center rounded-full border border-line bg-subtle text-xs font-semibold text-brand sm:flex;
+  }
+  .workspace-content {
+    @apply mx-auto max-w-[1600px] px-4 py-7 sm:px-6 md:px-10 md:py-10;
+  }
+  .skip-link {
+    @apply fixed -top-20 left-4 z-[100] rounded-lg bg-brand p-3 text-brand-ink focus:top-2;
+  }
+  .page-heading {
+    @apply mb-8 flex flex-wrap items-center justify-between gap-5;
+  }
+  .page-heading h1 {
+    @apply mt-2;
+  }
+  .page-heading .description {
+    @apply mt-3 max-w-2xl;
+  }
+  .heading-actions {
+    @apply flex flex-wrap items-center gap-3;
+  }
+  .eyebrow {
+    @apply text-[10px] font-semibold uppercase tracking-[.2em] text-brand;
+  }
+  .description,
+  .subtitle {
+    @apply text-sm leading-relaxed text-muted;
+  }
+  .section,
+  .tab-content,
+  .form-card,
+  .trend-card {
+    @apply mb-6 rounded-xl border border-line bg-panel p-5 sm:p-7;
+  }
+  .section h2,
+  .section h3,
+  .tab-content > h1,
+  .tab-content > h2 {
+    @apply mb-3;
+  }
+  .section > p,
+  .tab-content > p {
+    @apply mb-4;
+  }
+  .section .section {
+    @apply mt-6 bg-canvas;
+  }
+  .tab-content {
+    @apply min-w-0;
+  }
+  .tabs {
+    @apply mb-7 flex w-fit max-w-full flex-nowrap gap-1 overflow-x-auto rounded-xl border border-line bg-panel p-1.5;
+  }
+  .tab-button {
+    @apply inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-5 text-sm font-medium capitalize text-muted transition-colors hover:bg-subtle hover:text-ink;
+  }
+  .tab-button.active {
+    @apply bg-brand-soft text-brand;
+  }
+  .tab-button[aria-selected='true'] {
+    @apply bg-brand-soft text-brand;
+  }
+  .table-scroll,
+  .orders-table-wrapper {
+    @apply my-5 overflow-x-auto rounded-lg border border-line;
+  }
+  .data-table,
+  .table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+  .data-table thead,
+  .table thead {
+    @apply border-b border-line bg-subtle;
+  }
+  .data-table th,
+  .table th {
+    @apply whitespace-nowrap px-5 py-3.5 text-[10px] font-semibold uppercase tracking-[.1em] text-muted;
+  }
+  .data-table td,
+  .table td {
+    @apply whitespace-nowrap border-b border-line/60 px-5 py-4 text-xs tabular-nums;
+  }
+  .data-table tr:last-child td,
+  .table tr:last-child td {
+    @apply border-0;
+  }
+  .data-table tbody tr,
+  .table tbody tr {
+    @apply transition-colors hover:bg-subtle/50;
+  }
+  .data-table td .ui-button {
+    @apply min-h-7 border-0 bg-transparent p-0 text-brand hover:underline;
+  }
+  .pager {
+    @apply flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5 text-xs text-muted;
+  }
+  .filters {
+    @apply my-5 grid grid-cols-1 items-end gap-4 rounded-lg border border-line bg-canvas p-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto];
+  }
+  .search-form {
+    @apply my-5 flex max-w-xl flex-wrap items-end gap-3;
+  }
+  .search-form label {
+    @apply min-w-48 flex-1;
+  }
+  .ui-badge,
+  .status-badge,
+  .order-side,
+  .symbol-badge,
+  .wallet-connected {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-line bg-subtle px-2.5 py-1 text-[10px] font-medium;
+  }
+  .badge-dot {
+    @apply size-1.5 rounded-full bg-current;
+  }
+  .ui-badge[data-tone='success'],
+  .buy,
+  .status-executed,
+  .status-filled,
+  .wallet-connected {
+    @apply border-brand/20 bg-brand-soft text-brand;
+  }
+  .ui-badge[data-tone='warning'],
+  .status-pending {
+    color: var(--ui-warning);
+    background: var(--ui-warning-bg);
+    border-color: transparent;
+  }
+  .ui-badge[data-tone='danger'],
+  .sell,
+  .status-rejected,
+  .error {
+    color: var(--ui-danger);
+    background: var(--ui-danger-bg);
+    border-color: transparent;
+  }
+  .ui-empty-state,
+  .empty-state,
+  .wallet-empty-state,
+  .placeholder {
+    @apply flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-line bg-canvas px-6 py-12 text-center text-sm text-muted;
+  }
+  .ui-empty-state p {
+    @apply max-w-md text-xs;
+  }
+  .empty-icon {
+    @apply mb-1 grid size-12 place-items-center rounded-xl border border-line bg-panel text-muted;
+  }
+  .loading-indicator,
+  .loading-full-screen {
+    @apply my-6 rounded-xl border border-line bg-panel p-8 text-center text-sm text-muted;
+  }
+  .error-banner,
+  .error {
+    @apply mb-5 rounded-lg border p-4 text-sm;
+    color: var(--ui-danger);
+    background: var(--ui-danger-bg);
+    border-color: color-mix(in srgb, var(--ui-danger), transparent 75%);
+  }
+  .error-text {
+    @apply mt-2 block text-xs;
+    color: var(--ui-danger);
+  }
+  .notice {
+    @apply my-4 rounded-lg border border-line bg-subtle p-4 text-xs leading-relaxed;
+  }
+  .notice[data-tone='warning'],
+  p[role='alert'] {
+    @apply rounded-lg p-4;
+    color: var(--ui-warning);
+    background: var(--ui-warning-bg);
+  }
+  .freshness {
+    @apply mb-4 inline-flex items-center gap-2 rounded-md border border-line bg-canvas px-3 py-2 text-[11px] text-muted;
+  }
+  .freshness::before {
+    @apply size-1.5 rounded-full bg-brand;
+    content: '';
+  }
+  .snapshot {
+    @apply mb-5 rounded-lg border border-line bg-canvas p-4 text-xs text-muted;
+  }
+  .timeline {
+    @apply my-5 list-none space-y-0 pl-2;
+  }
+  .timeline li {
+    @apply relative border-l border-line pb-7 pl-6 text-xs text-muted;
+  }
+  .timeline li::before {
+    @apply absolute -left-[5px] top-1 size-[9px] rounded-full border-2 border-panel bg-brand;
+    content: '';
+  }
+  .timeline li:last-child {
+    @apply border-transparent pb-0;
+  }
+  .timeline strong {
+    @apply font-medium text-ink;
+  }
+  .timeline p {
+    @apply mt-2 leading-relaxed;
+  }
+  .case-actions {
+    @apply my-6 grid gap-5 rounded-lg border border-line bg-canvas p-5 md:grid-cols-2;
+  }
+  .case-actions > label,
+  .case-actions > div {
+    @apply min-w-0;
+  }
+  .case-actions .ui-button {
+    @apply mt-3 w-fit;
+  }
+  .case-detail-header {
+    @apply mb-5 flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5;
+  }
+  .case-links {
+    @apply my-5 flex flex-wrap gap-3;
+  }
+  .stat-grid,
+  .portfolio-grid,
+  .stats-grid,
+  .trends-grid {
+    @apply grid gap-5 sm:grid-cols-2 xl:grid-cols-3;
+  }
+  .stat-card,
+  .portfolio-card,
+  .quote-card {
+    @apply rounded-xl border border-line bg-panel p-6;
+  }
+  .stat-value,
+  .balance-amount {
+    @apply mt-2 text-3xl font-semibold tracking-tight text-ink tabular-nums;
+  }
+  .stat-label,
+  .stat-title {
+    @apply text-xs font-medium text-muted;
+  }
+  .positive,
+  .wallet-positive {
+    color: var(--ui-success);
+  }
+  .negative,
+  .wallet-negative {
+    color: var(--ui-danger);
+  }
+
+  /* Authentication and account setup */
+  .auth-page {
+    @apply grid min-h-screen lg:grid-cols-[1.1fr_1fr];
+  }
+  .auth-story {
+    @apply relative hidden flex-col justify-between border-r border-line bg-panel p-12 lg:flex xl:p-16;
+  }
+  .auth-story h1 {
+    @apply max-w-lg text-5xl leading-[1.15] xl:text-6xl;
+  }
+  .auth-story p {
+    @apply mt-6 max-w-md text-base leading-relaxed;
+  }
+  .auth-story-foot {
+    @apply flex items-center gap-3 text-xs text-muted;
+  }
+  .auth-accent {
+    @apply my-10 h-px max-w-md bg-gradient-to-r from-brand/70 to-transparent;
+  }
+  .auth-content {
+    @apply flex min-h-screen items-center justify-center px-6 py-12;
+  }
+  .auth-card {
+    @apply w-full max-w-sm;
+  }
+  .auth-card h1 {
+    @apply mb-3 text-3xl;
+  }
+  .auth-card form {
+    @apply mt-8 space-y-5;
+  }
+  .auth-card .ui-button {
+    @apply w-full;
+  }
+  .auth-divider {
+    @apply my-6 border-t border-line;
+  }
+  .checkbox-row {
+    @apply flex-row items-center gap-2.5 text-sm;
+  }
+  .form-group,
+  .form-field {
+    @apply flex flex-col gap-2;
+  }
+  .form-group > label {
+    @apply mb-1;
+  }
+  .password-requirement {
+    @apply text-xs text-muted;
+  }
+  .page-container {
+    @apply mx-auto flex min-h-screen max-w-xl flex-col justify-center px-5 py-10;
+  }
+  .form-card form {
+    @apply mt-8 space-y-6;
+  }
+  .form-card > .ui-button {
+    @apply mt-4 w-full;
+  }
+  .account-list {
+    @apply grid list-none gap-4 sm:grid-cols-2 xl:grid-cols-3;
+  }
+  .account-row {
+    @apply relative flex w-full flex-col items-start gap-3 rounded-xl border border-line bg-panel p-7 text-left transition-colors hover:border-brand hover:bg-brand-soft;
+  }
+  .account-row::after {
+    @apply absolute right-6 top-7 text-brand;
+    content: '↗';
+  }
+  .account-row-icon {
+    @apply mb-3 grid size-11 place-items-center rounded-lg border border-line bg-subtle text-brand;
+  }
+  .account-type {
+    @apply text-lg font-semibold;
+  }
+  .account-id {
+    @apply font-mono text-xs text-muted;
+  }
+  .account-row-footer {
+    @apply mt-5 flex w-full items-center justify-between border-t border-line pt-4 text-xs text-muted;
+  }
+
+  /* Trading and wallet layouts */
+  .account-page {
+    @apply grid min-w-0 gap-7 lg:grid-cols-[180px_minmax(0,1fr)];
+  }
+  .sidebar {
+    @apply flex gap-1 overflow-x-auto rounded-xl border border-line bg-panel p-2 lg:sticky lg:top-28 lg:h-fit lg:flex-col lg:p-3;
+  }
+  .sidebar-button {
+    @apply shrink-0 rounded-lg px-4 py-3 text-left text-sm font-medium text-muted hover:bg-subtle hover:text-ink;
+  }
+  .sidebar-button.active {
+    @apply bg-brand-soft text-brand;
+  }
+  .account-main {
+    @apply min-w-0;
+  }
+  .account-toolbar {
+    @apply mb-7;
+  }
+  .account-title .description {
+    @apply mt-2;
+  }
+  .account-switcher {
+    @apply relative;
+  }
+  .account-switcher-button {
+    @apply flex items-center gap-4 rounded-lg border border-line bg-panel px-3 py-2 text-left;
+  }
+  .account-switcher-copy {
+    @apply flex flex-col text-xs;
+  }
+  .account-switcher-copy span {
+    @apply hidden text-muted sm:block;
+  }
+  .account-switcher-menu {
+    @apply absolute right-0 z-50 mt-2 w-72 rounded-xl border border-line bg-panel shadow-xl;
+  }
+  .account-menu-content,
+  .account-menu-footer {
+    @apply p-3;
+  }
+  .account-menu-heading {
+    @apply flex items-center justify-between px-2 py-2 text-xs;
+  }
+  .account-menu-item {
+    @apply my-1 flex w-full items-center justify-between rounded-lg px-3 py-3 text-left hover:bg-subtle;
+  }
+  .account-menu-item span {
+    @apply flex flex-col;
+  }
+  .account-menu-item.selected {
+    @apply bg-brand-soft text-brand;
+  }
+  .account-menu-footer {
+    @apply border-t border-line;
+  }
+  .selected-mark {
+    @apply text-brand;
+  }
+  .trade-search-heading,
+  .wallet-section-heading,
+  .wallet-header,
+  .modal-header {
+    @apply mb-5 flex items-center justify-between gap-4;
+  }
+  .trade-search-hint,
+  .market-data-status {
+    @apply text-xs text-muted;
+  }
+  .trade-search-box {
+    @apply relative;
+  }
+  .ticker-suggestions {
+    @apply absolute left-0 right-0 z-20 mt-2 max-h-80 overflow-y-auto rounded-lg border border-line bg-panel shadow-xl;
+  }
+  .ticker-suggestion {
+    @apply flex w-full items-center gap-4 border-b border-line p-4 text-left hover:bg-subtle;
+  }
+  .ticker-suggestion-symbol {
+    @apply w-16 font-semibold text-brand;
+  }
+  .ticker-suggestion-name {
+    @apply flex-1 truncate text-xs text-muted;
+  }
+  .ticker-suggestion-exchange {
+    @apply text-[10px] text-muted;
+  }
+  .wallet-grid {
+    @apply grid gap-5 xl:grid-cols-2;
+  }
+  .wallet-funds {
+    @apply my-6 flex flex-wrap items-center gap-8;
+  }
+  .wallet-balance-card {
+    @apply flex flex-col gap-2;
+  }
+  .wallet-balance-card strong {
+    @apply text-4xl font-semibold tracking-tight;
+  }
+  .wallet-actions {
+    @apply flex gap-3;
+  }
+  .wallet-action-button {
+    @apply flex items-center gap-3 rounded-lg border border-line bg-panel p-4 text-left hover:border-brand;
+  }
+  .wallet-action-button > span:first-child {
+    @apply grid size-9 place-items-center rounded-lg bg-brand-soft text-brand;
+  }
+  .wallet-action-button span:last-child,
+  .wallet-bank-copy,
+  .wallet-activity-copy {
+    @apply flex flex-col;
+  }
+  .wallet-bank-card,
+  .wallet-activity-item {
+    @apply flex items-center gap-4 border-b border-line py-4;
+  }
+  .wallet-bank-copy,
+  .wallet-activity-copy {
+    @apply flex-1;
+  }
+  .wallet-bank-icon,
+  .wallet-activity-icon {
+    @apply grid size-10 place-items-center rounded-lg bg-subtle text-brand;
+  }
+  .wallet-bank-list,
+  .wallet-activity-list {
+    @apply space-y-2;
+  }
+  .wallet-form {
+    @apply space-y-5;
+  }
+  .modal-overlay,
+  .session-warning-backdrop,
+  .session-expired-backdrop {
+    @apply fixed inset-0 z-[60] grid items-start justify-items-center overflow-y-auto bg-black/60 px-5 py-16 backdrop-blur-sm sm:items-center;
+  }
+  .modal-box,
+  .session-warning,
+  .session-expired {
+    @apply relative w-full max-w-lg rounded-2xl border border-line bg-panel p-6 shadow-2xl sm:p-8;
+  }
+  .modal-header {
+    @apply border-b border-line pb-5;
+  }
+  .modal-box .form-group {
+    @apply mt-5 gap-5;
+  }
+  .modal-box .ui-input {
+    @apply mt-2;
+  }
+  .order-summary {
+    @apply rounded-lg border border-line bg-canvas p-4;
+  }
+  .summary-row {
+    @apply flex items-center justify-between gap-4 py-2 text-xs text-muted;
+  }
+  .summary-row.total {
+    @apply mt-2 border-t border-line pt-3 font-semibold text-ink;
+  }
+  .btn-full-width {
+    @apply w-full;
+  }
+  .quote-price-row {
+    @apply flex flex-wrap items-baseline gap-3;
+  }
+  .quote-price-value {
+    @apply text-4xl font-semibold tracking-tight;
+  }
+  .quote-currency {
+    @apply text-xs text-muted;
+  }
+  .quote-change-box {
+    @apply ml-auto flex flex-col items-end text-xs;
+  }
+  .quote-percent-pill {
+    @apply rounded-md bg-subtle px-2 py-1;
+  }
+  .order-placed {
+    @apply flex flex-col items-center gap-5 py-8;
+  }
+  .order-placed-close {
+    @apply absolute right-4 top-4;
+  }
+  .session-warning-actions {
+    @apply mt-7 flex justify-end gap-3;
+  }
+  .session-expired p,
+  .session-warning p {
+    @apply mt-3;
+  }
+  .session-expired .ui-button {
+    @apply mt-6;
+  }
+  .recent-orders-dropdown > summary {
+    @apply flex cursor-pointer items-center justify-between text-base font-semibold;
+  }
+  .portfolio-summary {
+    @apply mb-6 grid gap-5 md:grid-cols-3;
+  }
+  .balance-card {
+    @apply rounded-xl border border-line bg-panel p-6;
+  }
+  .balance-card h3 {
+    @apply text-xs font-medium text-muted;
+  }
+  .balance-card .amount {
+    @apply mt-3 text-3xl font-semibold tabular-nums;
+  }
+
+  /* Market analysis */
+  .sectors-container {
+    @apply my-6 grid gap-4 md:grid-cols-2;
+  }
+  .sector {
+    @apply rounded-xl border border-line bg-canvas p-3;
+  }
+  .sector-header {
+    @apply mb-3 text-xs font-medium text-muted;
+  }
+  .sector-heatmap {
+    @apply flex flex-wrap gap-1.5;
+  }
+  .heatmap-cell-treemap {
+    @apply flex min-w-16 flex-col items-center justify-center rounded-md p-3 text-white;
+  }
+  .cell-symbol {
+    @apply text-sm font-bold;
+  }
+  .cell-score,
+  .cell-volume {
+    @apply text-[10px] opacity-80;
+  }
+  .heatmap-legend {
+    @apply my-5 rounded-lg border border-line bg-canvas p-4 text-xs text-muted;
+  }
+  .legend-items {
+    @apply mt-3 flex flex-wrap gap-5;
+  }
+  .legend-item {
+    @apply flex items-center gap-2;
+  }
+  .legend-color {
+    @apply size-3 rounded-sm;
+  }
+  .popularity-bar {
+    @apply relative h-5 min-w-24 overflow-hidden rounded-md bg-subtle;
+  }
+  .popularity-fill {
+    @apply h-full bg-brand/30;
+  }
+  .popularity-text {
+    @apply absolute inset-0 text-center text-[10px] leading-5;
+  }
+  .trend-stats {
+    @apply mt-5 flex justify-between;
+  }
+  .trend-date {
+    @apply mb-3 text-xs text-muted;
+  }
+  .trend-card .stat {
+    @apply flex flex-col;
+  }
+  .tab-header {
+    @apply mb-5 flex flex-wrap items-end justify-between gap-4;
+  }
+  .tab-header .search-input {
+    @apply max-w-sm;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 html,
 body {
 	margin: 0;
+	height: auto;
 	min-height: 100%;
+	overflow-x: clip;
+	overflow-y: auto;
+
 }
 
-body {
-	font-family: 'Roboto', 'Segoe UI', sans-serif;
-	color: var(--md-on-surface);
-	background: var(--md-surface);
-	transition: background 0.3s ease, color 0.2s ease;
+@layer components {
+  .admin-layout {
+    @apply grid gap-7 lg:grid-cols-[190px_minmax(0,1fr)];
+  }
+  .admin-navigation {
+    @apply h-fit rounded-xl border border-line bg-panel p-4 lg:sticky lg:top-28;
+  }
+  .admin-nav-item {
+    @apply flex min-h-11 items-center gap-3 rounded-lg px-3 text-left text-xs font-medium text-muted hover:bg-subtle hover:text-ink;
+  }
+  .admin-nav-item.active {
+    @apply bg-brand-soft text-brand;
+  }
+  .nav-number {
+    @apply font-mono text-[9px] opacity-60;
+  }
+  .panel-heading {
+    @apply flex flex-wrap items-start justify-between gap-4;
+  }
+  .panel-heading h2 {
+    @apply mb-2;
+  }
+  .metric-card {
+    @apply flex flex-col gap-3 rounded-lg border border-line bg-canvas p-5;
+  }
+  .metric-card > p {
+    @apply text-[11px] font-medium;
+  }
+  .metric-card strong {
+    overflow-wrap: anywhere;
+  }
+  .cards {
+    @apply mb-6 grid gap-5 sm:grid-cols-2;
+  }
+  .card {
+    @apply rounded-xl border border-line bg-panel p-7;
+  }
+  .card h3 {
+    @apply text-xs font-medium text-muted;
+  }
+  .card .value {
+    @apply mt-3 text-4xl font-semibold tracking-tight text-ink tabular-nums;
+  }
+  .chart-placeholder {
+    @apply mt-5 grid min-h-48 place-items-center rounded-lg border border-dashed border-line bg-canvas text-xs text-muted;
+  }
+  .dashboard-grid {
+    @apply grid gap-5;
+  }
+  .dashboard-column {
+    @apply min-w-0;
+  }
 }
 
-body.theme-dark {
-	background: var(--md-surface);
+@layer components {
+  .workspace-header-inner {
+    @apply gap-3 px-4 sm:px-6 md:px-10;
+  }
+  .workspace-header .brand-copy {
+    @apply whitespace-nowrap text-lg sm:text-xl;
+  }
+  .workspace-header .brand-product {
+    @apply text-base sm:text-xl;
+  }
+  .workspace-header .brand-pro {
+    @apply hidden sm:inline;
+  }
+  .workspace-header .brand-symbol {
+    @apply size-8 sm:size-10;
+  }
+  .workspace-header-actions > .ui-button {
+    @apply whitespace-nowrap px-3;
+  }
+  .admin-navigation {
+    @apply p-2 lg:p-4;
+  }
+  .admin-navigation > .eyebrow,
+  .admin-navigation > div {
+    @apply hidden lg:block;
+  }
+  .admin-navigation nav {
+    @apply flex-row overflow-x-auto lg:flex-col lg:overflow-visible;
+  }
+  .admin-nav-item {
+    @apply shrink-0 whitespace-nowrap lg:whitespace-normal;
+  }
+  .nav-number {
+    @apply hidden lg:inline;
+  }
 }
 
-button,
-input,
-select {
-	font: inherit;
+@layer components {
+  .workspace-header-inner:has([workspaceActions]) {
+    @apply flex-wrap py-3 sm:flex-nowrap sm:py-0;
+  }
+  .workspace-header-inner:has([workspaceActions]) .workspace-header-actions {
+    @apply max-sm:ml-0 max-sm:w-full max-sm:justify-between;
+  }
+}
+
+@layer components {
+  .wallet-connected { @apply text-xs font-bold text-brand; }
+  .wallet-empty-state { @apply grid justify-items-center gap-2 px-5 py-10 text-center; }
+  .wallet-empty-state.compact { @apply pt-16; }
+  .wallet-empty-state p { @apply max-w-xs text-sm text-muted; }
+  .wallet-empty-icon { @apply mb-1 grid size-12 place-items-center rounded-full border border-dashed border-line text-2xl text-brand; }
+  .wallet-activity-icon.withdrawal { @apply bg-subtle text-ink; }
+  .wallet-negative { color: var(--ui-danger); }
+  .wallet-modal { @apply w-full max-w-md; }
+  .wallet-form label { @apply grid gap-1.5 text-sm font-semibold text-muted; }
+  .wallet-form input, .wallet-form select { @apply w-full rounded-lg border border-line bg-panel px-3 py-2.5 text-ink; }
+}
+
+/* Shared identity and document scrolling across every workspace. */
+app-workspace { display: block; min-height: 100dvh; }
+.workspace-content { width: 100%; height: auto; overflow: visible; }
+.trader-brand { display: inline-flex; align-items: center; gap: .7rem; color: var(--ui-ink); text-decoration: none; }
+.trader-brand-copy { display: flex; flex-direction: column; gap: .1rem; }
+.trader-brand-name { font-size: 1.1rem; font-weight: 700; white-space: nowrap; letter-spacing: -.03em; }
+.trader-brand-byline { font-size: .65rem; color: var(--ui-muted); }
+.history-sort { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; text-align: left; white-space: nowrap; }
+.history-sort:focus-visible { outline: 2px solid var(--ui-brand); outline-offset: 4px; border-radius: 2px; }
+.history-sort:hover, th[aria-sort=ascending] .history-sort, th[aria-sort=descending] .history-sort { color: var(--ui-brand); }
+
+/* Use the frog quadrant from the supplied pixel-art brand sheet. */
+.ribbit-frog-mark {
+  display: inline-block;
+  width: 2.75rem; height: 2.75rem; flex-shrink: 0;
+  background: #fff url('/brand/ribbit-logo.jpg') 1% 1% / 210% 210% no-repeat;
+  border: 1px solid var(--ui-line); border-radius: .65rem;
+  image-rendering: pixelated;
 }

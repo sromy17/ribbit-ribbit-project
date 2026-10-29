@@ -1,13 +1,15 @@
+import { UI_COMPONENTS } from '../../../shared/ui';
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { finalize, timeout } from 'rxjs';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [...UI_COMPONENTS, CommonModule, FormsModule],
   templateUrl: './register.component.html',
   styleUrls: ['./register.component.css']
 })
@@ -31,6 +33,10 @@ export class RegisterComponent {
       this.error = 'Password must be at least 12 characters';
       return;
     }
+    if (Validators.email(new FormControl(this.username.trim()))) {
+      this.error = 'Username must be a valid email address';
+      return;
+    }
 
     this.loading = true;
     this.auth.register({
@@ -41,8 +47,11 @@ export class RegisterComponent {
     }).subscribe({
       next: () => this.router.navigate(['/login']),
       error: (error) => {
-        this.error = error.status === 409 ? 'That username already exists' : 'Unable to create your profile';
-        this.loading = false;
+        this.error = error.status === 409
+          ? 'That username already exists'
+          : error.name === 'TimeoutError'
+            ? 'The authentication service did not respond. Check that the auth stub is running.'
+            : 'Unable to create your profile';
       }
     });
   }

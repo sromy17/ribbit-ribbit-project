@@ -14,9 +14,9 @@ const PORT = Number(process.env.AUTH_STUB_PORT || 4000);
 const SHARED_SECRET = process.env.JWT_SHARED_SECRET;
 const JWT_EXPIRATION_SECONDS = Number(process.env.JWT_EXPIRATION_SECONDS || 1200);
 const REFRESH_TOKEN_VALID_DAYS = Number(process.env.REFRESH_TOKEN_VALID_DAYS || 7);
-const DB_URL = process.env.DB_URL;
-const DB_USER = process.env.DB_USER;
-const DB_PASSWORD = process.env.DB_PASSWORD;
+const DB_URL = process.env.DB_OLTP_URL || process.env.DB_URL;
+const DB_USER = process.env.DB_OLTP_USER || process.env.DB_USER;
+const DB_PASSWORD = process.env.DB_OLTP_PASSWORD || process.env.DB_PASSWORD;
 const DB_SSL = (process.env.DB_SSL || "false").toLowerCase() === "true";
 
 function extractBearerToken(authHeader) {
@@ -37,8 +37,13 @@ function hashToken(token) {
 }
 
 async function allocateId(table, column) {
-  const result = await pool.query(`SELECT COALESCE(MAX(${column}), 0) + 1 AS next_id FROM ${table}`);
-  return Number(result.rows[0].next_id);
+  const kinds = {refresh_tokens: "REFRESH_TOKEN", access_tokens: "ACCESS_TOKEN"};
+  const kind = kinds[table];
+  if (!kind) throw new Error("Unsupported token ID allocation");
+  await pool.query("CREATE TABLE IF NOT EXISTS financial_id_allocations (kind VARCHAR(20) PRIMARY KEY, last_id BIGINT NOT NULL)");
+  await pool.query("INSERT INTO financial_id_allocations(kind,last_id) VALUES($1,0) ON CONFLICT DO NOTHING", [kind]);
+  const result = await pool.query(`UPDATE financial_id_allocations SET last_id=GREATEST(last_id,(SELECT COALESCE(MAX(${column}),0) FROM ${table}))+1 WHERE kind=$1 RETURNING last_id`, [kind]);
+  return Number(result.rows[0].last_id);
 }
 
 function normalizeDbUrl(url) {
@@ -55,7 +60,12 @@ function normalizeDbUrl(url) {
 
 function createPoolConfig() {
   const config = {
-    ssl: DB_SSL ? { rejectUnauthorized: false } : false
+    ssl: DB_SSL ? {
+      rejectUnauthorized: true,
+      ...(process.env.DB_SSL_CA ? {
+        ca: require('node:fs').readFileSync(process.env.DB_SSL_CA, 'utf8')
+      } : {})
+    } : false
   };
 
   const normalized = normalizeDbUrl(DB_URL);
@@ -108,6 +118,7 @@ function issueToken(user) {
 
   return jwt.sign(payload, SHARED_SECRET, {
     algorithm: "HS256",
+    jwtid: crypto.randomUUID(),
     expiresIn: JWT_EXPIRATION_SECONDS
   });
 }
@@ -185,8 +196,13 @@ async function ensureDatabaseConnection() {
   }
 }
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+app.get("/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok" });
+  } catch {
+    res.status(503).json({ status: "unavailable" });
+  }
 });
 
 app.post("/register", async (req, res) => {
@@ -216,8 +232,8 @@ app.post("/register", async (req, res) => {
 
     await client.query(
       `INSERT INTO users
-        (userid, username, salt, userhashedsaltedpassword, first_name, last_name)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+        (userid, username, salt, userhashedsaltedpassword, first_name, last_name, registered_at_utc)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
       [nextUserId, username, "bcrypt", passwordHash, firstName, lastName]
     );
 

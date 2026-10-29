@@ -26,7 +26,7 @@ public class Bank {
     @Column(name = "account_number", nullable = false, length = 17)
     private String accountNumber;
 
-    @Column(name = "balance", nullable = false)
+    @Column(name = "balance", nullable = false, precision = 30, scale = 10)
     private BigDecimal balance;
 
     public Integer getBankId() { return bankId; }

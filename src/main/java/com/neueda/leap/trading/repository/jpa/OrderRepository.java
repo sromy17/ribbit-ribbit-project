@@ -9,9 +9,11 @@ import org.springframework.data.jpa.repository.Query;
 import com.neueda.leap.trading.domain.Order;
 
 public interface OrderRepository extends JpaRepository<Order, Integer> {
-    @Query("select o from Order o join fetch o.instrument where o.account.accountId = :accountId order by o.dateRequested desc")
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.orderId = :id")
+    java.util.Optional<Order> findForUpdate(@Param("id") Integer id);
+
+    @Query("select distinct o from Order o join fetch o.instrument left join fetch o.trades where o.account.accountId = :accountId order by o.dateRequested desc, o.orderId desc")
     List<Order> findByAccountAccountId(@Param("accountId") Integer accountId);
 
-    @Query("select coalesce(max(o.orderId), 0) from Order o")
-    Integer findMaxOrderId();
 }

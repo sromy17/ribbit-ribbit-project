@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "id": "us-phase2-v1",
-  "market": "US",
+  "id": "ribbit-global-v2",
+  "market": "GLOBAL",
   "source": {
     "name": "datasets/s-and-p-500-companies",
     "url": "https://github.com/datasets/s-and-p-500-companies",
@@ -543,7 +543,7 @@
     },
     {
       "symbol": "BF.B",
-      "name": "Brown–Forman",
+      "name": "Brown\u2013Forman",
       "type": "equity",
       "exchange": "US",
       "currency": "USD"
@@ -1264,7 +1264,7 @@
     },
     {
       "symbol": "EL",
-      "name": "Estée Lauder Companies (The)",
+      "name": "Est\u00e9e Lauder Companies (The)",
       "type": "equity",
       "exchange": "US",
       "currency": "USD"
@@ -2440,7 +2440,7 @@
     },
     {
       "symbol": "ORLY",
-      "name": "O’Reilly Automotive",
+      "name": "O\u2019Reilly Automotive",
       "type": "equity",
       "exchange": "US",
       "currency": "USD"
@@ -3613,6 +3613,80 @@
       "type": "etf",
       "exchange": "NYSE ARCA",
       "currency": "USD"
+    },
+    {
+      "symbol": "HSBA.L",
+      "name": "HSBC Holdings",
+      "exchange": "LSE",
+      "currency": "GBP",
+      "type": "equity"
+    },
+    {
+      "symbol": "SHEL.L",
+      "name": "Shell",
+      "exchange": "LSE",
+      "currency": "GBP",
+      "type": "equity"
+    },
+    {
+      "symbol": "BP.L",
+      "name": "BP",
+      "exchange": "LSE",
+      "currency": "GBP",
+      "type": "equity"
+    },
+    {
+      "symbol": "LLOY.L",
+      "name": "Lloyds Banking Group",
+      "exchange": "LSE",
+      "currency": "GBP",
+      "type": "equity"
+    },
+    {
+      "symbol": "VOD.L",
+      "name": "Vodafone Group",
+      "exchange": "LSE",
+      "currency": "GBP",
+      "type": "equity"
+    },
+    {
+      "symbol": "AZN.L",
+      "name": "AstraZeneca",
+      "exchange": "LSE",
+      "currency": "GBP",
+      "type": "equity"
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "exchange": "NSE",
+      "currency": "INR",
+      "type": "equity"
+    },
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "exchange": "NSE",
+      "currency": "INR",
+      "type": "equity"
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "exchange": "NSE",
+      "currency": "INR",
+      "type": "equity"
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "exchange": "NSE",
+      "currency": "INR",
+      "type": "equity"
     }
-  ]
+  ],
+  "additionalMarkets": {
+    "UK": "London equities; quotes converted from GBp to GBP when required.",
+    "IN": "NSE equities; native INR quotes."
+  }
 }

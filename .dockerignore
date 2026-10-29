@@ -8,3 +8,17 @@ target/test-classes
 target/maven-archiver
 target/maven-status
 target/surefire-reports
+.env
+.env.*
+frontend/node_modules
+frontend/dist
+frontend/.angular
+shared/auth-stub/node_modules
+
+# Local credentials, logs and database backups never enter the build context.
+.local
+
+state
+**/.env
+**/.env.*
+**/*.log

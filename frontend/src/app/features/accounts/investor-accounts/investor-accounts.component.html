@@ -1,0 +1,57 @@
+<header class="header">
+  <div class="header-content">
+    <div class="brand-lockup" aria-label="Ribbit Trader Pro">
+      <span class="ribbit-frog-mark" aria-hidden="true"></span>
+      <span class="brand-name">Ribbit Trader Pro <small>by Ribbit Ribbit</small></span>
+    </div>
+    <div class="header-actions">
+      <span class="user-badge">INVESTOR • {{ currentUser?.username }}</span>
+      <button (click)="logout()" class="btn-logout">Logout</button>
+    </div>
+  </div>
+</header>
+
+<main class="accounts-shell">
+  <section class="accounts-card">
+    <div class="accounts-card-header">
+      <div>
+        <!-- <p class="eyebrow">Choose your workspace</p> -->
+        <h1>Account Dashboard</h1>
+        <p class="subtitle">Pick an account to open your portfolio and trading dashboard.</p>
+      </div>
+      <button
+        type="button"
+        class="btn-add-account"
+        (click)="createAccount()"
+        aria-label="Create a new account"
+        title="Create a new account">
+        +
+      </button>
+    </div>
+
+    <div *ngIf="error" class="error-banner">{{ error }}</div>
+
+    <div *ngIf="loading" class="loading-state">Loading your accounts...</div>
+
+    <div *ngIf="!loading && accounts.length === 0" class="empty-state">
+      <h2>No accounts yet</h2>
+      <p>Create your first account to start trading.</p>
+      <!-- <button class="btn-primary" type="button" (click)="createAccount()">Create an account</button> -->
+    </div>
+
+    <div *ngIf="accounts.length > 0" class="accounts-list">
+      <button
+        *ngFor="let account of accounts"
+        type="button"
+        class="account-item"
+        (click)="openAccount(account)">
+        <strong>{{ formatAccountType(account.type) }}</strong>
+        <span>Account ID: {{ account.accountId }}</span>
+      </button>
+    </div>
+
+    <!-- <button *ngIf="accounts.length > 0" class="btn-secondary" type="button" (click)="createAccount()">
+      Create another account
+    </button> -->
+  </section>
+</main>

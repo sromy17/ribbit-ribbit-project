@@ -1,18 +1,33 @@
-import { ChangeDetectorRef, Component } from '@angular/core';
+import { UI_COMPONENTS } from '../../../shared/ui';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [...UI_COMPONENTS, CommonModule, FormsModule],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
+  private route = inject(ActivatedRoute, { optional: true });
+  ngOnInit(): void {
+    const type = this.route?.snapshot.queryParamMap.get('type');
+    if (type === 'user' || type === 'staff') this.chooseSignIn(type);
+  }
   username = '';
+  signInType: 'user' | 'staff' | null = null;
+  get staffLogin(): boolean { return this.signInType === 'staff'; }
+
+  chooseSignIn(type: 'user' | 'staff' | null): void {
+    this.signInType = type;
+    this.username = '';
+    this.password = '';
+    this.error = '';
+  }
   password = '';
   error = '';
   loading = false;
@@ -24,6 +39,7 @@ export class LoginComponent {
   ) {}
 
   login(): void {
+    if (!this.signInType || this.loading) return;
     this.error = '';
     const username = this.username.trim();
 
@@ -34,11 +50,10 @@ export class LoginComponent {
 
     this.loading = true;
 
-    this.auth.login(username, this.password).subscribe({
+    this.auth.login(username, this.password, this.staffLogin).subscribe({
       next: (user) => {
-        if (user.role === 'investor') {
-          this.router.navigate(['/accounts']);
-        }
+        const destination = user.role === 'admin' ? '/admin-dashboard' : user.role === 'analyst' ? '/analyst-dashboard' : '/accounts';
+        this.router.navigate([destination]);
       },
       error: (error) => {
         this.error = error.error?.message || 'Invalid credentials';

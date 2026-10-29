@@ -1,15 +1,39 @@
 spring:
+  jackson:
+    deserialization:
+      accept-float-as-int: false
   datasource:
-    url: ${DB_URL:jdbc:h2:mem:trading;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}
-    username: ${DB_USER:sa}
-    password: ${DB_PASSWORD:}
+    url: ${DB_OLTP_URL:${DB_URL:jdbc:h2:mem:trading;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}}
+    username: ${DB_OLTP_USER:${DB_USER:sa}}
+    password: ${DB_OLTP_PASSWORD:${DB_PASSWORD:}}
   jpa:
     hibernate:
       ddl-auto: update
     properties:
-      hibernate:
-        format_sql: true
+      "[hibernate.format_sql]": true
     open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: latest
+      group-id: ${MARKET_DATA_KAFKA_GROUP_ID:trading-market-data}
+
+app:
+  datasource:
+    olap:
+      url: ${DB_OLAP_URL:jdbc:h2:mem:trading-olap;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1}
+      username: ${DB_OLAP_USER:${DB_USER:sa}}
+      password: ${DB_OLAP_PASSWORD:${DB_PASSWORD:}}
+
+olap:
+  enabled: ${ETL_ENABLED:false}
+  etl:
+    fixed-delay-ms: ${ETL_FIXED_DELAY_MS:300000}
 
 mybatis:
   configuration:
@@ -17,14 +41,32 @@ mybatis:
 
 logging:
   level:
-    com.neueda.leap: INFO
+    "[com.neueda.leap]": INFO
 
 security:
   jwt:
-    shared-secret: ${JWT_SHARED_SECRET:${JWT_SECRET:please-change-this-jwt-secret-to-at-least-32-chars}}
+    shared-secret: ${JWT_SHARED_SECRET:please-change-this-jwt-secret-before-production}
 
 market-data:
+  finnhub:
+    api-key: ${FINNHUB_API_KEY:}
   fauxnance:
+    daily-request-limit: ${FAUXNANCE_DAILY_REQUEST_LIMIT:1000}
+    budget-file: ${FAUXNANCE_BUDGET_FILE:state/fauxnance-budget.properties}
     base-url: ${FAUXNANCE_BASE_URL:https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
     api-key: ${FAUXNANCE_API_KEY:}
-    use-order-price-fallback: ${FAUXNANCE_USE_ORDER_PRICE_FALLBACK:true}
+  refresh:
+    display-cache-ms: ${MARKET_DATA_DISPLAY_CACHE_MS:3600000}
+    priority-symbols: ${MARKET_DATA_PRIORITY_SYMBOLS:AAPL,MSFT,NVDA,AMZN,GOOGL,META,BRK.B,AVGO,TSLA,JPM,WMT,LLY,V,ORCL,MA,XOM,COST,NFLX,JNJ,HD,PG,BAC,ABBV,CRM,CVX}
+    priority-poll-ms: ${MARKET_DATA_PRIORITY_POLL_MS:30000}
+    secondary-poll-ms: ${MARKET_DATA_SECONDARY_POLL_MS:300000}
+  kafka:
+    enabled: ${MARKET_DATA_KAFKA_ENABLED:false}
+    topic: ${MARKET_DATA_KAFKA_TOPIC:market.quotes}
+    group-id: ${MARKET_DATA_KAFKA_GROUP_ID:trading-market-data}
+    quote-cache-max-age-ms: ${MARKET_DATA_QUOTE_CACHE_MAX_AGE_MS:1500}
+  execution:
+    kafka:
+      enabled: ${ORDER_EXECUTION_KAFKA_ENABLED:true}
+      topic: ${ORDER_EXECUTION_KAFKA_TOPIC:orders.execute}
+      group-id: ${ORDER_EXECUTION_KAFKA_GROUP_ID:trading-order-execution}

@@ -1,78 +1,69 @@
 package com.neueda.leap.trading.service.impl;
 
-import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Locale;
+import java.util.List;
+import java.util.ArrayList;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.neueda.leap.trading.service.impl.marketdata.FauxnanceQuoteClient;
+import com.neueda.leap.trading.service.impl.marketdata.KafkaQuoteProducer;
+import com.neueda.leap.trading.service.impl.marketdata.QuoteCache;
+import com.neueda.leap.trading.service.impl.marketdata.QuoteSnapshot;
 import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
 import com.neueda.leap.trading.service.contract.MarketQuote;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
+
+
 
 import com.neueda.leap.trading.domain.Order;
 
 @Component
 public class StaticMarketDataVerificationService implements MarketDataVerificationService {
-    private static final Logger log = LoggerFactory.getLogger(StaticMarketDataVerificationService.class);
-
-    private final RestClient restClient;
-    private final ObjectMapper objectMapper;
-    private final String apiKey;
-    private final boolean useOrderPriceFallback;
+    private final FauxnanceQuoteClient fauxnanceQuoteClient;
+    private final QuoteCache quoteCache;
+    private final KafkaQuoteProducer kafkaQuoteProducer;
+    private final long quoteCacheMaxAgeMs;
 
     public StaticMarketDataVerificationService(
-        RestClient.Builder restClientBuilder,
-        ObjectMapper objectMapper,
-        @Value("${market-data.fauxnance.base-url:https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}") String baseUrl,
-        @Value("${market-data.fauxnance.api-key:}") String apiKey,
-        @Value("${market-data.fauxnance.use-order-price-fallback:true}") boolean useOrderPriceFallback
+        FauxnanceQuoteClient fauxnanceQuoteClient,
+        QuoteCache quoteCache,
+        KafkaQuoteProducer kafkaQuoteProducer,
+        @Value("${market-data.kafka.quote-cache-max-age-ms:1500}") long quoteCacheMaxAgeMs
     ) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl != null ? baseUrl : "").build();
-        this.objectMapper = objectMapper;
-        this.apiKey = apiKey;
-        this.useOrderPriceFallback = useOrderPriceFallback;
+        this.fauxnanceQuoteClient = fauxnanceQuoteClient;
+        this.quoteCache = quoteCache;
+        this.kafkaQuoteProducer = kafkaQuoteProducer;
+        this.quoteCacheMaxAgeMs = quoteCacheMaxAgeMs;
     }
 
     @Override
     public BigDecimal verifyExecutionPrice(Order order) {
+        return verifyExecutionQuote(order).price();
+    }
+
+    @Override
+    public MarketQuote verifyExecutionQuote(Order order) {
         String symbol = extractSymbol(order);
 
         try {
-            QuoteApiResponse response = restClient.get()
-                .uri("/quotes/{symbol}", symbol)
-                .headers(headers -> {
-                    if (apiKey != null && !apiKey.isBlank()) {
-                        headers.set("X-Api-Key", apiKey);
-                    }
-                })
-                .retrieve()
-                .body(QuoteApiResponse.class);
-
-            if (response == null) {
-                return fallbackToOrderPrice(order, "Market data API returned an empty response for symbol " + symbol, null);
+            Duration maxAge = Duration.ofMillis(Math.max(quoteCacheMaxAgeMs, 1));
+            QuoteSnapshot cached = quoteCache.getFreshSnapshot(symbol, maxAge).orElse(null);
+            if (cached != null) {
+                return cached.toMarketQuote();
             }
 
-            if (response.error() != null) {
-                String message = response.error().message() != null ? response.error().message() : "Market data API returned an error";
-                return fallbackToOrderPrice(order, message + " for symbol " + symbol, null);
-            }
-
-            if (response.data() == null || response.data().price() == null || response.data().price().compareTo(BigDecimal.ZERO) <= 0) {
-                return fallbackToOrderPrice(order, "Market data API returned an invalid price for symbol " + symbol, null);
-            }
-
-            return response.data().price();
-        } catch (RestClientResponseException ex) {
-            String message = extractErrorMessage(ex);
-            return fallbackToOrderPrice(order, message + " for symbol " + symbol, ex);
+            MarketQuote quote = fauxnanceQuoteClient.fetchMarketQuote(symbol);
+            QuoteSnapshot snapshot = QuoteSnapshot.from(quote);
+            quoteCache.upsert(snapshot);
+            kafkaQuoteProducer.produce(snapshot);
+            return quote;
         } catch (RuntimeException ex) {
-            return fallbackToOrderPrice(order, "Failed to retrieve market data for symbol " + symbol, ex);
+            throw new IllegalArgumentException(
+                "Unable to verify execution price for symbol " + symbol + ": " + ex.getMessage(),
+                ex
+            );
         }
     }
 
@@ -82,27 +73,7 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
             return false;
         }
 
-        String symbol = ticker.trim().toUpperCase(Locale.ROOT);
-
-        try {
-            QuoteApiResponse response = restClient.get()
-                .uri("/quotes/{symbol}", symbol)
-                .headers(headers -> {
-                    if (apiKey != null && !apiKey.isBlank()) {
-                        headers.set("X-Api-Key", apiKey);
-                    }
-                })
-                .retrieve()
-                .body(QuoteApiResponse.class);
-
-            return response != null
-                && response.error() == null
-                && response.data() != null
-                && response.data().price() != null
-                && response.data().price().compareTo(BigDecimal.ZERO) > 0;
-        } catch (RuntimeException ex) {
-            return false;
-        }
+        return fauxnanceQuoteClient.isTickerValid(ticker.trim().toUpperCase(Locale.ROOT));
     }
 
     @Override
@@ -115,92 +86,81 @@ public class StaticMarketDataVerificationService implements MarketDataVerificati
         if (ticker == null || ticker.isBlank()) {
             throw new IllegalArgumentException("Ticker is required");
         }
-        String symbol = ticker.trim().toUpperCase(Locale.ROOT);
-
         try {
-            QuoteApiResponse response = restClient.get()
-                .uri("/quotes/{symbol}", symbol)
-                .headers(headers -> {
-                    if (apiKey != null && !apiKey.isBlank()) {
-                        headers.set("x-api-key", apiKey);
-                    }
-                })
-                .retrieve()
-                .body(QuoteApiResponse.class);
+            String symbol = ticker.trim().toUpperCase(Locale.ROOT);
+            // compute serializes refreshes for the same symbol across tabs and batch requests.
+            DisplayQuote cached = displayedQuotes.compute(symbol, (key, previous) -> {
+                long now = System.currentTimeMillis();
+                if (previous != null && now - previous.fetchedAtMs() < displayCacheMs) return previous;
+                MarketQuote quote = fauxnanceQuoteClient.fetchMarketQuote(key);
+                if (quote.receivedAtUtc() != null) quoteCache.upsert(QuoteSnapshot.from(quote));
+                return new DisplayQuote(quote, now);
+            });
+            return cached.quote();
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("Price unavailable for " + ticker, ex);
 
-            if (response == null || response.data() == null || response.data().price() == null) {
-                throw new IllegalStateException("No price returned for " + symbol);
-            }
-            QuoteData data = response.data();
-            return new MarketQuote(symbol, data.price(), data.change(), data.changePercent());
-        } catch (RestClientResponseException ex) {
-            throw new IllegalStateException(extractErrorMessage(ex), ex);
         }
     }
+
+    @Override
+    public List<MarketQuote> getQuotes(List<String> tickers) {
+        if (tickers == null || tickers.isEmpty() || tickers.size() > 50) {
+            throw new IllegalArgumentException("Request between 1 and 50 symbols");
+        }
+        List<String> symbols = tickers.stream().map(t -> t == null ? "" : t.trim().toUpperCase(Locale.ROOT)).distinct().toList();
+        if (symbols.stream().anyMatch(t -> !t.matches("[A-Z0-9][A-Z0-9.\\^:=/-]{0,24}"))) {
+            throw new IllegalArgumentException("Invalid market symbol");
+        }
+        if (!batchSlots.tryAcquire()) throw new IllegalStateException("Quote service is busy; retry shortly");
+        try {
+        List<java.util.concurrent.CompletableFuture<MarketQuote>> requests = symbols.stream()
+            .map(symbol -> java.util.concurrent.CompletableFuture.supplyAsync(() -> getQuote(symbol), quoteWorkers))
+            .toList();
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(8);
+        List<MarketQuote> quotes = new ArrayList<>();
+        try {
+            for (var request : requests) {
+                try {
+                    quotes.add(request.get(Math.max(1, deadline - System.nanoTime()), java.util.concurrent.TimeUnit.NANOSECONDS));
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Quote request interrupted", interrupted);
+                } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException unavailable) {
+                    // Return only available quotes. Never invent prices for missing symbols.
+                }
+            }
+        } finally {
+            requests.forEach(request -> request.cancel(true));
+        }
+        if (quotes.isEmpty()) throw new IllegalStateException("Market data is temporarily unavailable");
+        return quotes;
+        } finally { batchSlots.release(); }
+    }
+
+    @Value("${market-data.refresh.display-cache-ms:3600000}")
+    private long displayCacheMs = 3600000;
+    private record DisplayQuote(MarketQuote quote, long fetchedAtMs) {}
+    private final java.util.concurrent.ConcurrentHashMap<String,DisplayQuote> displayedQuotes = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.Semaphore batchSlots = new java.util.concurrent.Semaphore(2);
+    private final java.util.concurrent.ExecutorService quoteWorkers = new java.util.concurrent.ThreadPoolExecutor(
+        8, 8, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
+        new java.util.concurrent.ArrayBlockingQueue<>(100), new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
+
+    @jakarta.annotation.PreDestroy
+    public void stopQuoteWorkers() { quoteWorkers.shutdownNow(); }
 
     private String extractSymbol(Order order) {
         if (order == null || order.getInstrument() == null || order.getInstrument().getTicker() == null) {
             throw new IllegalArgumentException("Order does not contain an instrument ticker");
         }
 
-        String symbol = order.getInstrument().getTicker().trim();
+        String providerSymbol = order.getInstrument().getMarketDataSymbol();
+        String symbol = (providerSymbol == null ? order.getInstrument().getTicker() : providerSymbol).trim();
         if (symbol.isEmpty()) {
             throw new IllegalArgumentException("Order instrument ticker is blank");
         }
 
         return symbol.toUpperCase(Locale.ROOT);
-    }
-
-    /**
-     * REVISIT REVISIT REVISIT REVISIT REVISIT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-     * This uses the price of a ticker in the OrderRequest in the event that retrieving the 
-     * real time price fails. This is most likely not the logic we want in prod. Consider just 
-     * failing the order execution if we fail to retrieve the real-time market price.
-     */
-    private BigDecimal fallbackToOrderPrice(Order order, String reason, Exception ex) {
-        if (!useOrderPriceFallback || order.getPrice() == null || order.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException(reason);
-        }
-
-        if (ex == null) {
-            log.warn("{}. Falling back to order-submitted price {}.", reason, order.getPrice());
-        } else {
-            log.warn("{}. Falling back to order-submitted price {}.", reason, order.getPrice(), ex);
-        }
-        return order.getPrice();
-    }
-
-    private String extractErrorMessage(RestClientResponseException ex) {
-        String body = ex.getResponseBodyAsString();
-        if (body == null || body.isBlank()) {
-            return "Market data API request failed with status " + ex.getStatusCode();
-        }
-
-        try {
-            ErrorEnvelope envelope = objectMapper.readValue(body, ErrorEnvelope.class);
-            if (envelope != null && envelope.error() != null && envelope.error().message() != null) {
-                return envelope.error().message();
-            }
-        } catch (IOException ignored) {
-            // Fall through to generic message.
-        }
-
-        return "Market data API request failed with status " + ex.getStatusCode();
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private record QuoteApiResponse(QuoteData data, ApiError error) {
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private record QuoteData(BigDecimal price, BigDecimal change, BigDecimal changePercent) {
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private record ErrorEnvelope(ApiError error) {
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private record ApiError(String code, String message) {
     }
 }

@@ -1,28 +1,30 @@
-<div class="page-container">
+<main class="page-container">
+  <div class="mb-10"><app-brand /></div>
   <div class="form-card">
-    <div class="brand-lockup" aria-label="Leap Trader Pro">
-      <span class="brand-mark" aria-hidden="true">L</span>
-      <span class="brand-name">Leap Trader <strong>Pro</strong></span>
-    </div>
-    <p class="subtitle">Create a trading account</p>
-
+    <p class="eyebrow">Account setup</p>
+    <h1 class="mb-3 mt-3 text-3xl">A new place to trade.</h1>
+    <p class="description">Choose the account type that fits your plans.</p>
     <form (ngSubmit)="createAccount()">
       <div class="form-group">
-        <label for="accountType">Account type</label>
-        <select id="accountType" [(ngModel)]="accountType" name="accountType" required>
+        <label for="accountType">Account type</label
+        ><select uiInput id="accountType" [(ngModel)]="accountType" name="accountType" required>
           <option *ngFor="let type of accountTypes" [value]="type">{{ type }}</option>
         </select>
       </div>
-
-      <div *ngIf="error" class="error">{{ error }}</div>
-
-      <button type="submit" class="btn-primary" [disabled]="loading">
-        {{ loading ? 'Creating...' : 'Create account' }}
+      <div class="form-group">
+        <label for="accountCurrency">Account currency</label>
+        <select uiInput id="accountCurrency" [(ngModel)]="currency" name="currency" required>
+          <option value="USD">USD — US dollar</option><option value="GBP">GBP — Pound sterling</option><option value="EUR">EUR — Euro</option><option value="INR">INR — Indian rupee</option>
+        </select>
+      </div>
+      <div class="notice">Your new account will appear in your account overview.</div>
+      <div *ngIf="error" class="error" role="alert">{{ error }}</div>
+      <button uiButton="primary" type="submit" class="w-full" [disabled]="loading">
+        {{ loading ? 'Creating…' : 'Create account' }}<span aria-hidden="true">→</span>
       </button>
     </form>
-
-    <button type="button" class="btn-secondary" (click)="router.navigate(['/accounts'])">
-      Back to home
+    <button uiButton="ghost" type="button" (click)="router.navigate(['/accounts'])">
+      ← Back to accounts
     </button>
   </div>
-</div>
+</main>

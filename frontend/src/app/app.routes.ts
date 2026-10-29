@@ -1,47 +1,61 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './features/auth/login/login.component';
 import { AuthGuard } from './core/guards/auth.guard';
-import { AdminDashboardComponent } from './features/dashboard/admin/admin-dashboard.component';
-import { AnalystDashboardComponent } from './features/dashboard/analyst/analyst-dashboard.component';
-import { DashboardComponent } from './features/dashboard/investor/dashboard.component';
-import { RegisterComponent } from './features/auth/register/register.component';
-import { CreateAccountComponent } from './features/accounts/create-account/create-account.component';
-import { AccountDashboardComponent } from './features/accounts/account-dashboard/account-dashboard.component';
 
 export const routes: Routes = [
-  { path: 'login', component: LoginComponent },
-  { path: 'register', component: RegisterComponent },
+  {
+    path: 'login',
+    loadComponent: () =>
+      import('./features/auth/login/login.component').then((m) => m.LoginComponent),
+  },
+  {
+    path: 'register',
+    loadComponent: () =>
+      import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
+  },
   {
     path: 'accounts',
-    component: AccountDashboardComponent,
+    loadComponent: () =>
+      import('./features/accounts/account-dashboard/account-dashboard.component').then(
+        (m) => m.AccountDashboardComponent,
+      ),
     canActivate: [AuthGuard],
-    data: { role: 'investor' }
+    data: { role: 'investor' },
   },
   {
     path: 'accounts/create',
-    component: CreateAccountComponent,
+    loadComponent: () =>
+      import('./features/accounts/create-account/create-account.component').then(
+        (m) => m.CreateAccountComponent,
+      ),
     canActivate: [AuthGuard],
-    data: { role: 'investor' }
+    data: { role: 'investor' },
   },
   { path: 'investor-dashboard', redirectTo: 'accounts', pathMatch: 'full' },
   {
     path: 'investor-dashboard/:accountId',
-    component: DashboardComponent,
+    loadComponent: () =>
+      import('./features/dashboard/investor/dashboard.component').then((m) => m.DashboardComponent),
     canActivate: [AuthGuard],
-    data: { role: 'investor' }
+    data: { role: 'investor' },
   },
   {
     path: 'admin-dashboard',
-    component: AdminDashboardComponent,
+    loadComponent: () =>
+      import('./features/dashboard/admin/admin-dashboard.component').then(
+        (m) => m.AdminDashboardComponent,
+      ),
     canActivate: [AuthGuard],
-    data: { role: 'admin' }
+    data: { role: 'admin' },
   },
   {
     path: 'analyst-dashboard',
-    component: AnalystDashboardComponent,
+    loadComponent: () =>
+      import('./features/dashboard/analyst/analyst-dashboard.component').then(
+        (m) => m.AnalystDashboardComponent,
+      ),
     canActivate: [AuthGuard],
-    data: { role: 'analyst' }
+    data: { role: 'analyst' },
   },
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
-  { path: '**', redirectTo: '/login' }
+  { path: '', loadComponent: () => import('./features/landing/landing.component').then(m => m.LandingComponent), pathMatch: 'full' },
+  { path: '**', redirectTo: '/login' },
 ];

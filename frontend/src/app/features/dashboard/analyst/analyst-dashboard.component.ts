@@ -1,128 +1,107 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService, User } from '../../../core/services/auth.service';
-import { ApiService, SymbolTrend, MarketTrend } from '../../../core/services/api.service';
+import { forkJoin, Subscription, switchMap, map, catchError, of } from 'rxjs';
+import { UI_COMPONENTS } from '../../../shared/ui';
+import { AuthService } from '../../../core/services/auth.service';
+import { AnalyticsService, AnalyticsResponse, AnalyticsRow, AnalyticsSelection, IssuedReport } from '../../../core/services/analytics.service';
 
-@Component({
-  selector: 'app-analyst-dashboard',
-  standalone: true,
-  imports: [CommonModule],
-  templateUrl: './analyst-dashboard.component.html',
-  styleUrls: ['./analyst-dashboard.component.css']
-})
-export class AnalystDashboardComponent implements OnInit {
-  currentUser: User | null = null;
-  loading = true;
-  error = '';
-
-  // Data
-  symbolTrends: SymbolTrend[] = [];
-  marketTrends: MarketTrend[] = [];
-
-  // UI State
-  activeTab: 'heatmap' | 'trends' = 'heatmap';
-
-  constructor(
-    private auth: AuthService,
-    private router: Router,
-    private api: ApiService,
-    private cdr: ChangeDetectorRef
-  ) {
-    this.currentUser = this.auth.getUser();
-    if (!this.currentUser || this.currentUser.role !== 'analyst') {
-      this.router.navigate(['/login']);
-    }
+@Component({ selector: 'app-analyst-dashboard', standalone: true,
+  imports: [...UI_COMPONENTS, CommonModule, FormsModule],
+  templateUrl: './analyst-dashboard.component.html', styleUrls: ['./analyst-dashboard.component.css'] })
+export class AnalystDashboardComponent implements OnInit, OnDestroy {
+  private auth = inject(AuthService); private router = inject(Router);
+  private api = inject(AnalyticsService); private cdr = inject(ChangeDetectorRef);
+  currentUser = this.auth.getUser();
+  month = new Date().toISOString().slice(0, 7); timezone = 'UTC'; instrument = ''; side = ''; segment = '';
+  tab: 'overview' | 'activity' | 'instruments' | 'client-segments' | 'report' | 'heatmap' = 'overview';
+  loading = false; issuing = false; error = ''; reportError = ''; reportId = ''; amendmentReason = '';
+  meta: AnalyticsResponse | null = null; overview: AnalyticsRow = {};
+  activity: AnalyticsRow = { items: [], total: 0 }; instruments: AnalyticsRow = { items: [], total: 0 };
+  segments: AnalyticsRow = { items: [], total: 0 }; saved: IssuedReport | null = null;
+  private request?: Subscription; private reportRequest?: Subscription; private selection?: AnalyticsSelection;
+  private issueKey = ''; private issueSignature = '';
+  ngOnInit() { this.load(); }
+  ngOnDestroy() { this.request?.unsubscribe(); this.reportRequest?.unsubscribe(); }
+  select(): AnalyticsSelection {
+    if (!/^\d{4}-\d{2}$/.test(this.month)) throw new Error('Choose a valid month.');
+    const [year, month] = this.month.split('-').map(Number);
+    if (month < 1 || month > 12 || year < 1900 || year > 9998) throw new Error('Choose a valid month.');
+    const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const selection: AnalyticsSelection = { from: `${this.month}-01`, to: `${this.month}-${days}`, timezone: this.timezone };
+    if (this.instrument) { if (!/^\d+$/.test(this.instrument) || Number(this.instrument) < 1) throw new Error('Use a positive instrument ID.'); selection.instrumentId = Number(this.instrument); }
+    if (this.side) selection.side = this.side;
+    if (this.segment.trim()) selection.segment = this.segment.trim();
+    return selection;
   }
-
-  ngOnInit() {
-    this.loadAnalystData();
-  }
-
-  loadAnalystData() {
+  load() {
+    this.request?.unsubscribe(); this.error = ''; this.saved = null; this.meta = null;
+    let selection: AnalyticsSelection;
+    try { selection = this.select(); } catch (e) { this.error = (e as Error).message; this.loading = false; return; }
     this.loading = true;
-    this.error = '';
-
-    // Load symbol trends (for heatmap)
-    this.api.getSymbolTrends().subscribe({
-      next: (trends) => {
-        this.symbolTrends = trends.sort((a, b) => b.popularityScore - a.popularityScore);
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error loading symbol trends:', err);
-        this.error = 'Failed to load symbol trends';
-        this.cdr.detectChanges();
-      }
-    });
-
-    // Load market trends
-    this.api.getMarketTrends().subscribe({
-      next: (trends) => {
-        this.marketTrends = trends;
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error loading market trends:', err);
-        this.error = 'Failed to load market trends';
-        this.loading = false;
-        this.cdr.detectChanges();
-      }
+    this.request = this.api.read('overview', selection).pipe(switchMap(overview => forkJoin({
+      activity: this.api.read('activity', selection, 0, 'period', 'asc', overview.datasetId),
+      instruments: this.api.read('instruments', selection, 0, 'fills', 'desc', overview.datasetId),
+      segments: this.api.read('client-segments', selection, 0, 'fills', 'desc', overview.datasetId).pipe(catchError(e => {
+        if(e.status !== 403) throw e;
+        return of({...overview, data:{items:[],total:0,availability:'WITHHELD',reason:e.error?.message || 'Segment analysis is withheld pending an approved disclosure policy.'}});
+      }))
+    }).pipe(map(panels => ({overview,...panels}))))).subscribe({
+      next: r => {
+        if (new Set([r.overview.datasetId, r.activity.datasetId, r.instruments.datasetId, r.segments.datasetId]).size !== 1) {
+          this.error = 'The dataset changed during refresh. Reload to view a consistent version.';
+        } else {
+          this.selection = selection; this.meta = r.overview; this.overview = r.overview.data;
+          this.activity = r.activity.data; this.instruments = r.instruments.data; this.segments = r.segments.data;
+        }
+        this.loading = false; this.cdr.detectChanges();
+      }, error: e => { this.error = e.error?.message || 'Analytics query failed. Retry when reporting is available.'; this.loading = false; this.cdr.detectChanges(); }
     });
   }
-
-  // Get sector for symbol
-  getSymbolSector(symbol: string): string {
-    const techSymbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'TSLA', 'NVIDIA', 'AMD', 'INTEL'];
-    const financeSymbols = ['JPM', 'BAC', 'GS', 'MS', 'AXP', 'PYPL', 'SQ', 'CIB', 'USB', 'WFC'];
-    const healthSymbols = ['JNJ', 'PFE', 'MRK', 'ABBV', 'LLY', 'AbbVie', 'UNH', 'CVS', 'MCK', 'TMDX'];
-    const energySymbols = ['XOM', 'CVX', 'MPC', 'PSX', 'COP', 'SLB', 'EOG', 'MUR', 'FANG', 'DVN'];
-    
-    if (techSymbols.includes(symbol)) return 'Technology';
-    if (financeSymbols.includes(symbol)) return 'Finance';
-    if (healthSymbols.includes(symbol)) return 'Healthcare';
-    if (energySymbols.includes(symbol)) return 'Energy';
-    return 'Other';
+  page(kind: 'activity' | 'instruments' | 'client-segments', delta: number) {
+    if (!this.selection || this.loading) return;
+    const current = kind === 'activity' ? this.activity : kind === 'instruments' ? this.instruments : this.segments;
+    const page = current['page'] + delta; this.loading = true; this.error = '';
+    this.request = this.api.read(kind, this.selection, page, kind === 'activity' ? 'period' : 'fills', kind === 'activity' ? 'asc' : 'desc', this.meta?.datasetId).subscribe({
+      next: r => {
+        if (r.datasetId !== this.meta?.datasetId) { this.error = 'Dataset changed. Reload all views before continuing.'; this.meta = null; }
+        else if (kind === 'activity') this.activity = r.data;
+        else if (kind === 'instruments') this.instruments = r.data;
+        else this.segments = r.data;
+        this.loading = false; this.cdr.detectChanges();
+      }, error: e => { this.error = e.error?.message || 'Page query failed.'; if(e.status === 409) this.meta = null; this.loading = false; this.cdr.detectChanges(); }
+    });
   }
-
-  getBuySellDeltaPercent(trend: SymbolTrend): number {
-    const total = trend.buyCount + trend.sellCount;
-    if (!total) return 0;
-    return ((trend.buyCount - trend.sellCount) / total) * 100;
-  }
-
-  getHeatmapColor(trend: SymbolTrend): string {
-    const delta = this.getBuySellDeltaPercent(trend);
-    const intensity = Math.min(Math.abs(delta), 100);
-
-    if (delta >= 0) {
-      const lightness = 42 - intensity * 0.12;
-      return `hsl(148 62% ${Math.max(lightness, 28)}%)`;
+  issue(amend = false) {
+    if (this.issuing || !this.meta || (!this.selection && !this.saved)) return;
+    let selection = this.selection!;
+    if (amend && this.saved) {
+      const s = this.saved.snapshot;
+      selection = { from: s.period.from, to: s.period.to, timezone: s.period.timezone, ...Object.fromEntries(Object.entries(s.filters).filter(([,v]) => v !== null)) };
     }
-
-    const lightness = 44 - intensity * 0.12;
-    return `hsl(2 72% ${Math.max(lightness, 30)}%)`;
+    const parent = amend ? this.saved?.reportId : undefined;
+    const datasetId = amend ? undefined : this.meta.datasetId;
+    const signature = JSON.stringify([selection, parent, this.amendmentReason, datasetId]);
+    if (signature !== this.issueSignature) { this.issueKey = crypto.randomUUID(); this.issueSignature = signature; }
+    this.issuing = true; this.reportError = '';
+    this.reportRequest = this.api.issue(selection, this.issueKey, parent, amend ? this.amendmentReason : undefined, datasetId).subscribe({
+      next: r => { this.showReport(r); this.issuing = false; this.cdr.detectChanges(); },
+      error: e => { this.reportError = e.error?.message || 'Report could not be issued. Retry uses the same request key.'; this.issuing = false; this.cdr.detectChanges(); }
+    });
   }
-
-  getSizeMultiplier(trend: SymbolTrend): number {
-    const volumeWeight = Math.min(trend.totalVolume / 550, 2.6);
-    const popularityWeight = trend.popularityScore / 100;
-    return Number((0.9 + volumeWeight + popularityWeight).toFixed(2));
+  openReport() {
+    this.reportError = ''; this.issuing = true;
+    this.reportRequest = this.api.report(this.reportId.trim()).subscribe({ next: r => { this.showReport(r); this.issuing = false; this.cdr.detectChanges(); },
+      error: e => { this.reportError = e.error?.message || 'Report could not be opened.'; this.issuing = false; this.cdr.detectChanges(); } });
   }
-
-  getHeatmapCellSize(trend: SymbolTrend): number {
-    return Math.max(54, Math.min(126, 44 + trend.totalVolume * 0.06 + trend.popularityScore * 0.3));
+  private showReport(r: IssuedReport) {
+    this.saved = r; this.reportId = r.reportId; this.meta = r.snapshot;
+    this.overview = r.snapshot['overview']; this.activity = r.snapshot['activity']; this.instruments = r.snapshot['instruments']; this.segments = r.snapshot['client-segments']; this.tab = 'report';
   }
-
-  getHeatmapTitle(trend: SymbolTrend): string {
-    const delta = this.getBuySellDeltaPercent(trend);
-    const direction = delta >= 0 ? 'Bullish flow' : 'Bearish flow';
-    return `${trend.symbol} | ${direction} ${delta.toFixed(1)}% | Volume ${trend.totalVolume}`;
-  }
-
-  logout() {
-    this.auth.logout();
-    this.router.navigate(['/login']);
-  }
+  get rows(): AnalyticsRow[] { return this.table['items'] || []; }
+  get table(): AnalyticsRow { return this.tab === 'activity' ? this.activity : this.tab === 'client-segments' ? this.segments : this.instruments; }
+  get maxFills(): number { return Math.max(1, ...this.rows.map(r => Number(r['fill_count']))); }
+  label(r: AnalyticsRow) { return this.tab === 'activity' ? r['period'] : this.tab === 'client-segments' ? r['segment_code'] : `${r['ticker'] || 'Unknown'} · #${r['instrumentid']}`; }
+  logout() { this.auth.logout(); this.router.navigate(['/login']); }
 }

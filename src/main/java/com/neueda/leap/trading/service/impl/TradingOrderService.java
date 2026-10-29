@@ -1,12 +1,16 @@
 package com.neueda.leap.trading.service.impl;
 
 import java.math.BigDecimal;
+
+
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.neueda.leap.trading.service.contract.FeeCalculator;
 import com.neueda.leap.trading.service.contract.MarketDataVerificationService;
+import com.neueda.leap.trading.service.contract.MarketQuote;
 import com.neueda.leap.trading.service.contract.OrderService;
 import com.neueda.leap.trading.service.contract.TradingRulesService;
 import org.springframework.stereotype.Service;
@@ -33,6 +37,8 @@ import com.neueda.leap.trading.repository.jpa.TradeRepository;
 import com.neueda.leap.trading.repository.jpa.TradingAccountRepository;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderReadMapper;
 import com.neueda.leap.trading.repository.mybatis.AccountOrderSummary;
+import com.neueda.leap.trading.service.impl.marketdata.KafkaOrderExecutionProducer;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class TradingOrderService implements OrderService {
@@ -47,6 +53,9 @@ public class TradingOrderService implements OrderService {
     private final OrderValidator orderValidator;
     private final TradingRulesService tradingRulesService;
     private final AccountOrderReadMapper readMapper;
+    private final KafkaOrderExecutionProducer executionProducer;
+    private final OrderEvidenceService evidenceService;
+    private final ExecutionAttemptEvidenceService executionAttemptEvidenceService;
 
     public TradingOrderService(
         OrderRepository orderRepository,
@@ -61,6 +70,41 @@ public class TradingOrderService implements OrderService {
         TradingRulesService tradingRulesService,
         AccountOrderReadMapper readMapper
     ) {
+        this(
+            orderRepository,
+            rejectedOrderRepository,
+            tradeRepository,
+            accountRepository,
+            instrumentRepository,
+            holdingRepository,
+            feeCalculator,
+            marketDataVerificationService,
+            orderValidator,
+            tradingRulesService,
+            readMapper,
+            null,
+            null,
+            null
+        );
+    }
+
+    @Autowired
+    public TradingOrderService(
+        OrderRepository orderRepository,
+        RejectedOrderRepository rejectedOrderRepository,
+        TradeRepository tradeRepository,
+        TradingAccountRepository accountRepository,
+        InstrumentRepository instrumentRepository,
+        HoldingRepository holdingRepository,
+        FeeCalculator feeCalculator,
+        MarketDataVerificationService marketDataVerificationService,
+        OrderValidator orderValidator,
+        TradingRulesService tradingRulesService,
+        AccountOrderReadMapper readMapper,
+        KafkaOrderExecutionProducer executionProducer,
+        OrderEvidenceService evidenceService,
+        ExecutionAttemptEvidenceService executionAttemptEvidenceService
+    ) {
         this.orderRepository = orderRepository;
         this.rejectedOrderRepository = rejectedOrderRepository;
         this.tradeRepository = tradeRepository;
@@ -72,22 +116,52 @@ public class TradingOrderService implements OrderService {
         this.orderValidator = orderValidator;
         this.tradingRulesService = tradingRulesService;
         this.readMapper = readMapper;
+        this.executionProducer = executionProducer;
+        this.evidenceService = evidenceService;
+        this.executionAttemptEvidenceService = executionAttemptEvidenceService;
     }
 
     @Override
-    @Transactional
     public ProcessOrderResponse executeOrder(Integer orderId) {
-        Order order = orderRepository.findById(orderId)
+        TradingOrderService transactions=transactionalSelf == null ? this : transactionalSelf;
+        try { return transactions.executeCommittedOrder(orderId); }
+        catch(RuntimeException failure) {
+            if(executionAttemptEvidenceService!=null) {
+                try { executionAttemptEvidenceService.failed(orderId,failure instanceof IllegalArgumentException ? failure.getMessage() : failure.getClass().getSimpleName()); }
+                catch(RuntimeException recordingFailure) { failure.addSuppressed(recordingFailure); }
+            }
+            throw failure;
+        }
+    }
+
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public ProcessOrderResponse executeCommittedOrder(Integer orderId) {
+        if (orderId == null) {
+            throw new IllegalArgumentException("Order ID cannot be null");
+        }
+        Order order = orderRepository.findForUpdate(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
 
         if (order.getStatus() != OrderStatus.PENDING) {
             throw new IllegalArgumentException("Only PENDING orders can be executed");
         }
 
-        TradingAccount account = order.getAccount();
+        if (executionAttemptEvidenceService != null) {
+            executionAttemptEvidenceService.record(
+                order.getOrderId(), order.getAccount().getAccountId(),
+                order.getInstrument().getInstrumentId(), order.getCorrelationId(), order.getQuantity());
+        }
+
+        TradingAccount account = accountRepository.findForUpdate(order.getAccount().getAccountId())
+            .orElseThrow(() -> new IllegalArgumentException("Account not found"));
+        order.setAccount(account);
         Instrument instrument = order.getInstrument();
-        BigDecimal executionPrice = marketDataVerificationService.verifyExecutionPrice(order);
+        validateMarketDataIdentity(instrument);
+        MarketQuote quote = marketDataVerificationService.verifyExecutionQuote(order);
+        BigDecimal executionPrice = quote.price();
+        validateExecutionMetadata(account, instrument, quote);
         BigDecimal fee = feeCalculator.calculate(order.getSide(), order.getQuantity(), executionPrice);
+        Long pricingEventId = evidenceService == null ? null : evidenceService.quote(order, quote, fee);
 
         ValidationResult validation = orderValidator.validate(
             order.getSide(),
@@ -103,18 +177,39 @@ public class TradingOrderService implements OrderService {
         applyFunds(account, order.getSide(), executionPrice, order.getQuantity(), fee);
         accountRepository.save(account);
 
-        updateHolding(account, instrument, order.getSide(), order.getQuantity(), executionPrice);
-
         Trade trade = new Trade();
         trade.setTradeId(nextTradeId());
         trade.setOrder(order);
         trade.setExecutionPrice(executionPrice);
         trade.setExecutedQuantity(order.getQuantity());
-        trade.setExecutedAt(Instant.now());
+        trade.setExecutedAt(LocalDate.now(java.time.ZoneOffset.UTC));
+        trade.setExecutedAtUtc(Instant.now());
+        trade.setFee(fee);
+        trade.setExecutionCurrency(quote.currency() == null ? instrument.getQuoteCurrency() : quote.currency());
+        trade.setFeeCurrency(account.getCurrency());
+        trade.setQuantityUnit(instrument.getQuantityUnit());
+        trade.setContractMultiplier(instrument.getContractMultiplier());
+        trade.setProductConvention(instrument.getProductConvention());
+        trade.setPricingEventId(pricingEventId);
+        trade.setClientId(account.getUser() == null ? null : account.getUser().getUserId());
         trade = tradeRepository.save(trade);
 
         order.setStatus(OrderStatus.EXECUTED);
         order = orderRepository.save(order);
+
+        BigDecimal notional = executionPrice.multiply(BigDecimal.valueOf(order.getQuantity()));
+        if (evidenceService != null) {
+            evidenceService.cashMovement(order,
+                order.getSide() == OrderSide.BUY ? notional.add(fee).negate() : notional.subtract(fee),
+                order.getSide() == OrderSide.BUY ? "BUY_SETTLEMENT" : "SELL_SETTLEMENT");
+        }
+        int quantityAfter = updateHolding(account, instrument, order.getSide(), trade.getExecutedQuantity(), executionPrice);
+        if (evidenceService != null) {
+            evidenceService.holdingMovement(order,
+                order.getSide() == OrderSide.BUY ? trade.getExecutedQuantity() : -trade.getExecutedQuantity(),
+                quantityAfter);
+            evidenceService.fill(order, trade);
+        }
 
         AccountOrderSummary summary = readMapper.getAccountOrderSummary(account.getAccountId());
 
@@ -130,12 +225,17 @@ public class TradingOrderService implements OrderService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = IllegalArgumentException.class)
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
-        TradingAccount account = accountRepository.findById(request.accountId())
-            .orElseThrow(() -> new IllegalArgumentException("Account not found: " + request.accountId()));
+        if (request == null || request.accountId() == null) {
+            throw new IllegalArgumentException("Request and account ID cannot be null");
+        }
+        int accountId = request.accountId();
+        TradingAccount account = accountRepository.findById(accountId)
+            .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
 
-        Instrument instrument = resolveInstrument(request.ticker());
+        Instrument instrument = resolveInstrument(request.instrumentId(), request.ticker());
+        validateMarketDataIdentity(instrument);
 
         Order order = new Order();
         order.setAccount(account);
@@ -156,11 +256,16 @@ public class TradingOrderService implements OrderService {
 
         order.setOrderId(nextOrderId());
         order.setPrice(marketPrice);
-        order.setDateRequested(Instant.now());
+        order.setDateRequested(LocalDate.now(java.time.ZoneOffset.UTC));
+        order.setCreatedAtUtc(Instant.now());
+        order.setStatus(validation.isValid() ? OrderStatus.PENDING : OrderStatus.REJECTED);
+        order = orderRepository.save(order);
+        if (evidenceService != null) evidenceService.event(order, "ORDER_SUBMITTED", null);
 
         // Set order status based on validation result
         if (!validation.isValid()) {
             order.setStatus(OrderStatus.REJECTED);
+            if (evidenceService != null) evidenceService.rejected(order, validation.getReason());
             order = orderRepository.save(order);
             saveRejection(order.getOrderId(), validation.getReason());
             return new CreateOrderResponse(
@@ -172,7 +277,7 @@ public class TradingOrderService implements OrderService {
         }
 
         order.setStatus(OrderStatus.PENDING);
-        order = orderRepository.save(order);
+        if (evidenceService != null) evidenceService.event(order, "ORDER_ACCEPTED", null);
 
         return new CreateOrderResponse(
             order.getOrderId(),
@@ -182,15 +287,29 @@ public class TradingOrderService implements OrderService {
         );
     }
 
+    private FinancialIdAllocator idAllocator;
+    @Autowired
+    void setIdAllocator(FinancialIdAllocator allocator) { this.idAllocator=allocator; }
+
+    private TradingOrderService transactionalSelf;
+
+    @Autowired
+    void setTransactionalSelf(@org.springframework.context.annotation.Lazy TradingOrderService transactions) {
+        this.transactionalSelf = transactions;
+    }
+
     @Override
-    @Transactional
     public ProcessOrderResponse submitOrder(ProcessOrderRequest request) {
-        CreateOrderResponse created = createOrder(new CreateOrderRequest(
+        // Commit accepted intent before execution and its independently committed attempt evidence.
+        // A direct instance is supported by the isolated unit tests; Spring supplies the proxy at runtime.
+        TradingOrderService transactions = transactionalSelf == null ? this : transactionalSelf;
+        CreateOrderResponse created = transactions.createOrder(new CreateOrderRequest(
             request.accountId(),
             request.ticker(),
             request.side(),
             request.quantity(),
-            request.price()
+            request.price(),
+            request.instrumentId()
         ));
         if (created.status() == OrderStatus.REJECTED) {
             return new ProcessOrderResponse(
@@ -203,12 +322,16 @@ public class TradingOrderService implements OrderService {
                 null
             );
         }
-        return executeOrder(created.orderId());
+        ProcessOrderResponse result = transactions.executeOrder(created.orderId());
+        // MyBatis reads use a separate connection: refresh only after execution commits.
+        return new ProcessOrderResponse(result.orderId(), result.tradeId(), result.status(),
+            result.executedQuantity(), result.executionPrice(), result.fee(),
+            readMapper.getAccountOrderSummary(request.accountId()));
     }
 
     private void saveRejection(Integer orderId, String reason) {
         RejectedOrder rejection = new RejectedOrder();
-        rejection.setRejectId(rejectedOrderRepository.findMaxRejectId() + 1);
+        rejection.setRejectId(idAllocator == null ? rejectedOrderRepository.findMaxRejectId() + 1 : idAllocator.next("REJECTION"));
         rejection.setRequestId(orderId);
         rejection.setReason(reason == null ? "Order rejected" : reason.substring(0, Math.min(reason.length(), 50)));
         rejection.setRejectDate(Instant.now());
@@ -216,12 +339,37 @@ public class TradingOrderService implements OrderService {
     }
 
     @Override
-    @Transactional
-    public void cancelOrder(Integer orderId) {
+    @Transactional(readOnly = true)
+    public void enqueueExecution(Integer orderId) {
+        if (orderId == null) {
+            throw new IllegalArgumentException("Order ID cannot be null");
+        }
+        if (executionProducer == null) {
+            throw new IllegalStateException("Asynchronous order execution is not configured");
+        }
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new IllegalArgumentException("Only PENDING orders can be queued for execution");
+        }
+        executionProducer.enqueue(orderId);
+    }
+
+    @Override
+    @Transactional
+    public void cancelOrder(Integer orderId) {
+        if (orderId == null) {
+            throw new IllegalArgumentException("Order ID cannot be null");
+        }
+        Order order = orderRepository.findForUpdate(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+        if (order.getStatus() == OrderStatus.CANCELLED) return;
+        if (order.getStatus() != OrderStatus.PENDING) throw new IllegalArgumentException("Only pending orders can be cancelled");
         order.cancel();
         orderRepository.save(order);
+        if (evidenceService != null) {
+            evidenceService.event(order, "ORDER_CANCELLED", "Cancelled by account owner");
+        }
     }
 
     @Override
@@ -239,7 +387,41 @@ public class TradingOrderService implements OrderService {
         account.depositFunds(notional.subtract(fee));
     }
 
-    private void updateHolding(
+    private void validateExecutionMetadata(TradingAccount account, Instrument instrument, MarketQuote quote) {
+        if (quote.currency() != null && instrument.getQuoteCurrency() != null
+                && !quote.currency().equals(instrument.getQuoteCurrency())) {
+            throw new IllegalArgumentException("Quote currency does not match instrument metadata");
+        }
+        String priceCurrency = quote.currency() == null ? instrument.getQuoteCurrency() : quote.currency();
+        if (instrument.getSettlementCurrency() != null && priceCurrency != null
+                && !instrument.getSettlementCurrency().equals(priceCurrency)) {
+            throw new IllegalArgumentException("Cross-currency settlement is not supported");
+        }
+        String settlementCurrency = instrument.getSettlementCurrency() == null
+            ? priceCurrency : instrument.getSettlementCurrency();
+        if (account.getCurrency() != null && settlementCurrency != null
+                && !account.getCurrency().equals(settlementCurrency)) {
+            throw new IllegalArgumentException("Account currency does not match execution currency");
+        }
+        if (instrument.getContractMultiplier() != null
+                && instrument.getContractMultiplier().compareTo(BigDecimal.ONE) != 0) {
+            throw new IllegalArgumentException("Execution of non-unit contract multipliers is not supported");
+        }
+        if (instrument.getProductConvention() != null
+                && !"PRICE_PER_UNIT".equals(instrument.getProductConvention())) {
+            throw new IllegalArgumentException("Execution product convention is not supported");
+        }
+    }
+
+    private void validateMarketDataIdentity(Instrument instrument) {
+        if ((instrument.getMarketDataSymbol() == null || instrument.getMarketDataSymbol().isBlank())
+                && instrumentRepository.countByTickerIgnoreCase(instrument.getTicker()) > 1) {
+            throw new IllegalArgumentException("Ambiguous market-data symbol; configure a qualified provider symbol for instrument "
+                + instrument.getInstrumentId());
+        }
+    }
+
+    private int updateHolding(
         TradingAccount account,
         Instrument instrument,
         OrderSide side,
@@ -258,25 +440,60 @@ public class TradingOrderService implements OrderService {
             });
 
         boolean isBuy = side == OrderSide.BUY;
-        holding.updatePosition(isBuy, quantity, executionPrice);
-        holding.setAsOfDate(Instant.now());
+        if (isBuy) {
+            BigDecimal priorCost = holding.getAverageCost() == null ? BigDecimal.ZERO : holding.getAverageCost();
+            holding.setAverageCost(priorCost.multiply(BigDecimal.valueOf(holding.getQuantity()))
+                .add(executionPrice.multiply(BigDecimal.valueOf(quantity)))
+                .divide(BigDecimal.valueOf((long) holding.getQuantity() + quantity), 10, java.math.RoundingMode.HALF_EVEN));
+        }
+        holding.updatePosition(isBuy, quantity);
+        if (holding.getQuantity() == 0) {
+            holdingRepository.delete(holding);
+            return 0;
+        }
+
+        holding.setAsOfDate(LocalDate.now(java.time.ZoneOffset.UTC));
         holdingRepository.save(holding);
+        return holding.getQuantity();
     }
 
     private Integer nextOrderId() {
-        return orderRepository.findMaxOrderId() + 1;
+        if (idAllocator != null) {
+            return idAllocator.next("ORDER");
+        }
+
+        for (int attempt = 0; attempt < 20; attempt++) {
+            int candidate = ThreadLocalRandom.current().nextInt(1, Integer.MAX_VALUE);
+            if (!orderRepository.existsById(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new IllegalStateException("Unable to allocate a unique order/request id");
+
     }
 
     private Integer nextTradeId() {
-        return tradeRepository.findMaxTradeId() + 1;
+        return idAllocator == null ? tradeRepository.findMaxTradeId() + 1 : idAllocator.next("TRADE");
     }
 
-    private Instrument resolveInstrument(String ticker) {
+    private Instrument resolveInstrument(Integer instrumentId, String ticker) {
+        if (instrumentId != null) {
+            Instrument instrument = instrumentRepository.findById(instrumentId)
+                .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + instrumentId));
+            if (ticker != null && !ticker.isBlank() && !ticker.trim().equalsIgnoreCase(instrument.getTicker())) {
+                throw new IllegalArgumentException("Instrument ID and ticker do not match");
+            }
+            return instrument;
+        }
         if (ticker == null || ticker.isBlank()) {
             throw new IllegalArgumentException("Ticker is required");
         }
 
         String normalizedTicker = ticker.trim().toUpperCase();
+        if (instrumentRepository.countByTickerIgnoreCase(normalizedTicker) > 1) {
+            throw new IllegalArgumentException("Ambiguous ticker; supply an instrument ID");
+        }
         return instrumentRepository.findByTickerIgnoreCase(normalizedTicker)
             .orElseGet(() -> createInstrumentFromTicker(normalizedTicker));
     }

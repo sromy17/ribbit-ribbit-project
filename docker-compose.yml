@@ -1,45 +1,87 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: ribbit-postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./basedSchema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./insert-data.sql:/docker-entrypoint-initdb.d/02-data.sql
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - ribbit-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   springboot:
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ribbit-springboot
+    environment:
+      SPRING_PROFILES_ACTIVE: container
+      SERVER_PORT: 8081
+      DB_OLTP_URL: "jdbc:postgresql://${POSTGRES_HOST:?Set POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-ribbit-oltp}?sslmode=verify-full&sslrootcert=/app/certs/global-bundle.pem"
+      DB_OLTP_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DB_OLTP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      DB_OLAP_URL: "jdbc:postgresql://${POSTGRES_HOST:?Set POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_OLAP_DB:-ribbit-olap}?sslmode=verify-full&sslrootcert=/app/certs/global-bundle.pem"
+      DB_OLAP_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DB_OLAP_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET:?Set JWT_SHARED_SECRET}
+      ORDER_EXECUTION_KAFKA_ENABLED: "false"
+      MARKET_DATA_KAFKA_ENABLED: "false"
+      ETL_ENABLED: ${ETL_ENABLED:-true}
+      ETL_FIXED_DELAY_MS: ${ETL_FIXED_DELAY_MS:-300000}
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      FAUXNANCE_BASE_URL: ${FAUXNANCE_BASE_URL:-https://y4t9nq2bqf.execute-api.eu-west-2.amazonaws.com/v1}
+      FAUXNANCE_API_KEY: ${FAUXNANCE_API_KEY:-}
+      FAUXNANCE_DAILY_REQUEST_LIMIT: ${FAUXNANCE_DAILY_REQUEST_LIMIT:-1000}
+      FAUXNANCE_BUDGET_FILE: /app/state/fauxnance-budget.properties
+      MARKET_DATA_DISPLAY_CACHE_MS: ${MARKET_DATA_DISPLAY_CACHE_MS:-3600000}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SERVER_SHUTDOWN: graceful
+    ports:
+      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8082}:8081"
+    volumes:
+      - quote_state:/app/state
+      - ./deploy/certs/global-bundle.pem:/app/certs/global-bundle.pem:ro
+    networks:
+      - ribbit-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+
+  auth:
+    restart: unless-stopped
+    init: true
+    build:
+      context: ./shared/auth-stub
     depends_on:
-      postgres:
+      springboot:
         condition: service_healthy
     environment:
-      DB_URL: ${DB_URL}
-      DB_USER: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      AUTH_STUB_PORT: 4000
+      DB_URL: "postgresql://${POSTGRES_HOST:?Set POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-ribbit-oltp}"
+      DB_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      DB_SSL: "true"
+      DB_SSL_CA: /app/certs/global-bundle.pem
+      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET:?Set JWT_SHARED_SECRET}
     ports:
-      - "8082:8080"
+      - "${AUTH_BIND_ADDRESS:-127.0.0.1}:${AUTH_PORT:-4000}:4000"
+    volumes:
+      - ./deploy/certs/global-bundle.pem:/app/certs/global-bundle.pem:ro
+    networks:
+      - ribbit-network
+
+  frontend:
+    restart: unless-stopped
+    build:
+      context: ./frontend
+    depends_on:
+      springboot:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    ports:
+      - "${HTTP_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-4200}:80"
     networks:
       - ribbit-network
 
 volumes:
+  quote_state:
+  # Preserve the old Docker database volume; RDS is now used by the services.
   postgres_data:
 
 networks:

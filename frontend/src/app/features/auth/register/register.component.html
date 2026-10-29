@@ -1,47 +1,75 @@
-<div class="login-container">
-  <div class="login-box">
-    <div class="brand-lockup" aria-label="Leap Trader Pro">
-      <span class="brand-mark" aria-hidden="true">L</span>
-      <span class="brand-name">Leap Trader <strong>Pro</strong></span>
+<div class="auth-page">
+  <aside class="auth-story">
+    <app-brand />
+    <div>
+      <p class="eyebrow">Make room for possibility</p>
+      <h1 class="mt-5">Your markets.<br /><span class="text-brand">Your perspective.</span></h1>
+      <div class="auth-accent"></div>
+      <p>Create your profile, choose an account, and make your trading workspace your own.</p>
+      <ol class="mt-10 space-y-5 text-sm text-muted">
+        <li class="flex gap-4"><span class="text-brand">01</span> Create your profile</li>
+        <li class="flex gap-4"><span class="text-brand">02</span> Choose your account type</li>
+        <li class="flex gap-4"><span class="text-brand">03</span> Explore your workspace</li>
+      </ol>
     </div>
-    <p class="subtitle">Create your user profile</p>
+    <p class="!text-xs">Ribbit Trader Pro · by Ribbit Ribbit</p>
+  </aside>
+  <main class="auth-content">
+    <div class="auth-card">
+      <div class="mb-10 lg:hidden"><app-brand /></div>
+      <p class="eyebrow mb-3">Get started</p>
+      <h1>Create your profile</h1>
+      <p class="description">A few details. A workspace of your own.</p>
+      <form (ngSubmit)="register()">
+        <div class="form-group">
+          <label for="firstName">First name</label>
+          <input uiInput id="firstName" type="text" [(ngModel)]="firstName" name="firstName" required autocomplete="given-name" />
+        </div>
+        <div class="form-group">
+          <label for="lastName">Last name</label>
+          <input uiInput id="lastName" type="text" [(ngModel)]="lastName" name="lastName" required autocomplete="family-name" />
+        </div>
+        <div class="form-group">
+          <label for="username">Username (email address)</label
+          ><input
+            uiInput
+            id="username"
+            type="email"
+            [(ngModel)]="username"
+            name="username"
+            required
+            email
+            autocomplete="username"
+            placeholder="you@example.com"
+            #usernameField="ngModel"
+          />
+          <span *ngIf="usernameField.touched && usernameField.errors?.['email']" class="error" role="alert">Username must be a valid email address</span>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label
+          ><input
+            uiInput
+            id="password"
+            type="password"
+            [(ngModel)]="password"
+            name="password"
+            required
+            minlength="12"
+            autocomplete="new-password"
+            placeholder="At least 12 characters"
+          />
+          <p class="password-requirement" aria-live="polite">Use at least 12 characters.</p>
+        </div>
+        <div *ngIf="error" class="error" role="alert">{{ error }}</div>
+        <button uiButton="primary" type="submit" [disabled]="loading">
+          {{ loading ? 'Creating…' : 'Create profile' }} <span aria-hidden="true">→</span>
+        </button>
+      </form>
+      <div class="auth-divider"></div>
+      <button uiButton="ghost" type="button" (click)="router.navigate(['/login'])">
+        ← Back to sign in
 
-    <form (ngSubmit)="register()">
-      <div class="form-group">
-        <label for="firstName">First name</label>
-        <input id="firstName" type="text" [(ngModel)]="firstName" name="firstName" required autocomplete="given-name" />
-      </div>
-
-      <div class="form-group">
-        <label for="lastName">Last name</label>
-        <input id="lastName" type="text" [(ngModel)]="lastName" name="lastName" required autocomplete="family-name" />
-      </div>
-
-      <div class="form-group">
-        <label for="username">Username</label>
-        <input id="username" type="text" [(ngModel)]="username" name="username" required autocomplete="username" />
-      </div>
-
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input id="password" type="password" [(ngModel)]="password" name="password" required minlength="12" autocomplete="new-password" />
-      </div>
-
-      <div *ngIf="error" class="error">{{ error }}</div>
-
-      <div class="password-requirement-slot">
-        <p *ngIf="password.length < 12" class="password-requirement" aria-live="polite">
-          Password must be 12 characters long
-        </p>
-      </div>
-
-      <button type="submit" [disabled]="loading" class="btn-login">
-        {{ loading ? 'Creating...' : 'Create profile' }}
       </button>
-    </form>
-
-    <button type="button" class="btn-secondary" (click)="router.navigate(['/login'])">
-      Back to sign in
-    </button>
-  </div>
+    </div>
+  </main>
 </div>
